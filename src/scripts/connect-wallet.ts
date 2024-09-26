@@ -1,6 +1,7 @@
 import { createWalletClient, custom } from "viem";
 import { mainnet } from "viem/chains";
 import { truncateString } from "./utils";
+import { connectButton, connectPrompt, providersModal } from "./ui";
 
 let client: ReturnType<typeof createWalletClient> | null = null;
 
@@ -15,7 +16,6 @@ type ModifiedWindow = Window &
   };
 
 export function updateConnectButtonText(text: string, isConnecting: boolean = false) {
-  const connectButton = document.querySelector("#connect-button") as HTMLButtonElement;
   let innerHtml = `<span>Connect Wallet</span>`;
 
   if (isConnecting) innerHtml = `<span>Connecting...</span>`;
@@ -24,7 +24,7 @@ export function updateConnectButtonText(text: string, isConnecting: boolean = fa
   connectButton.innerHTML = innerHtml;
 }
 
-async function connectWallet(providerKey?: keyof WalletProvider) {
+export async function connectWallet(providerKey?: keyof WalletProvider) {
   const ethereum = (window as ModifiedWindow).ethereum;
   if (typeof ethereum !== "undefined" && ethereum !== null) {
     let provider = ethereum;
@@ -44,6 +44,33 @@ async function connectWallet(providerKey?: keyof WalletProvider) {
 
       updateConnectButtonText(truncateString(account));
       wireEvents(provider);
+
+      connectPrompt.classList.remove("visible");
+
+      if (providersModal.open) {
+        providersModal.close();
+      }
+    } catch (error) {
+      updateConnectButtonText("");
+    }
+  }
+}
+
+export async function disconnectWallet() {
+  const ethereum = (window as ModifiedWindow).ethereum;
+  if (typeof ethereum !== "undefined" && ethereum !== null) {
+    let provider = ethereum;
+
+    if (ethereum.providers?.length) {
+      provider = ethereum.providers.find((p: WalletProvider) => p.isCoinbaseWallet || p.isMetaMask);
+    }
+
+    try {
+      await provider.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] });
+      client = null;
+
+      updateConnectButtonText("Connect Wallet");
+      connectPrompt.classList.add("visible");
     } catch (error) {
       updateConnectButtonText("");
     }
@@ -75,6 +102,7 @@ export async function connectIfAuthorized() {
       });
 
       updateConnectButtonText(truncateString(account));
+      connectPrompt.classList.remove("visible");
     }
   }
 }
@@ -90,27 +118,10 @@ function wireEvents(provider: any) {
 
     updateConnectButtonText(truncateString(account));
   });
-}
 
-function initMetamaskConnection() {
-  const metamaskConnectButton = document.querySelector("#connect-button") as HTMLButtonElement;
-
-  metamaskConnectButton.addEventListener("click", async () => {
-    await connectWallet("isMetaMask");
+  provider.on("disconnect", () => {
+    client = null;
   });
-}
-
-function initCoinbaseConnection() {
-  const cbConnectButton = document.querySelector("#cb-button") as HTMLButtonElement;
-
-  cbConnectButton.addEventListener("click", async () => {
-    await connectWallet("isCoinbaseWallet");
-  });
-}
-
-export function initClickEvents() {
-  initMetamaskConnection();
-  initCoinbaseConnection();
 }
 
 export function getConnectedClient() {

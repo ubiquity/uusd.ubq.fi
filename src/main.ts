@@ -1,8 +1,10 @@
 import * as wallet from "./scripts/connect-wallet";
+import * as ui from "./scripts/ui";
 
 export async function mainModule() {
+  ui.initUiEvents();
+
   wallet.updateConnectButtonText("");
-  wallet.initClickEvents();
 
   await wallet.connectIfAuthorized();
 }
