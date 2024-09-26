@@ -1,5 +1,7 @@
+import { initClickEvents } from "./scripts/connect-wallet";
+
 export async function mainModule() {
-  console.log(`Hello from mainModule`);
+  initClickEvents();
 }
 
 mainModule()

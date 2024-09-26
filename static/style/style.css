@@ -8,9 +8,9 @@ body {
   font-family: "Ubiquity Nova";
   font-style: normal;
   font-weight: 400;
-  src: url(./fonts/ubiquity-nova-standard.eot);
+  src: url(../fonts/ubiquity-nova-standard.eot);
   src:
-    url(./fonts/ubiquity-nova-standard.eot#iefix) format("embedded-opentype"),
-    url(./fonts/ubiquity-nova-standard.woff) format("woff"),
-    url(./fonts/ubiquity-nova-standard.ttf) format("truetype");
+    url(../fonts/ubiquity-nova-standard.eot#iefix) format("embedded-opentype"),
+    url(../fonts/ubiquity-nova-standard.woff) format("woff"),
+    url(../fonts/ubiquity-nova-standard.ttf) format("truetype");
 }
