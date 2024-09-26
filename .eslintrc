@@ -16,11 +16,10 @@
     "constructor-super": "error",
     "no-invalid-this": "off",
     "@typescript-eslint/no-invalid-this": ["error"],
-    "@typescript-eslint/no-explicit-any": "warn",
     "no-restricted-syntax": ["error", "ForInStatement"],
     "use-isnan": "error",
     "no-unneeded-ternary": "error",
-    "no-nested-ternary": "warn",
+    "no-nested-ternary": "error",
     "@typescript-eslint/no-unused-vars": [
       "error",
       {

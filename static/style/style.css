@@ -1,8 +1,10 @@
 body {
   font-family: "Proxima Nova", "Ubiquity Nova", sans-serif;
-  background-color: #06061aff;
+  background-color: #000;
   color: #fff;
   background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABYWlDQ1BrQ0dDb2xvclNwYWNlRGlzcGxheVAzAAAokWNgYFJJLCjIYWFgYMjNKykKcndSiIiMUmB/yMAOhLwMYgwKicnFBY4BAT5AJQwwGhV8u8bACKIv64LMOiU1tUm1XsDXYqbw1YuvRJsw1aMArpTU4mQg/QeIU5MLikoYGBhTgGzl8pICELsDyBYpAjoKyJ4DYqdD2BtA7CQI+whYTUiQM5B9A8hWSM5IBJrB+API1klCEk9HYkPtBQFul8zigpzESoUAYwKuJQOUpFaUgGjn/ILKosz0jBIFR2AopSp45iXr6SgYGRiaMzCAwhyi+nMgOCwZxc4gxJrvMzDY7v////9uhJjXfgaGjUCdXDsRYhoWDAyC3AwMJ3YWJBYlgoWYgZgpLY2B4dNyBgbeSAYG4QtAPdHFacZGYHlGHicGBtZ7//9/VmNgYJ/MwPB3wv//vxf9//93MVDzHQaGA3kAFSFl7jXH0fsAAAA4ZVhJZk1NACoAAAAIAAGHaQAEAAAAAQAAABoAAAAAAAKgAgAEAAAAAQAAABigAwAEAAAAAQAAABgAAAAAwf1XlwAAACNJREFUSA3t0IEAAAAMBKFHm7/UTaQQWnXDgAEDBgwYMGDgAXaJAz4RVVHYAAAAAElFTkSuQmCC");
+  padding: 0;
+  margin: 0;
 }
 @font-face {
   font-family: "Ubiquity Nova";
@@ -13,4 +15,73 @@ body {
     url(../fonts/ubiquity-nova-standard.eot#iefix) format("embedded-opentype"),
     url(../fonts/ubiquity-nova-standard.woff) format("woff"),
     url(../fonts/ubiquity-nova-standard.ttf) format("truetype");
+}
+
+img,
+svg {
+  max-width: 48px;
+  max-height: 48px;
+}
+img,
+svg {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+
+a {
+  text-decoration: none;
+  color: #c0c0c0;
+  font-weight: 600;
+}
+
+a:hover {
+  color: #f8f8f8;
+}
+
+@media screen and (width >= 750px) {
+  .body-flex {
+    max-width: 80vw;
+    padding: 2rem;
+    /* margin: 20px auto; */
+  }
+}
+
+.body-flex {
+  width: 100vw;
+  min-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: start;
+  align-items: center;
+  padding: 3px;
+  margin: 20px auto;
+}
+
+.header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom: 1px solid #fff;
+}
+
+#connect-button {
+  border: 1px solid rgb(128, 255, 255);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  color: #f8f8f8;
+  border-radius: 8px;
+  background-color: transparent;
+  cursor: pointer;
 }

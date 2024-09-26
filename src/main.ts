@@ -1,7 +1,10 @@
-import { initClickEvents } from "./scripts/connect-wallet";
+import * as wallet from "./scripts/connect-wallet";
 
 export async function mainModule() {
-  initClickEvents();
+  wallet.updateConnectButtonText("");
+  wallet.initClickEvents();
+
+  await wallet.connectIfAuthorized();
 }
 
 mainModule()
