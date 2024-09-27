@@ -81,9 +81,10 @@ a:hover {
   border-radius: 15px;
   border: none;
   background-color: #111;
-  min-width: 15rem;
+  width: 33.33%;
   min-height: 15rem;
   padding: 2rem;
+  text-align: center;
 }
 
 #providers-modal header {
@@ -98,9 +99,11 @@ a:hover {
   flex-direction: column;
   justify-content: start;
   align-items: center;
-  gap: 2rem;
+  gap: 4rem;
   margin: 3rem;
-  width: 100%;
+  width: 80%;
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 
 #close-modal {
@@ -142,11 +145,12 @@ a:hover {
   align-items: center;
   background-color: #111;
   box-shadow: 1px 1px silver;
-  padding: 1.4rem;
+  padding: 0.6rem;
   border-radius: 10px;
   font-size: 0.9em;
   cursor: pointer;
   border: none;
+  flex-wrap: wrap;
 }
 
 @media screen and (max-width: 750px) {
@@ -164,7 +168,7 @@ a:hover {
   }
 
   #providers-modal {
-    max-width: 95%;
+    width: 95%;
     padding: 1.2rem;
   }
 }

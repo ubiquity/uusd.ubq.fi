@@ -8,6 +8,7 @@ let client: ReturnType<typeof createWalletClient> | null = null;
 type WalletProvider = {
   isMetaMask: boolean;
   isCoinbaseWallet: boolean;
+  isTrust: boolean;
 };
 
 type ModifiedWindow = Window &
