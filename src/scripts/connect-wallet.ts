@@ -3,18 +3,13 @@ import { mainnet } from "viem/chains";
 import { truncateString } from "./utils";
 import { connectButton, connectPrompt, whiteContainer, providersModal } from "./ui";
 import { unwatchForPrices, watchForPrices } from "./price-polling";
+import { type MetaMaskInpageProvider } from "@metamask/providers";
 
 let client: ReturnType<typeof createWalletClient> | null = null;
 
-type WalletProvider = {
-  isMetaMask: boolean;
-  isCoinbaseWallet: boolean;
-  isTrust: boolean;
-};
-
 type ModifiedWindow = Window &
   typeof globalThis & {
-    ethereum: any; //eslint-disable-line @typescript-eslint/no-explicit-any
+    ethereum: MetaMaskInpageProvider & { isCoinbaseWallet: boolean; isTrust: boolean };
   };
 
 export function updateConnectButtonText(text: string, isConnecting: boolean = false) {
@@ -26,37 +21,39 @@ export function updateConnectButtonText(text: string, isConnecting: boolean = fa
   connectButton.innerHTML = innerHtml;
 }
 
-export async function connectWallet(providerKey?: keyof WalletProvider) {
+export async function connectWallet(providerType: "metamask" | "trust" | "coinbase") {
   const ethereum = (window as ModifiedWindow).ethereum;
   if (typeof ethereum !== "undefined" && ethereum !== null) {
-    let provider = ethereum;
+    let isRightProvider = false;
 
-    if (ethereum.providers?.length && !!providerKey) {
-      provider = ethereum.providers.find((p: WalletProvider) => p[providerKey]);
-    }
+    if (providerType === "metamask") isRightProvider = ethereum.isMetaMask;
+    else if (providerType === "trust") isRightProvider = ethereum.isTrust;
+    else if (providerType === "coinbase") isRightProvider = ethereum.isCoinbaseWallet;
 
-    try {
-      updateConnectButtonText("", true);
-      const [account] = await provider.request({ method: "eth_requestAccounts" });
-      client = createWalletClient({
-        account,
-        chain: mainnet,
-        transport: custom(provider),
-      });
+    if (isRightProvider) {
+      try {
+        updateConnectButtonText("", true);
+        const accounts = await ethereum.request<string[]>({ method: "eth_requestAccounts" });
+        client = createWalletClient({
+          account: accounts?.[0] as `0x${string}`,
+          chain: mainnet,
+          transport: custom(ethereum),
+        });
 
-      updateConnectButtonText(truncateString(account));
-      wireEvents(provider);
+        updateConnectButtonText(truncateString(accounts?.[0] as string));
+        wireEvents(ethereum);
 
-      watchForPrices();
+        watchForPrices();
 
-      connectPrompt.classList.remove("visible");
-      whiteContainer.classList.add("visible");
+        connectPrompt.classList.remove("visible");
+        whiteContainer.classList.add("visible");
 
-      if (providersModal.open) {
-        providersModal.close();
+        if (providersModal.open) {
+          providersModal.close();
+        }
+      } catch (error) {
+        updateConnectButtonText("");
       }
-    } catch (error) {
-      updateConnectButtonText("");
     }
   }
 }
@@ -64,14 +61,8 @@ export async function connectWallet(providerKey?: keyof WalletProvider) {
 export async function disconnectWallet() {
   const ethereum = (window as ModifiedWindow).ethereum;
   if (typeof ethereum !== "undefined" && ethereum !== null) {
-    let provider = ethereum;
-
-    if (ethereum.providers?.length) {
-      provider = ethereum.providers.find((p: WalletProvider) => p.isCoinbaseWallet || p.isMetaMask);
-    }
-
     try {
-      await provider.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] });
+      await ethereum.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] });
       client = null;
 
       unwatchForPrices();
@@ -86,40 +77,30 @@ export async function disconnectWallet() {
 }
 
 export async function connectIfAuthorized() {
-  const providerKeys = ["isMetaMask", "isCoinbaseWallet"];
   const ethereum = (window as ModifiedWindow).ethereum;
-  let provider = ethereum;
 
-  if (typeof ethereum !== "undefined" && ethereum !== null && ethereum.providers?.length) {
-    for (const providerKey of providerKeys) {
-      provider = ethereum.providers.find((p: WalletProvider) => p[providerKey as keyof WalletProvider]);
+  if (ethereum) {
+    const accounts = await ethereum.request<string[]>({ method: "eth_accounts" });
 
-      if (provider) break;
-    }
-  }
-
-  if (provider) {
-    const accounts: `0x${string}`[] = await provider.request({ method: "eth_accounts" });
-
-    if (accounts.length) {
+    if (accounts && accounts.length) {
       const [account] = accounts;
       client = createWalletClient({
-        account,
+        account: account as `0x${string}`,
         chain: mainnet,
-        transport: custom(provider),
+        transport: custom(ethereum),
       });
 
       watchForPrices();
-      updateConnectButtonText(truncateString(account));
+      updateConnectButtonText(truncateString(account as string));
       connectPrompt.classList.remove("visible");
       whiteContainer.classList.add("visible");
     }
   }
 }
 
-//eslint-disable-next-line @typescript-eslint/no-explicit-any
-function wireEvents(provider: any) {
-  provider.on("accountsChanged", ([account]: Array<`0x${string}`>) => {
+function wireEvents(provider: MetaMaskInpageProvider & { isCoinbaseWallet: boolean; isTrust: boolean }) {
+  provider.on("accountsChanged", (accounts: unknown) => {
+    const [account] = accounts as `0x${string}`[];
     client = createWalletClient({
       account,
       chain: mainnet,

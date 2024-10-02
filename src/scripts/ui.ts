@@ -31,14 +31,14 @@ export function initUiEvents() {
   });
 
   metamaskConnectButton.addEventListener("click", async () => {
-    await connectWallet("isMetaMask");
+    await connectWallet("metamask");
   });
 
   cbConnectButton.addEventListener("click", async () => {
-    await connectWallet("isCoinbaseWallet");
+    await connectWallet("trust");
   });
 
   trustConnectButton.addEventListener("click", async () => {
-    await connectWallet("isTrust");
+    await connectWallet("coinbase");
   });
 }
