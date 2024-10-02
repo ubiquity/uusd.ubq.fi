@@ -1,7 +1,8 @@
 import { createWalletClient, custom } from "viem";
 import { mainnet } from "viem/chains";
 import { truncateString } from "./utils";
-import { connectButton, connectPrompt, providersModal } from "./ui";
+import { connectButton, connectPrompt, whiteContainer, providersModal } from "./ui";
+import { unwatchForPrices, watchForPrices } from "./price-polling";
 
 let client: ReturnType<typeof createWalletClient> | null = null;
 
@@ -46,7 +47,10 @@ export async function connectWallet(providerKey?: keyof WalletProvider) {
       updateConnectButtonText(truncateString(account));
       wireEvents(provider);
 
+      watchForPrices();
+
       connectPrompt.classList.remove("visible");
+      whiteContainer.classList.add("visible");
 
       if (providersModal.open) {
         providersModal.close();
@@ -70,8 +74,11 @@ export async function disconnectWallet() {
       await provider.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] });
       client = null;
 
+      unwatchForPrices();
+
       updateConnectButtonText("Connect Wallet");
       connectPrompt.classList.add("visible");
+      whiteContainer.classList.remove("visible");
     } catch (error) {
       updateConnectButtonText("");
     }
@@ -102,8 +109,10 @@ export async function connectIfAuthorized() {
         transport: custom(provider),
       });
 
+      watchForPrices();
       updateConnectButtonText(truncateString(account));
       connectPrompt.classList.remove("visible");
+      whiteContainer.classList.add("visible");
     }
   }
 }

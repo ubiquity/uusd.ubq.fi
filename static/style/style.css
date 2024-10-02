@@ -153,6 +153,20 @@ a:hover {
   flex-wrap: wrap;
 }
 
+.white-container {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  border-radius: 10px;
+  border: 1px solid #fff;
+  padding: 10px;
+  margin: auto;
+}
+
+.white-container.visible {
+  display: flex;
+}
+
 @media screen and (max-width: 750px) {
   .body-flex {
     padding: 4px;
@@ -170,5 +184,9 @@ a:hover {
   #providers-modal {
     width: 95%;
     padding: 1.2rem;
+  }
+
+  .white-container {
+    padding: 5px;
   }
 }

@@ -4,6 +4,10 @@ export const connectPrompt = document.querySelector("#connect-prompt") as HTMLDi
 export const connectButton = document.querySelector("#connect-button") as HTMLButtonElement;
 export const providersModal = document.querySelector("#providers-modal") as HTMLDialogElement;
 export const closeModalButton = document.querySelector("#close-modal") as HTMLButtonElement;
+export const whiteContainer = document.querySelector(".white-container") as HTMLDivElement;
+export const uusdPriceText = document.querySelector("#uusd-price") as HTMLSpanElement;
+export const governancePriceText = document.querySelector("#governance-price") as HTMLSpanElement;
+export const totalCollateralValueText = document.querySelector("#total-collateral-value") as HTMLSpanElement;
 
 // Providers
 const metamaskConnectButton = document.querySelector("#mm-button") as HTMLButtonElement;
