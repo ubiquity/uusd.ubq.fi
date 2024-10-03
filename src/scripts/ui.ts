@@ -8,6 +8,7 @@ export const whiteContainer = document.querySelector(".white-container") as HTML
 export const uusdPriceText = document.querySelector("#uusd-price") as HTMLSpanElement;
 export const governancePriceText = document.querySelector("#governance-price") as HTMLSpanElement;
 export const totalCollateralValueText = document.querySelector("#total-collateral-value") as HTMLSpanElement;
+export const collateralSelect = document.querySelector("#collateral-select") as HTMLSelectElement;
 
 // Providers
 const metamaskConnectButton = document.querySelector("#mm-button") as HTMLButtonElement;

@@ -65,3 +65,17 @@ export async function getDollarPriceUsd() {
     return BigInt(0);
   }
 }
+
+export async function getCollateralInformation(address: `0x${string}`) {
+  const contract = getContract({
+    abi,
+    address,
+    client: publicClient,
+  });
+
+  try {
+    return await contract.read.collateralInformation([address]);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+}

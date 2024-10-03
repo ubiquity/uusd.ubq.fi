@@ -1,5 +1,6 @@
 import * as wallet from "./scripts/connect-wallet";
 import * as ui from "./scripts/ui";
+import * as mint from "./scripts/mint";
 
 export async function mainModule() {
   ui.initUiEvents();
@@ -7,6 +8,7 @@ export async function mainModule() {
   wallet.updateConnectButtonText("");
 
   await wallet.connectIfAuthorized();
+  await mint.initCollateralList();
 }
 
 mainModule()
