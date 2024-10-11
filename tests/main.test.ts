@@ -1,4 +1,4 @@
-import { mainModule } from "../static/main";
+import { mainModule } from "../src/main";
 import { db } from "./__mocks__/db";
 import { server } from "./__mocks__/node";
 import usersGet from "./__mocks__/users-get.json";

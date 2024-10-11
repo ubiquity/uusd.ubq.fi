@@ -1,5 +1,5 @@
 import esbuild from "esbuild";
-const typescriptEntries = ["static/main.ts"];
+const typescriptEntries = ["src/main.ts"];
 // const cssEntries = ["static/style.css"];
 const entries = [
   ...typescriptEntries,
