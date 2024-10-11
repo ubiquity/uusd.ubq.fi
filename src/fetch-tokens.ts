@@ -25,9 +25,10 @@ const sources = [
   },
 ];
 
+const allowedChainIds = [1]; // only ethereum mainnet for now
+
 /**
- * fetches token lists from the cow protocol and coingecko and merges them into one list
- * cow protocol tokens are given priority over coingecko tokens (i.e., if the same token exists in both, cow protocol's data is used)
+ * fetches accepted tokens in CoW Swap
  */
 export async function fetchTokens(): Promise<Token[]> {
   try {
@@ -42,12 +43,14 @@ export async function fetchTokens(): Promise<Token[]> {
     const tokenMap = new Map<string, Token>();
 
     cowSwapTokens.forEach((token) => {
-      tokenMap.set(token.address, token); // map each token by its address
+      if (allowedChainIds.includes(token.chainId)) {
+        tokenMap.set(token.address, token); // map each token by its address if it's on ethereum mainnet
+      }
     });
 
     coinGeckoTokens.forEach((token) => {
-      if (!tokenMap.has(token.address)) {
-        tokenMap.set(token.address, token);
+      if (allowedChainIds.includes(token.chainId) && !tokenMap.has(token.address)) {
+        tokenMap.set(token.address, token)
       }
     });
 
