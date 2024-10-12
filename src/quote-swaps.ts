@@ -1,17 +1,18 @@
-import { OrderBookApi, SupportedChainId, OrderQuoteSideKindSell } from "@cowprotocol/cow-sdk";
-import { useAppKitAccount, useAppKitNetwork } from "@reown/appkit/react";
+import { OrderBookApi, OrderQuoteSideKindSell } from "@cowprotocol/cow-sdk";
 import { Token } from "./fetch-tokens";
 import { utils } from "ethers";
-
-const chainId = SupportedChainId.MAINNET;
+import { mainnet } from "./constants";
+import { appState } from "./main";
 
 export async function quoteSwaps(input: Token, inputAmount: number) {
-  const { address, isConnected } = useAppKitAccount();
-  const { chainId: selectedChainId } = useAppKitNetwork();
-  const orderBookApi = new OrderBookApi({ chainId });
+  const isConnected = appState.getIsConnectedState();
+  const address = appState.getAddress();
+  const selectedChainId = appState.getChainId();
+
+  const orderBookApi = new OrderBookApi({ chainId: mainnet });
 
   if (!isConnected || !address) throw Error("User not connected");
-  if (chainId !== selectedChainId) throw Error("Invalid network");
+  if (selectedChainId !== mainnet) throw Error("Invalid network");
 
   // 95% of input amount to LUSD
   let quoteRequest = {
@@ -22,14 +23,10 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
     sellAmountBeforeFee: utils.parseUnits((0.95 * inputAmount).toString(), input.decimals).toString(),
     kind: OrderQuoteSideKindSell.SELL,
   };
-  console.log("LUSD req body: ", quoteRequest);
 
-  try {
-    const { quote: quoteLusd } = await orderBookApi.getQuote(quoteRequest);
-    console.log("LUSD:", quoteLusd);
-  } catch (error) {
-    console.error("Error during the process:", error);
-  }
+  const { quote: quoteLusd } = await orderBookApi.getQuote(quoteRequest);
+  console.log("LUSD:", quoteLusd);
+
   // 5% of input amount to UBQ
   quoteRequest = {
     sellToken: input.address,
@@ -40,8 +37,8 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
     kind: OrderQuoteSideKindSell.SELL,
   };
 
-  console.log("UBQ req body: ", quoteRequest);
-
   const { quote: quoteUbq } = await orderBookApi.getQuote(quoteRequest);
   console.log("UBQ:", quoteUbq);
+
+  return { quoteLusd, quoteUbq };
 }
