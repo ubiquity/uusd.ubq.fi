@@ -30,6 +30,7 @@
     "open-source"
   ],
   "dependencies": {
+    "@coinbase/wallet-sdk": "^4.1.0",
     "@cowprotocol/cow-sdk": "^5.5.1",
     "@reown/appkit": "^1.1.2",
     "@reown/appkit-adapter-ethers": "^1.1.2",
