@@ -14,11 +14,11 @@ export interface TokenList {
 const sources = [
   {
     priority: 1,
-    source: 'https://files.cow.fi/tokens/CowSwap.json',
+    source: "https://files.cow.fi/tokens/CowSwap.json",
   },
   {
     priority: 2,
-    source: 'https://files.cow.fi/tokens/CoinGecko.json',
+    source: "https://files.cow.fi/tokens/CoinGecko.json",
   },
 ];
 
@@ -29,9 +29,7 @@ const allowedChainIds = [1]; // only ethereum mainnet for now
  */
 export async function fetchTokens(): Promise<Token[]> {
   try {
-    const responses = await Promise.all(
-      sources.map((source) => fetch(source.source).then((res) => res.json()))
-    );
+    const responses = await Promise.all(sources.map((source) => fetch(source.source).then((res) => res.json())));
 
     const cowSwapTokens = responses[0].tokens;
     const coinGeckoTokens = responses[1].tokens;
@@ -53,7 +51,7 @@ export async function fetchTokens(): Promise<Token[]> {
 
     return Array.from(tokenMap.values());
   } catch (error) {
-    console.error('Error fetching token lists:', error);
-    throw new Error('Failed to fetch token lists.');
+    console.error("Error fetching token lists:", error);
+    throw new Error("Failed to fetch token lists.");
   }
 }

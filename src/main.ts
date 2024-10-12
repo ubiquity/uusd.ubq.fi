@@ -1,17 +1,17 @@
-import { createAppKit } from '@reown/appkit';
-import { EthersAdapter } from '@reown/appkit-adapter-ethers';
-import { mainnet, gnosis} from '@reown/appkit/networks';
-import { renderHeader } from './render/render-header';
-import { fetchTokens, Token } from './fetch-tokens';
-import { QuoteSwaps } from './quote-swaps';
+import { createAppKit } from "@reown/appkit";
+import { EthersAdapter } from "@reown/appkit-adapter-ethers";
+import { mainnet, gnosis } from "@reown/appkit/networks";
+import { renderHeader } from "./render/render-header";
+import { fetchTokens, Token } from "./fetch-tokens";
+import { quoteSwaps } from "./quote-swaps";
 
-const projectId = '415760038f8e330de4868120be3205b8';
+const projectId = "415760038f8e330de4868120be3205b8";
 
 const metadata = {
-  name: 'UUSD Minting DApp',
-  description: 'Mint UUSD on Gnosis with Reown AppKit',
-  url: 'https://uusd.ubq.fi',
-  icons: ['https://avatars.githubusercontent.com/u/76412717'],
+  name: "UUSD Minting DApp",
+  description: "Mint UUSD on Gnosis with Reown AppKit",
+  url: "https://uusd.ubq.fi",
+  icons: ["https://avatars.githubusercontent.com/u/76412717"],
 };
 
 const modal = createAppKit({
@@ -26,18 +26,18 @@ const modal = createAppKit({
 
 export async function mainModule() {
   try {
-    console.log('Initializing Reown AppKit...');
+    console.log("Initializing Reown AppKit...");
     renderHeader();
-    console.log('Fetching tokens...');
+    console.log("Fetching tokens...");
     const tokens = await fetchTokens();
-    console.log('tokens: ',tokens);
+    console.log("tokens: ", tokens);
     console.log("Quoting swaps: ");
-    await QuoteSwaps(tokens[0], 1000000);
-  } catch (error) { 
-    console.error('Error in main:', error);
+    await quoteSwaps(tokens[0], 1000000);
+  } catch (error) {
+    console.error("Error in main:", error);
   }
 }
 
 mainModule().catch((error) => {
-  console.error('Unhandled error:', error);
+  console.error("Unhandled error:", error);
 });
