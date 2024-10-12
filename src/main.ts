@@ -1,16 +1,37 @@
-import { fetchTokens } from "./fetch-tokens"; 
+import { createAppKit } from '@reown/appkit';
+import { EthersAdapter } from '@reown/appkit-adapter-ethers';
+import { mainnet, gnosis} from '@reown/appkit/networks';
+import { BrowserProvider } from 'ethers';
+import { renderHeader } from './render/render-header';
+
+const projectId = '415760038f8e330de4868120be3205b8';
+
+const metadata = {
+  name: 'UUSD Minting DApp',
+  description: 'Mint UUSD on Gnosis with Reown AppKit',
+  url: 'https://uusd.ubq.fi',
+  icons: ['https://avatars.githubusercontent.com/u/76412717'],
+};
+
+const modal = createAppKit({
+  adapters: [new EthersAdapter()],
+  networks: [mainnet, gnosis],
+  metadata,
+  projectId,
+  features: {
+    analytics: true,
+  },
+});
 
 export async function mainModule() {
-  console.log(`Hello from mainModule`);
-
   try {
-    const tokens = await fetchTokens();
-    console.log('Fetched tokens:', tokens);
-  } catch (error) {
-    console.error('Error fetching tokens:', error);
+    console.log('Initializing Reown AppKit...');
+    renderHeader();
+  } catch (error) { 
+    console.error('Error in main:', error);
   }
 }
 
 mainModule().catch((error) => {
-  console.error('Unhandled error in mainModule:', error);
+  console.error('Unhandled error:', error);
 });

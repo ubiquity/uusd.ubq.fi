@@ -14,3 +14,16 @@ body {
     url(./fonts/ubiquity-nova-standard.woff) format("woff"),
     url(./fonts/ubiquity-nova-standard.ttf) format("truetype");
 }
+
+header {
+  display: flex;
+  justify-content: flex-end; /* align content to the right */
+  align-items: center; /* vertically center the buttons */
+  padding: 10px 20px;
+  height: 60px;
+}
+
+w3m-button,
+w3m-network-button {
+  margin-left: 10px;
+}
