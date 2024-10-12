@@ -1,9 +1,9 @@
 import { createAppKit } from '@reown/appkit';
 import { EthersAdapter } from '@reown/appkit-adapter-ethers';
 import { mainnet, gnosis} from '@reown/appkit/networks';
-import { BrowserProvider } from 'ethers';
 import { renderHeader } from './render/render-header';
-import { fetchTokens } from './fetch-tokens';
+import { fetchTokens, Token } from './fetch-tokens';
+import { QuoteSwaps } from './quote-swaps';
 
 const projectId = '415760038f8e330de4868120be3205b8';
 
@@ -31,6 +31,8 @@ export async function mainModule() {
     console.log('Fetching tokens...');
     const tokens = await fetchTokens();
     console.log('tokens: ',tokens);
+    console.log("Quoting swaps: ");
+    await QuoteSwaps(tokens[0], 1000000);
   } catch (error) { 
     console.error('Error in main:', error);
   }
