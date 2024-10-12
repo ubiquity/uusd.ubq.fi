@@ -3,6 +3,7 @@ import { EthersAdapter } from '@reown/appkit-adapter-ethers';
 import { mainnet, gnosis} from '@reown/appkit/networks';
 import { BrowserProvider } from 'ethers';
 import { renderHeader } from './render/render-header';
+import { fetchTokens } from './fetch-tokens';
 
 const projectId = '415760038f8e330de4868120be3205b8';
 
@@ -27,6 +28,9 @@ export async function mainModule() {
   try {
     console.log('Initializing Reown AppKit...');
     renderHeader();
+    console.log('Fetching tokens...');
+    const tokens = await fetchTokens();
+    console.log('tokens: ',tokens);
   } catch (error) { 
     console.error('Error in main:', error);
   }

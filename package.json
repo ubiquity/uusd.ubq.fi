@@ -34,7 +34,6 @@
     "@cowprotocol/cow-sdk": "^5.5.1",
     "@reown/appkit": "^1.1.2",
     "@reown/appkit-adapter-ethers": "^1.1.2",
-    "axios": "^1.7.7",
     "dotenv": "^16.4.4",
     "ethers": "^6.13.4"
   },

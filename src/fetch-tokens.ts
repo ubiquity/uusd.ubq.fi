@@ -1,6 +1,3 @@
-// this file fetches token lists accepted by CoW Swap to offer as input options
-import axios from 'axios';
-
 export interface Token {
   symbol: string;
   name: string;
@@ -33,24 +30,24 @@ const allowedChainIds = [1]; // only ethereum mainnet for now
 export async function fetchTokens(): Promise<Token[]> {
   try {
     const responses = await Promise.all(
-      sources.map((source) => axios.get<TokenList>(source.source))
+      sources.map((source) => fetch(source.source).then((res) => res.json()))
     );
 
-    const cowSwapTokens = responses[0].data.tokens;
-    const coinGeckoTokens = responses[1].data.tokens;
+    const cowSwapTokens = responses[0].tokens;
+    const coinGeckoTokens = responses[1].tokens;
 
     // only store unique tokens, that's why a map
     const tokenMap = new Map<string, Token>();
 
-    cowSwapTokens.forEach((token) => {
+    cowSwapTokens.forEach((token: Token) => {
       if (allowedChainIds.includes(token.chainId)) {
         tokenMap.set(token.address, token); // map each token by its address if it's on ethereum mainnet
       }
     });
 
-    coinGeckoTokens.forEach((token) => {
+    coinGeckoTokens.forEach((token: Token) => {
       if (allowedChainIds.includes(token.chainId) && !tokenMap.has(token.address)) {
-        tokenMap.set(token.address, token)
+        tokenMap.set(token.address, token);
       }
     });
 
