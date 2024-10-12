@@ -89,9 +89,7 @@ export async function fetchTokens(): Promise<Token[]> {
 
   // Fetch from sources if not in IndexedDB
   try {
-    const responses = await Promise.all(
-      sources.map((source) => fetch(source.source).then((res) => res.json()))
-    );
+    const responses = await Promise.all(sources.map((source) => fetch(source.source).then((res) => res.json())));
 
     const cowSwapTokens = responses[0].tokens;
     const coinGeckoTokens = responses[1].tokens;
