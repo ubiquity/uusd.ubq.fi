@@ -5,6 +5,7 @@ body {
   background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABYWlDQ1BrQ0dDb2xvclNwYWNlRGlzcGxheVAzAAAokWNgYFJJLCjIYWFgYMjNKykKcndSiIiMUmB/yMAOhLwMYgwKicnFBY4BAT5AJQwwGhV8u8bACKIv64LMOiU1tUm1XsDXYqbw1YuvRJsw1aMArpTU4mQg/QeIU5MLikoYGBhTgGzl8pICELsDyBYpAjoKyJ4DYqdD2BtA7CQI+whYTUiQM5B9A8hWSM5IBJrB+API1klCEk9HYkPtBQFul8zigpzESoUAYwKuJQOUpFaUgGjn/ILKosz0jBIFR2AopSp45iXr6SgYGRiaMzCAwhyi+nMgOCwZxc4gxJrvMzDY7v////9uhJjXfgaGjUCdXDsRYhoWDAyC3AwMJ3YWJBYlgoWYgZgpLY2B4dNyBgbeSAYG4QtAPdHFacZGYHlGHicGBtZ7//9/VmNgYJ/MwPB3wv//vxf9//93MVDzHQaGA3kAFSFl7jXH0fsAAAA4ZVhJZk1NACoAAAAIAAGHaQAEAAAAAQAAABoAAAAAAAKgAgAEAAAAAQAAABigAwAEAAAAAQAAABgAAAAAwf1XlwAAACNJREFUSA3t0IEAAAAMBKFHm7/UTaQQWnXDgAEDBgwYMGDgAXaJAz4RVVHYAAAAAElFTkSuQmCC");
   padding: 0;
   margin: 0;
+  min-width: 100vw;
 }
 @font-face {
   font-family: "Ubiquity Nova";
@@ -162,6 +163,7 @@ a:hover {
   padding: 1rem;
   margin: auto;
   min-width: 500px;
+  flex-wrap: wrap;
 }
 
 .white-container.visible {
@@ -171,8 +173,7 @@ a:hover {
 .input {
   appearance: none;
   background-color: transparent;
-  border: 1px solid #fff;
-  padding: 1em;
+  margin: 0;
   width: 100%;
   font-family: inherit;
   font-size: inherit;
@@ -181,13 +182,24 @@ a:hover {
   color: #f8f8f8;
 }
 
-#collateral-select {
+.input-wrapper {
   appearance: none;
   background-color: transparent;
   border: 1px solid #fff;
-  padding: 1em;
-  margin: 0;
   width: 100%;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: inherit;
+  line-height: inherit;
+  border-radius: 5px;
+  padding: 1em;
+}
+
+#collateral-select {
+  appearance: none;
+  background-color: transparent;
+  margin: 0;
+  min-width: 100%;
   font-family: inherit;
   font-size: inherit;
   cursor: inherit;
@@ -216,5 +228,6 @@ a:hover {
 
   .white-container {
     padding: 5px;
+    min-width: 300px;
   }
 }
