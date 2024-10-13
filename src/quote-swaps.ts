@@ -45,7 +45,7 @@ const UBQ_SEPOLIA: Token = {
  */
 function getTokensForChain(chainId: number) {
   if (chainId === sepolia) {
-    return { LUSD: LUSD_SEPOLIA, UBQ: UBQ_SEPOLIA, LUSD_PERCENTAGE: 0.5, UBQ_PERCENTAGE: 0.5 };
+    return { LUSD: LUSD_SEPOLIA, UBQ: UBQ_SEPOLIA, LUSD_PERCENTAGE: 0.51, UBQ_PERCENTAGE: 0.49 };
   }
   return { LUSD: LUSD_MAINNET, UBQ: UBQ_MAINNET, LUSD_PERCENTAGE: 0.95, UBQ_PERCENTAGE: 0.05 };
 }
