@@ -58,7 +58,7 @@ function handleNetworkSwitch() {
 
       let quoteLusd, quoteUbq, feesInInputCurrency;
       if (newNetwork?.id === sepolia.id) {
-        ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[371], 50)); // Sepolia USDT
+        ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[371], 40)); // Sepolia USDT
       } else {
         ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // Mainnet WETH
       }
@@ -74,9 +74,10 @@ function setupExecuteButton(quoteLusd: any, quoteUbq: any) {
   const button = document.createElement("button");
   button.textContent = "Execute Swaps";
   button.style.marginTop = "20px";
+  const slippage = appState.getChainId() === sepolia.id ? 0.2 : 0; // sepolia needs slippage to go through
   button.onclick = () => {
     console.log("Executing swaps...");
-    executeSwaps(quoteLusd, quoteUbq);
+    executeSwaps(quoteLusd, quoteUbq, slippage);
   };
 
   const container = document.getElementById("button-container");
@@ -108,7 +109,7 @@ export async function mainModule() {
     console.log("Quoting swaps...");
     let quoteLusd, quoteUbq, feesInInputCurrency;
     if ((appState.getChainId() as number) === sepolia.id) {
-      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[371], 50)); // sepolia USDT
+      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[371], 40)); // sepolia USDT
     } else {
       ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // mainnet WETH
     }
