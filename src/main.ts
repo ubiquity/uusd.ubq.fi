@@ -6,7 +6,6 @@ import { fetchTokens } from "./fetch-tokens";
 import { quoteSwaps } from "./quote-swaps";
 import { executeSwaps } from "./swap";
 import { ethers } from "ethers";
-import { Token } from "./types";
 
 declare const BACKEND_PRIVATE_KEY: string; // @DEV: passed in at build time
 
@@ -20,7 +19,7 @@ const metadata = {
 };
 
 // create provider & signer for Ethereum mainnet
-export const provider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
+export const provider = new ethers.providers.JsonRpcProvider("https://1rpc.io/sepolia"); // for mainnet https://eth.llamarpc.com
 export const userSigner = provider.getSigner();
 export const backendSigner = new ethers.Wallet(BACKEND_PRIVATE_KEY!, provider);
 
@@ -59,7 +58,7 @@ function handleNetworkSwitch() {
 
       let quoteLusd, quoteUbq, feesInInputCurrency;
       if (newNetwork?.id === sepolia.id) {
-        ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[369], 5000)); // Sepolia DAI
+        ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[371], 50)); // Sepolia USDT
       } else {
         ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // Mainnet WETH
       }
@@ -109,7 +108,7 @@ export async function mainModule() {
     console.log("Quoting swaps...");
     let quoteLusd, quoteUbq, feesInInputCurrency;
     if (appState.getChainId() as number === sepolia.id) {
-      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[369], 5000)); // sepolia DAI
+      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[371], 50)); // sepolia USDT
     } else {
       ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // mainnet WETH
     }

@@ -23,18 +23,18 @@ const UBQ_MAINNET: Token = {
 };
 
 const LUSD_SEPOLIA: Token = {
-  symbol: "USDC",
-  name: "USDC (test)",
-  address: "0xbe72E441BF55620febc26715db68d3494213D8Cb",
+  symbol: "WETH",
+  name: "WETH",
+  address: "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
   decimals: 18,
   chainId: sepolia,
   logoURI: "not-needed",
 };
 
 const UBQ_SEPOLIA: Token = {
-  symbol: "COW",
-  name: "CoW Protocol Token",
-  address: "0x0625aFB445C3B6B7B929342a04A22599fd5dBB59",
+  symbol: "WETH",
+  name: "WETH",
+  address: "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
   decimals: 18,
   chainId: sepolia,
   logoURI: "not-needed",
