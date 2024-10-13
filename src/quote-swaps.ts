@@ -73,9 +73,7 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
       buyToken: LUSD.address,
       from: backendAddress,
       receiver: backendAddress,
-      sellAmountBeforeFee: utils
-        .parseUnits((0.95 * inputAmount).toString(), input.decimals)
-        .toString(),
+      sellAmountBeforeFee: utils.parseUnits((0.95 * inputAmount).toString(), input.decimals).toString(),
       kind: OrderQuoteSideKindSell.SELL,
     };
     quoteLusd = (await orderBookApi.getQuote(quoteRequestLusd)).quote;
@@ -88,9 +86,7 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
       buyToken: UBQ.address,
       from: backendAddress,
       receiver: backendAddress,
-      sellAmountBeforeFee: utils
-        .parseUnits((0.05 * inputAmount).toString(), input.decimals)
-        .toString(),
+      sellAmountBeforeFee: utils.parseUnits((0.05 * inputAmount).toString(), input.decimals).toString(),
       kind: OrderQuoteSideKindSell.SELL,
     };
     quoteUbq = (await orderBookApi.getQuote(quoteRequestUbq)).quote;
@@ -104,11 +100,7 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
 /**
  * Calculates the total fees from the given quotes.
  */
-export async function calculateSwapFees(
-  input: Token,
-  quoteLusd: OrderParameters | null,
-  quoteUbq: OrderParameters | null
-) {
+export async function calculateSwapFees(input: Token, quoteLusd: OrderParameters | null, quoteUbq: OrderParameters | null) {
   let fees = 0;
 
   if (quoteLusd) {

@@ -107,7 +107,7 @@ export async function mainModule() {
 
     console.log("Quoting swaps...");
     let quoteLusd, quoteUbq, feesInInputCurrency;
-    if (appState.getChainId() as number === sepolia.id) {
+    if ((appState.getChainId() as number) === sepolia.id) {
       ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[371], 50)); // sepolia USDT
     } else {
       ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // mainnet WETH
