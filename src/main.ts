@@ -109,7 +109,7 @@ export async function mainModule() {
     console.log("Quoting swaps...");
     let quoteLusd, quoteUbq, feesInInputCurrency;
     if (appState.getChainId() as number === sepolia.id) {
-      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[365], 1)); // sepolia DAI
+      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[369], 5000)); // sepolia DAI
     } else {
       ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // mainnet WETH
     }
