@@ -1,10 +1,10 @@
+import { config } from "dotenv";
 import esbuild from "esbuild";
-const typescriptEntries = ["static/main.ts"];
-// const cssEntries = ["static/style.css"];
-const entries = [
-  ...typescriptEntries,
-  //  ...cssEntries
-];
+config();
+
+const typescriptEntries = ["src/main.ts"];
+const cssEntries = ["static/style.css"];
+const entries = [...typescriptEntries, ...cssEntries];
 
 export const esBuildContext: esbuild.BuildOptions = {
   sourcemap: true,
@@ -18,8 +18,12 @@ export const esBuildContext: esbuild.BuildOptions = {
     ".eot": "dataurl",
     ".ttf": "dataurl",
     ".svg": "dataurl",
+    ".json": "dataurl",
   },
   outdir: "static/dist",
+  define: createEnvDefines(["BACKEND_PRIVATE_KEY"], {
+    BACKEND_PRIVATE_KEY: process.env.BACKEND_PRIVATE_KEY,
+  }),
 };
 
 esbuild
@@ -29,5 +33,23 @@ esbuild
   })
   .catch((err) => {
     console.error(err);
-    process.exit(1);
   });
+
+function createEnvDefines(environmentVariables: string[], generatedAtBuild: Record<string, unknown>): Record<string, string> {
+  const defines: Record<string, string> = {};
+  for (const name of environmentVariables) {
+    const envVar = process.env[name];
+    if (envVar !== undefined) {
+      defines[name] = JSON.stringify(envVar);
+    } else {
+      console.log(process.env.BACKEND_PRIVATE_KEY);
+      throw new Error(`Missing environment variable: ${name}`);
+    }
+  }
+  for (const key in generatedAtBuild) {
+    if (Object.prototype.hasOwnProperty.call(generatedAtBuild, key)) {
+      defines[key] = JSON.stringify(generatedAtBuild[key]);
+    }
+  }
+  return defines;
+}
