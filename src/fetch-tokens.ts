@@ -1,15 +1,5 @@
-export interface Token {
-  symbol: string;
-  name: string;
-  address: string;
-  decimals: number;
-  chainId: number;
-  logoURI: string;
-}
-
-export interface TokenList {
-  tokens: Token[];
-}
+import { mainnet, sepolia } from "./constants";
+import { Token } from "./types";
 
 const sources = [
   {
@@ -20,12 +10,22 @@ const sources = [
     priority: 2,
     source: "https://files.cow.fi/tokens/CoinGecko.json",
   },
+  {
+    priority: 3,
+    source: "https://raw.githubusercontent.com/cowprotocol/token-lists/main/src/public/CowSwapSepolia.json",
+  },
 ];
 
-const allowedChainIds = [1]; // only ethereum mainnet for now
+const allowedChainIds = [mainnet, sepolia];
 const DB_NAME = "uusd-dapp";
 const STORE_NAME = "tokens";
 const DB_VERSION = 1;
+const CACHE_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+interface CachedData {
+  tokens: Token[];
+  timestamp: number;
+}
 
 /**
  * Opens IndexedDB and returns a promise with the database instance.
@@ -47,7 +47,7 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 /**
- * Fetches tokens from IndexedDB if available.
+ * Fetches tokens from IndexedDB if available and valid.
  */
 async function getTokensFromDB(): Promise<Token[] | null> {
   const db = await openDB();
@@ -56,20 +56,38 @@ async function getTokensFromDB(): Promise<Token[] | null> {
     const store = transaction.objectStore(STORE_NAME);
     const request = store.get("tokens");
 
-    request.onsuccess = () => resolve(request.result || null);
+    request.onsuccess = () => {
+      const cachedData: CachedData | null = request.result;
+      if (cachedData) {
+        const isExpired = Date.now() - cachedData.timestamp > CACHE_EXPIRATION_MS;
+        if (!isExpired) {
+          console.log("Tokens loaded from IndexedDB");
+          return resolve(cachedData.tokens);
+        } else {
+          console.log("Cache expired, fetching new data...");
+        }
+      }
+      resolve(null);
+    };
+
     request.onerror = () => reject(request.error);
   });
 }
 
 /**
- * Stores tokens in IndexedDB.
+ * Stores tokens in IndexedDB with a timestamp.
  */
 async function storeTokensInDB(tokens: Token[]): Promise<void> {
   const db = await openDB();
+  const cachedData: CachedData = {
+    tokens,
+    timestamp: Date.now(),
+  };
+
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, "readwrite");
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.put(tokens, "tokens");
+    const request = store.put(cachedData, "tokens");
 
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
@@ -82,35 +100,31 @@ async function storeTokensInDB(tokens: Token[]): Promise<void> {
 export async function fetchTokens(): Promise<Token[]> {
   // Try getting tokens from IndexedDB first
   const cachedTokens = await getTokensFromDB();
-  if (cachedTokens) {
-    console.log("Tokens loaded from IndexedDB");
-    return cachedTokens;
-  }
+  if (cachedTokens) return cachedTokens;
 
-  // Fetch from sources if not in IndexedDB
+  // Fetch from sources if not in IndexedDB or cache expired
   try {
-    const responses = await Promise.all(sources.map((source) => fetch(source.source).then((res) => res.json())));
+    const responses = await Promise.all(
+      sources.map((source) => fetch(source.source).then((res) => res.json()))
+    );
 
     const cowSwapTokens = responses[0].tokens;
     const coinGeckoTokens = responses[1].tokens;
+    const sepoliaTokens = responses[2].tokens;
 
     const tokenMap = new Map<string, Token>();
 
-    cowSwapTokens.forEach((token: Token) => {
-      if (allowedChainIds.includes(token.chainId)) {
-        tokenMap.set(token.address, token);
-      }
-    });
-
-    coinGeckoTokens.forEach((token: Token) => {
-      if (allowedChainIds.includes(token.chainId) && !tokenMap.has(token.address)) {
-        tokenMap.set(token.address, token);
-      }
+    [cowSwapTokens, coinGeckoTokens, sepoliaTokens].forEach((tokenList) => {
+      tokenList.forEach((token: Token) => {
+        if (allowedChainIds.includes(token.chainId) && !tokenMap.has(token.address)) {
+          tokenMap.set(token.address, token);
+        }
+      });
     });
 
     const tokens = Array.from(tokenMap.values());
 
-    // Store the fetched tokens in IndexedDB
+    // Store the fetched tokens in IndexedDB with timestamp
     await storeTokensInDB(tokens);
 
     console.log("Tokens fetched from sources and stored in IndexedDB");

@@ -1,44 +1,69 @@
-import { OrderBookApi, OrderParameters, OrderQuoteSideKindSell } from "@cowprotocol/cow-sdk";
-import { Token } from "./fetch-tokens";
+import { OrderBookApi, OrderParameters, OrderQuoteSideKindSell, SupportedChainId } from "@cowprotocol/cow-sdk";
+import { Token } from "./types";
 import { utils } from "ethers";
-import { backendAddress, mainnet } from "./constants";
+import { backendAddress, mainnet, sepolia } from "./constants";
 import { appState } from "./main";
 
-const LUSD: Token = {
-    symbol: "LUSD",
-    name: "LUSD Stablecoin",
-    address: "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
-    decimals: 18,
-    chainId: mainnet,
-    logoURI: "not-needed",
+const LUSD_MAINNET: Token = {
+  symbol: "LUSD",
+  name: "LUSD Stablecoin",
+  address: "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
+  decimals: 18,
+  chainId: mainnet,
+  logoURI: "not-needed",
 };
 
-const UBQ: Token = {
-    symbol: "UBQ",
-    name: "Ubiquity",
-    address: "0x4e38d89362f7e5db0096ce44ebd021c3962aa9a0",
-    decimals: 18,
-    chainId: mainnet,
-    logoURI: "not-needed",
+const UBQ_MAINNET: Token = {
+  symbol: "UBQ",
+  name: "Ubiquity",
+  address: "0x4e38d89362f7e5db0096ce44ebd021c3962aa9a0",
+  decimals: 18,
+  chainId: mainnet,
+  logoURI: "not-needed",
+};
+
+const LUSD_SEPOLIA: Token = {
+  symbol: "USDC",
+  name: "USDC (test)",
+  address: "0xbe72E441BF55620febc26715db68d3494213D8Cb",
+  decimals: 18,
+  chainId: sepolia,
+  logoURI: "not-needed",
+};
+
+const UBQ_SEPOLIA: Token = {
+  symbol: "COW",
+  name: "CoW Protocol Token",
+  address: "0x0625aFB445C3B6B7B929342a04A22599fd5dBB59",
+  decimals: 18,
+  chainId: sepolia,
+  logoURI: "not-needed",
 };
 
 /**
- * This function will return quotes necessary to swap into a 95% LUSD and 5% UBQ split. 
- * It will be called with our backend address and not the user's.
- * It returns either a quote object or null if the swap is not necessary.
- * @param input The input token object
- * @param inputAmount The amount of input token without decimals
- * @returns Either a quote object or null if the swap is not necessary
+ * Returns the appropriate LUSD and UBQ tokens based on the selected chain.
+ */
+function getTokensForChain(chainId: number) {
+  if (chainId === sepolia) {
+    return { LUSD: LUSD_SEPOLIA, UBQ: UBQ_SEPOLIA };
+  }
+  return { LUSD: LUSD_MAINNET, UBQ: UBQ_MAINNET };
+}
+
+/**
+ * This function returns swap quotes to convert 95% of input into LUSD and 5% into UBQ.
  */
 export async function quoteSwaps(input: Token, inputAmount: number) {
   const isConnected = appState.getIsConnectedState();
-  const selectedChainId = appState.getChainId();
+  const selectedChainId = appState.getChainId() as number as SupportedChainId;
+  const orderBookApi = new OrderBookApi({ chainId: selectedChainId });
 
-  const orderBookApi = new OrderBookApi({ chainId: mainnet });
+  if (!isConnected || !backendAddress) throw new Error("User not connected");
+  if (![mainnet, sepolia].includes(selectedChainId)) throw new Error("Invalid network");
 
-  if (!isConnected || !backendAddress) throw Error("User not connected");
-  if (selectedChainId !== mainnet) throw Error("Invalid network");
+  const { LUSD, UBQ } = getTokensForChain(selectedChainId);
 
+  console.log("LUSD,UBQ", LUSD, UBQ);
   let quoteLusd = null;
   let quoteUbq = null;
 
@@ -48,10 +73,11 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
       buyToken: LUSD.address,
       from: backendAddress,
       receiver: backendAddress,
-      sellAmountBeforeFee: utils.parseUnits((0.95 * inputAmount).toString(), input.decimals).toString(),
+      sellAmountBeforeFee: utils
+        .parseUnits((0.95 * inputAmount).toString(), input.decimals)
+        .toString(),
       kind: OrderQuoteSideKindSell.SELL,
     };
-
     quoteLusd = (await orderBookApi.getQuote(quoteRequestLusd)).quote;
     console.log("LUSD Quote:", quoteLusd);
   }
@@ -62,40 +88,41 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
       buyToken: UBQ.address,
       from: backendAddress,
       receiver: backendAddress,
-      sellAmountBeforeFee: utils.parseUnits((0.05 * inputAmount).toString(), input.decimals).toString(),
+      sellAmountBeforeFee: utils
+        .parseUnits((0.05 * inputAmount).toString(), input.decimals)
+        .toString(),
       kind: OrderQuoteSideKindSell.SELL,
     };
-
     quoteUbq = (await orderBookApi.getQuote(quoteRequestUbq)).quote;
     console.log("UBQ Quote:", quoteUbq);
   }
 
-  // If the input token is LUSD or UBQ that quote will be null and therefore that swap won't happen which means no fees
-  const feesInInputCurrency = calculateSwapFees(input,quoteLusd, quoteUbq);
-
-  return { quoteLusd, quoteUbq, feesInInputCurrency};
+  const feesInInputCurrency = await calculateSwapFees(input, quoteLusd, quoteUbq);
+  return { quoteLusd, quoteUbq, feesInInputCurrency };
 }
 
 /**
- * This function will calculate the swap fees with the given quotes.
- * @param quoteLusd The quote for the LUSD swap (can be null)
- * @param quoteUbq The quote for the UBQ swap   (can be null)
- * @returns The total fees in the input token's currency
+ * Calculates the total fees from the given quotes.
  */
-export async function calculateSwapFees(input : Token, quoteLusd: OrderParameters | null, quoteUbq: OrderParameters | null) {
-    let fees = 0;
-    if (quoteLusd) {
-        const lusdFee = utils.formatUnits(quoteLusd.feeAmount, input.decimals);
-        console.log("LUSD Fee:", lusdFee);
-        fees += parseFloat(lusdFee);
-    }
-    
-    if (quoteUbq) {
-        const ubqFee = utils.formatUnits(quoteUbq.feeAmount, input.decimals);
-        console.log("UBQ Fee:", ubqFee);
-        fees += parseFloat(ubqFee);
-    }
+export async function calculateSwapFees(
+  input: Token,
+  quoteLusd: OrderParameters | null,
+  quoteUbq: OrderParameters | null
+) {
+  let fees = 0;
 
-    console.log("Total Fees:", fees);
-    return fees;
+  if (quoteLusd) {
+    const lusdFee = utils.formatUnits(quoteLusd.feeAmount, input.decimals);
+    console.log("LUSD Fee:", lusdFee);
+    fees += parseFloat(lusdFee);
+  }
+
+  if (quoteUbq) {
+    const ubqFee = utils.formatUnits(quoteUbq.feeAmount, input.decimals);
+    console.log("UBQ Fee:", ubqFee);
+    fees += parseFloat(ubqFee);
+  }
+
+  console.log("Total Fees:", fees);
+  return fees;
 }

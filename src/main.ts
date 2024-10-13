@@ -1,11 +1,12 @@
 import { createAppKit } from "@reown/appkit";
 import { EthersAdapter } from "@reown/appkit-adapter-ethers";
-import { mainnet } from "@reown/appkit/networks";
+import { mainnet, sepolia } from "@reown/appkit/networks";
 import { renderHeader } from "./render/render-header";
 import { fetchTokens } from "./fetch-tokens";
 import { quoteSwaps } from "./quote-swaps";
 import { executeSwaps } from "./swap";
 import { ethers } from "ethers";
+import { Token } from "./types";
 
 declare const BACKEND_PRIVATE_KEY: string; // @DEV: passed in at build time check build/esbuild-build.ts
 
@@ -25,8 +26,8 @@ export const backendSigner = new ethers.Wallet(BACKEND_PRIVATE_KEY!, provider);
 
 export const appState = createAppKit({
   adapters: [new EthersAdapter()],
-  networks: [mainnet],
-  defaultNetwork: mainnet,
+  networks: [mainnet, sepolia],
+  defaultNetwork: sepolia,
   metadata,
   projectId,
   features: {
@@ -65,7 +66,13 @@ export async function mainModule() {
     console.log("Tokens: ", tokens);
 
     console.log("Quoting swaps...");
-    const { quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1);
+    let quoteLusd, quoteUbq, feesInInputCurrency;
+
+    if (appState.getChainId() as number === sepolia.id) {
+      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[365], 1)); // sepolia WETH
+    } else {
+      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // mainnet WETH
+    }
 
     console.log("Executing swaps...");
     executeSwaps(quoteLusd, quoteUbq);
