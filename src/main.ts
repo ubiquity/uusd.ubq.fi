@@ -45,38 +45,46 @@ async function waitForConnection() {
       } else {
         console.log("Waiting for user to connect...");
       }
-    }, 1000); // poll every second
+    }, 1000);
   });
 }
 
-/**
- * Handler for network changes
- */
 function handleNetworkSwitch() {
   appState.subscribeCaipNetworkChange(async (newNetwork) => {
     console.log("Network changed to:", newNetwork?.id);
-
     try {
-      // Fetch new tokens after network switch
       console.log("Fetching tokens for new network...");
       const tokens = await fetchTokens();
       console.log("Tokens:", tokens);
 
       let quoteLusd, quoteUbq, feesInInputCurrency;
-
-      // Adjust the token index based on the new network
       if (newNetwork?.id === sepolia.id) {
-        ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[365], 1)); // sepolia WETH
+        ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[369], 5000)); // Sepolia DAI
       } else {
-        ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // mainnet WETH
+        ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // Mainnet WETH
       }
 
-      console.log("Executing swaps...");
-      executeSwaps(quoteLusd, quoteUbq);
+      setupExecuteButton(quoteLusd, quoteUbq); // Update button to execute swaps
     } catch (error) {
       console.error("Error handling network switch:", error);
     }
   });
+}
+
+function setupExecuteButton(quoteLusd: any, quoteUbq: any) {
+  const button = document.createElement("button");
+  button.textContent = "Execute Swaps";
+  button.style.marginTop = "20px";
+  button.onclick = () => {
+    console.log("Executing swaps...");
+    executeSwaps(quoteLusd, quoteUbq);
+  };
+
+  const container = document.getElementById("button-container");
+  if (container) {
+    container.innerHTML = ""; // clear previous button
+    container.appendChild(button); // add new button
+  }
 }
 
 export async function mainModule() {
@@ -89,10 +97,10 @@ export async function mainModule() {
     renderHeader();
 
     console.log("Waiting for user connection...");
-    await waitForConnection(); // wait until the user connects
+    await waitForConnection();
 
     console.log("Setting up network switch handler...");
-    handleNetworkSwitch(); // Enable network switch handling
+    handleNetworkSwitch();
 
     console.log("Fetching initial tokens...");
     const tokens = await fetchTokens();
@@ -100,15 +108,13 @@ export async function mainModule() {
 
     console.log("Quoting swaps...");
     let quoteLusd, quoteUbq, feesInInputCurrency;
-
     if (appState.getChainId() as number === sepolia.id) {
-      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[365], 1)); // sepolia WETH
+      ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[365], 1)); // sepolia DAI
     } else {
       ({ quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1)); // mainnet WETH
     }
 
-    console.log("Executing swaps...");
-    executeSwaps(quoteLusd, quoteUbq);
+    setupExecuteButton(quoteLusd, quoteUbq); // render the execute button
   } catch (error) {
     console.error("Error in main:", error);
   }
