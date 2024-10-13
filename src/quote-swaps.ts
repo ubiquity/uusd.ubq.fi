@@ -45,9 +45,9 @@ const UBQ_SEPOLIA: Token = {
  */
 function getTokensForChain(chainId: number) {
   if (chainId === sepolia) {
-    return { LUSD: LUSD_SEPOLIA, UBQ: UBQ_SEPOLIA };
+    return { LUSD: LUSD_SEPOLIA, UBQ: UBQ_SEPOLIA, LUSD_PERCENTAGE: 0.5, UBQ_PERCENTAGE: 0.5 };
   }
-  return { LUSD: LUSD_MAINNET, UBQ: UBQ_MAINNET };
+  return { LUSD: LUSD_MAINNET, UBQ: UBQ_MAINNET, LUSD_PERCENTAGE: 0.95, UBQ_PERCENTAGE: 0.05 };
 }
 
 /**
@@ -61,7 +61,7 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
   if (!isConnected || !backendAddress) throw new Error("User not connected");
   if (![mainnet, sepolia].includes(selectedChainId)) throw new Error("Invalid network");
 
-  const { LUSD, UBQ } = getTokensForChain(selectedChainId);
+  const { LUSD, UBQ, LUSD_PERCENTAGE, UBQ_PERCENTAGE } = getTokensForChain(selectedChainId);
 
   console.log("LUSD,UBQ", LUSD, UBQ);
   let quoteLusd = null;
@@ -73,7 +73,7 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
       buyToken: LUSD.address,
       from: backendAddress,
       receiver: backendAddress,
-      sellAmountBeforeFee: utils.parseUnits((0.95 * inputAmount).toString(), input.decimals).toString(),
+      sellAmountBeforeFee: utils.parseUnits((LUSD_PERCENTAGE * inputAmount).toString(), input.decimals).toString(),
       kind: OrderQuoteSideKindSell.SELL,
     };
     quoteLusd = (await orderBookApi.getQuote(quoteRequestLusd)).quote;
@@ -86,7 +86,7 @@ export async function quoteSwaps(input: Token, inputAmount: number) {
       buyToken: UBQ.address,
       from: backendAddress,
       receiver: backendAddress,
-      sellAmountBeforeFee: utils.parseUnits((0.05 * inputAmount).toString(), input.decimals).toString(),
+      sellAmountBeforeFee: utils.parseUnits((UBQ_PERCENTAGE * inputAmount).toString(), input.decimals).toString(),
       kind: OrderQuoteSideKindSell.SELL,
     };
     quoteUbq = (await orderBookApi.getQuote(quoteRequestUbq)).quote;
