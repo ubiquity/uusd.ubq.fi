@@ -1,7 +1,7 @@
 {
-  "name": "ts-template",
+  "name": "@ubiquity/uusd.ubq.fi",
   "version": "1.0.0",
-  "description": "Template repository with TypeScript support.",
+  "description": "The Ubiquity Dollar Dapp",
   "main": "build/index.ts",
   "author": "Ubiquity DAO",
   "license": "MIT",
@@ -24,7 +24,7 @@
   },
   "keywords": [
     "typescript",
-    "template",
+    "uusd",
     "dao",
     "ubiquity",
     "open-source"
