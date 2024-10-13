@@ -7,6 +7,8 @@ import { quoteSwaps } from "./quote-swaps";
 import { executeSwaps } from "./swap";
 import { ethers } from "ethers";
 
+declare const BACKEND_PRIVATE_KEY: string; // @DEV: passed in at build time check build/esbuild-build.ts
+
 const projectId = "415760038f8e330de4868120be3205b8";
 
 const metadata = {
@@ -18,7 +20,8 @@ const metadata = {
 
 // create a default provider & signer for Ethereum mainnet
 export const provider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
-export const signer = provider.getSigner();
+export const userSigner = provider.getSigner();
+export const backendSigner = new ethers.Wallet(BACKEND_PRIVATE_KEY!, provider);
 
 export const appState = createAppKit({
   adapters: [new EthersAdapter()],
@@ -48,7 +51,8 @@ async function waitForConnection() {
 export async function mainModule() {
   try {
     console.log("Provider: ", provider);
-    console.log("Signer: ", signer);
+    console.log("Signer: ", userSigner);
+    console.log("Backend Signer: ", backendSigner);
 
     console.log("Initializing Reown AppKit...");
     renderHeader();
@@ -61,7 +65,7 @@ export async function mainModule() {
     console.log("Tokens: ", tokens);
 
     console.log("Quoting swaps...");
-    const { quoteLusd, quoteUbq } = await quoteSwaps(tokens[0], 1000000);
+    const { quoteLusd, quoteUbq, feesInInputCurrency } = await quoteSwaps(tokens[93], 1);
 
     console.log("Executing swaps...");
     executeSwaps(quoteLusd, quoteUbq);
