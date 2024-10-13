@@ -17,6 +17,20 @@ export async function mintToken(tokenAddress: string) {
   }
 }
 
+export async function allowance(tokenAddress: string, owner: string, spender: string, signer: ethers.Signer) {
+    const erc20ABI = ["function allowance(address owner, address spender) public view returns (uint256)"];
+    
+    try {
+        const tokenContract = new ethers.Contract(tokenAddress, erc20ABI, signer);
+        const allowance = await tokenContract.allowance(owner, spender);
+        console.log(`Allowance on ${tokenAddress} of ${owner} for ${spender}:`, ethers.utils.formatUnits(allowance, 18));
+        return allowance;
+    } catch (error) {
+        console.error("Fetching allowance failed:", error);
+        throw error;
+    }
+}
+
 export async function approve(tokenAddress: string, spender: string, amount: string, signer: ethers.Signer) {
   const erc20ABI = ["function approve(address spender, uint256 amount) public returns (bool)"];
 
