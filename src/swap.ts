@@ -1,23 +1,26 @@
 import { backendAddress } from "./constants";
 import { OrderBookApi, OrderParameters, OrderSigningUtils, SigningScheme, SupportedChainId, UnsignedOrder } from "@cowprotocol/cow-sdk";
 import { appState, backendSigner } from "./main";
-import { approve, balanceOf } from "./web3-utils";
+import { allowance, approve } from "./web3-utils";
 
-export async function executeSwaps(quoteLusd: OrderParameters | null, quoteUbq: OrderParameters | null) {
+export async function executeSwaps(quoteLusd: OrderParameters | null, quoteUbq: OrderParameters | null, slippage: number = 0.01) {
   const selectedChainId = appState.getChainId() as number as SupportedChainId;
   const spender = "0xc92e8bdf79f0507f65a392b0ab4667716bfe0110"; // GPv2VaultRelayer common address for mainnet and sepolia
 
   const orderBookApi = new OrderBookApi({ chainId: selectedChainId });
+  const expirationTime = Math.round((Date.now() + 1_800_000) / 1000); // 30 minutes expiration time
 
   if (quoteLusd) {
-    await approve(quoteLusd.sellToken, spender, quoteLusd.sellAmount, backendSigner);
-
-    console.log("Executing LUSD Order in ", selectedChainId, " ...");
+    if (BigInt(await allowance(quoteLusd.sellToken, backendAddress, spender, backendSigner)) < BigInt(quoteLusd.sellAmount)) {
+        await approve(quoteLusd.sellToken, spender, quoteLusd.sellAmount, backendSigner);
+    }
+    console.log("Executing LUSD Order in ", selectedChainId, " with slipagge ", slippage);
     const lusdOrder: UnsignedOrder = {
       ...quoteLusd,
+      buyAmount: (parseFloat(quoteLusd.buyAmount) * (1 - slippage)).toString(),
       feeAmount: "0",
       receiver: backendAddress,
-      validTo: Math.round((Date.now() + 200_000) / 1000),
+      validTo: expirationTime,
       partiallyFillable: false,
     };
 
@@ -32,14 +35,17 @@ export async function executeSwaps(quoteLusd: OrderParameters | null, quoteUbq: 
   }
 
   if (quoteUbq) {
-    await approve(quoteUbq.sellToken, spender, quoteUbq.sellAmount, backendSigner);
+    if(BigInt(await allowance(quoteUbq.sellToken, backendAddress, spender, backendSigner)) < BigInt(quoteUbq.sellAmount)) {
+        await approve(quoteUbq.sellToken, spender, quoteUbq.sellAmount, backendSigner);
+    }
 
-    console.log("Executing UBQ Order in ", selectedChainId, " ...");
+    console.log("Executing UBQ Order in ", selectedChainId, " with slipagge ", slippage);
     const ubqOrder: UnsignedOrder = {
       ...quoteUbq,
+      buyAmount: (parseFloat(quoteUbq.buyAmount) * (1 - slippage)).toString(),
       feeAmount: "0",
       receiver: backendAddress,
-      validTo: Math.round((Date.now() + 200_000) / 1000),
+      validTo: expirationTime,
       partiallyFillable: false,
     };
 
@@ -54,4 +60,4 @@ export async function executeSwaps(quoteLusd: OrderParameters | null, quoteUbq: 
   }
 
   console.log("Swaps executed successfully!");
-}
+}   
