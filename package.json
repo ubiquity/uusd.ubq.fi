@@ -21,7 +21,7 @@
     "test": "jest --setupFiles dotenv/config --coverage",
     "cy:open": "cypress open",
     "cy:run": "cypress run",
-    "tailwind:watch": "npx tailwindcss -i ./static/style/tailwind.css -o ./static/style/output.css --watch"
+    "tailwind:watch": "npx tailwindcss -i ./static/style/tailwind.css -o ./static/style/style.css --watch"
   },
   "keywords": [
     "typescript",
