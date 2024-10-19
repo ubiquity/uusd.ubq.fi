@@ -20,7 +20,8 @@
     "prepare": "husky install",
     "test": "jest --setupFiles dotenv/config --coverage",
     "cy:open": "cypress open",
-    "cy:run": "cypress run"
+    "cy:run": "cypress run",
+    "tailwind:watch": "npx tailwindcss -i ./static/style/tailwind.css -o ./static/style/output.css --watch"
   },
   "keywords": [
     "typescript",
@@ -31,6 +32,7 @@
   ],
   "dependencies": {
     "@metamask/providers": "^17.2.0",
+    "daisyui": "^4.12.13",
     "dotenv": "^16.4.4",
     "viem": "^2.21.14"
   },
@@ -62,6 +64,7 @@
     "lint-staged": "^15.2.2",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.2.5",
+    "tailwindcss": "^3.4.14",
     "ts-jest": "29.1.2",
     "tsx": "^4.7.1",
     "typescript": "^5.3.3"

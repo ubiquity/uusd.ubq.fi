@@ -1,10 +1,10 @@
 import { connectWallet, disconnectWallet, getConnectedClient } from "./connect-wallet";
 
 export const connectPrompt = document.querySelector("#connect-prompt") as HTMLDivElement;
-export const connectButton = document.querySelector("#connect-button") as HTMLButtonElement;
+export const connectButtons = document.querySelectorAll("[connectButton]") as NodeListOf<HTMLButtonElement>;
 export const providersModal = document.querySelector("#providers-modal") as HTMLDialogElement;
 export const closeModalButton = document.querySelector("#close-modal") as HTMLButtonElement;
-export const whiteContainer = document.querySelector(".white-container") as HTMLDivElement;
+export const whiteContainer = document.querySelector("#white-container") as HTMLDivElement;
 export const uusdPriceText = document.querySelector("#uusd-price") as HTMLSpanElement;
 export const governancePriceText = document.querySelector("#governance-price") as HTMLSpanElement;
 export const totalCollateralValueText = document.querySelector("#total-collateral-value") as HTMLSpanElement;
@@ -16,15 +16,17 @@ const cbConnectButton = document.querySelector("#cb-button") as HTMLButtonElemen
 const trustConnectButton = document.querySelector("#trust-button") as HTMLButtonElement;
 
 export function initUiEvents() {
-  connectButton.addEventListener("click", () => {
-    const client = getConnectedClient();
+  connectButtons.forEach((connectButton) => {
+    connectButton.addEventListener("click", () => {
+      const client = getConnectedClient();
 
-    if (client === null) providersModal.showModal();
-    else {
-      disconnectWallet()
-        .then(() => console.info("Wallet disconnected"))
-        .catch(console.error);
-    }
+      if (client === null) providersModal.showModal();
+      else {
+        disconnectWallet()
+          .then(() => console.info("Wallet disconnected"))
+          .catch(console.error);
+      }
+    });
   });
 
   closeModalButton.addEventListener("click", () => {

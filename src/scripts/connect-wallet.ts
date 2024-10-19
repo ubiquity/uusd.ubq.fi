@@ -1,7 +1,7 @@
 import { createWalletClient, custom } from "viem";
 import { mainnet } from "viem/chains";
 import { truncateString } from "./utils";
-import { connectButton, connectPrompt, whiteContainer, providersModal } from "./ui";
+import { connectButtons, connectPrompt, whiteContainer, providersModal } from "./ui";
 import { unwatchForPrices, watchForPrices } from "./price-polling";
 import { type MetaMaskInpageProvider } from "@metamask/providers";
 
@@ -22,7 +22,9 @@ export function updateConnectButtonText(text: string, isConnecting: boolean = fa
   if (isConnecting) innerHtml = `<span>Connecting...</span>`;
   else if (client !== null) innerHtml = `<span>${text}</span>`;
 
-  connectButton.innerHTML = innerHtml;
+  connectButtons.forEach((connectButton) => {
+    connectButton.innerHTML = innerHtml;
+  });
 }
 
 export async function connectWallet(providerType: "metamask" | "trust" | "coinbase") {
@@ -57,8 +59,8 @@ export async function connectWallet(providerType: "metamask" | "trust" | "coinba
 
       watchForPrices();
 
-      connectPrompt.classList.remove("visible");
-      whiteContainer.classList.add("visible");
+      connectPrompt.classList.add("hidden");
+      whiteContainer.classList.replace("hidden", "flex");
 
       if (providersModal.open) {
         providersModal.close();
@@ -84,8 +86,8 @@ export async function disconnectWallet() {
       unwatchForPrices();
 
       updateConnectButtonText("Connect Wallet");
-      connectPrompt.classList.add("visible");
-      whiteContainer.classList.remove("visible");
+      connectPrompt.classList.remove("hidden");
+      whiteContainer.classList.replace("flex", "hidden");
     } catch (error) {
       updateConnectButtonText("");
     }
@@ -114,8 +116,8 @@ export async function connectIfAuthorized() {
 
       watchForPrices();
       updateConnectButtonText(truncateString(account as string));
-      connectPrompt.classList.remove("visible");
-      whiteContainer.classList.add("visible");
+      connectPrompt.classList.add("hidden");
+      whiteContainer.classList.replace("hidden", "flex");
     }
   }
 }

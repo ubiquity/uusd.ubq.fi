@@ -5,15 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard | Ubiquity Dollar</title>
     <link rel="stylesheet" href="style/style.css" />
+    <link rel="stylesheet" href="style/output.css" />
   </head>
-  <body>
-    <div class="body-flex">
-      <div class="header">
+  <body class="w-screen overflow-x-hidden min-h-screen drawer">
+    <main class="flex max-w-full lg:w-[80%] flex-col justify-start items-center py-4 px-4 lg:px-5 gap-12 overflow-x-hidden drawer-content">
+      <input id="main-drawer" class="drawer-toggle" type="checkbox" />
+      <div class="hidden lg:flex w-full border-b border-b-[#fff] justify-evenly items-center gap-3 py-3">
         <a href="/">Home</a>
         <a href="/mint.html">Mint</a>
         <a href="#">Redeem</a>
         <a href="#">Stake</a>
-        <button id="connect-button"></button>
+        <button
+          class="border-[rgb(128,_255,_255)] border flex justify-center items-center px-4 py-3 text-[#f8f8f8] rounded-[8px] bg-transparent cursor-pointer"
+          connectButton
+        ></button>
+      </div>
+
+      <div class="drawer-side lg:hidden">
+        <label class="drawer-overlay" for="main-drawer"></label>
+        <ul class="menu min-h-screen w-64 bg-[#000] px-4 py-5">
+          <li><a href="/">Home</a></li>
+          <li><a href="/mint.html">Mint</a></li>
+          <li><a href="#">Redeem</a></li>
+          <li><a href="#">Stake</a></li>
+          <li class="w-full">
+            <button
+              class="border-[rgb(128,_255,_255)] flex justify-center items-center px-4 py-3 text-[#f8f8f8] rounded-[8px] bg-transparent cursor-pointer w-full"
+              connectButton
+            ></button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="flex lg:hidden w-full justify-start items-center px-4 py-4">
+        <label for="main-drawer" class="bg-[#fff] rounded-md border-none flex justify-center items-center px-2 py-2">
+          <svg width="20px" height="20px" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none">
+            <path
+              fill="#000000"
+              fill-rule="evenodd"
+              d="M19 4a1 1 0 01-1 1H2a1 1 0 010-2h16a1 1 0 011 1zm0 6a1 1 0 01-1 1H2a1 1 0 110-2h16a1 1 0 011 1zm-1 7a1 1 0 100-2H2a1 1 0 100 2h16z"
+            />
+          </svg>
+        </label>
       </div>
 
       <dialog id="providers-modal">
@@ -173,9 +206,9 @@
         </div>
       </dialog>
 
-      <div class="connect-prompt visible" id="connect-prompt">
-        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2rem">
-          <span style="color: #f8f8f8; text-transform: capitalize; font-weight: 700; text-align: center">please connect your wallet</span>
+      <div class="flex justify-center items-center w-full lg:w-1/3 overflow-hidden my-20" id="connect-prompt">
+        <div class="flex justify-center items-center flex-col gap-9 w-full">
+          <span class="text-[#f8f8f8] capitalize font-[700] text-center text-xl lg:text-2xl">please connect your wallet</span>
           <svg
             height="60px"
             width="60px"
@@ -367,25 +400,25 @@
         </div>
       </div>
 
-      <div class="white-container" id="price-display">
-        <div style="display: flex; flex-direction: column; gap: 2rem; justify-content: flex-start; align-items: center">
-          <div style="display: flex; justify-content: space-between; gap: 2rem; align-items: center">
-            <span style="color: #c0c0c0; text-transform: capitalize; font-weight: 700">ubiquity dollar price (USD): </span>
-            <span style="color: #fff; text-transform: capitalize; font-weight: 400" id="uusd-price">$0</span>
+      <div class="hidden justify-center items-center border border-solid border-[#fff] rounded-[10px] px-3 py-4 max-w-full lg:w-1/3 my-20" id="white-container">
+        <div class="flex flex-col justify-start items-center gap-6 w-full">
+          <div class="flex justify-between items-center gap-3 w-full">
+            <span class="text-[#c0c0c0] capitalize font-[700]">ubiquity dollar price (USD): </span>
+            <span class="text-[#fff] capitalize font-[400]" id="uusd-price">$0</span>
           </div>
 
-          <div style="display: flex; justify-content: space-between; gap: 2rem; align-items: center">
-            <span style="color: #c0c0c0; text-transform: capitalize; font-weight: 700">governance token price (USD): </span>
-            <span style="color: #fff; text-transform: capitalize; font-weight: 400" id="governance-price">$0</span>
+          <div class="flex justify-between items-center gap-3 w-full">
+            <span class="text-[#c0c0c0] capitalize font-[700]">governance token price (USD): </span>
+            <span class="text-[#fff] capitalize font-[400]" id="governance-price">$0</span>
           </div>
 
-          <div style="display: flex; justify-content: space-between; gap: 2rem; align-items: center">
-            <span style="color: #c0c0c0; text-transform: capitalize; font-weight: 700">total collateral value (USD): </span>
-            <span style="color: #fff; text-transform: capitalize; font-weight: 400" id="total-collateral-value">$0</span>
+          <div class="flex justify-between items-center gap-3 w-full">
+            <span class="text-[#c0c0c0] capitalize font-[700]">total collateral value (USD): </span>
+            <span class="text-[#fff] capitalize font-[400]" id="total-collateral-value">$0</span>
           </div>
         </div>
       </div>
-    </div>
+    </main>
     <script type="module" src="dist/main.js"></script>
   </body>
 </html>
