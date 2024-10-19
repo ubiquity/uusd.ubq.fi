@@ -1,10 +1,7 @@
 import esbuild from "esbuild";
-const typescriptEntries = ["static/main.ts"];
-// const cssEntries = ["static/style.css"];
-const entries = [
-  ...typescriptEntries,
-  //  ...cssEntries
-];
+const typescriptEntries = ["src/main.ts"];
+// const cssEntries = ["static/style/*.css"];
+const entries = [...typescriptEntries];
 
 export const esBuildContext: esbuild.BuildOptions = {
   sourcemap: true,

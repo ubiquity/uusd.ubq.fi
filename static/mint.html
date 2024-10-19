@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard | Ubiquity Dollar</title>
+    <title>Mint | Ubiquity Dollar</title>
     <link rel="stylesheet" href="style/style.css" />
   </head>
   <body class="w-screen overflow-x-hidden min-h-screen drawer">
@@ -402,21 +402,27 @@
       </div>
 
       <div class="hidden justify-center items-center border border-solid border-[#fff] rounded-[10px] px-3 py-4 max-w-full lg:w-1/3 my-20" id="white-container">
-        <div class="flex flex-col justify-start items-center gap-6 w-full">
-          <div class="flex justify-between items-center gap-3 w-full">
-            <span class="text-[#c0c0c0] capitalize font-[700]">ubiquity dollar price (USD): </span>
-            <span class="text-[#fff] capitalize font-[400]" id="uusd-price">$0</span>
-          </div>
-
-          <div class="flex justify-between items-center gap-3 w-full">
-            <span class="text-[#c0c0c0] capitalize font-[700]">governance token price (USD): </span>
-            <span class="text-[#fff] capitalize font-[400]" id="governance-price">$0</span>
-          </div>
-
-          <div class="flex justify-between items-center gap-3 w-full">
-            <span class="text-[#c0c0c0] capitalize font-[700]">total collateral value (USD): </span>
-            <span class="text-[#fff] capitalize font-[400]" id="total-collateral-value">$0</span>
-          </div>
+        <div class="justify-start items-center gap-6 w-full form-control">
+          <select id="collateral-select" class="select select-primary w-full capitalize">
+            <option disabled selected class="capitalize">select collateral</option>
+          </select>
+          <label class="input input-bordered input-primary flex items-center gap-2 capitalize w-full py-1">
+            dollar amount
+            <input class="grow" type="number" />
+          </label>
+          <label class="input input-bordered input-primary flex items-center gap-2 capitalize w-full py-1">
+            max. collateral amount
+            <input class="grow" type="number" />
+          </label>
+          <label class="input input-bordered input-primary flex items-center gap-2 capitalize w-full py-1">
+            max. governance amount
+            <input class="grow" type="number" />
+          </label>
+          <label class="label cursor-pointer w-full">
+            <span class="label-text font-[500]">Mint with governance</span>
+            <input type="checkbox" checked class="checkbox checkbox-primary" />
+          </label>
+          <button class="btn btn-success w-full capitalize text-[#f8f8f8] py-4 px-3 flex justify-center items-center">mint</button>
         </div>
       </div>
     </main>
