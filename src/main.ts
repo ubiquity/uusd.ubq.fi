@@ -9,6 +9,7 @@ export async function mainModule() {
 
   await wallet.connectIfAuthorized();
   await mint.initCollateralList();
+  await mint.initUiEvents();
 }
 
 mainModule()

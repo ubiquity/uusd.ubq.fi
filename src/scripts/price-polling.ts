@@ -1,6 +1,6 @@
 import { createPublicClient, formatUnits, http, WatchBlocksReturnType } from "viem";
 import { mainnet } from "viem/chains";
-import { getCollateralUsdBalance, getDollarPriceUsd, getGovernancePriceUsd } from "./on-chain";
+import { getCollateralUsdBalance, getDollarPriceUsd, getGovernancePriceUsd } from "./faucet";
 import { governancePriceText, totalCollateralValueText, uusdPriceText } from "./ui";
 import { toSf } from "./utils";
 
