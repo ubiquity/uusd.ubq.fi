@@ -2,6 +2,7 @@ import { createPublicClient, getContract, http } from "viem";
 import { uFaucetAddress, ufaucetAbi } from "./constants";
 // import { getConnectedClient } from "./connect-wallet";
 import { mainnet } from "viem/chains";
+import { getConnectedClient } from "./connect-wallet";
 
 const abi = ufaucetAbi;
 const address = uFaucetAddress;
@@ -77,5 +78,26 @@ export async function getCollateralInformation(address: `0x${string}`) {
     return await contract.read.collateralInformation([address]);
   } catch (error) {
     return Promise.reject(error);
+  }
+}
+
+export async function mintDollar(collateralIndex: bigint, dollarAmount: bigint, maxCollateralIn: bigint, maxGovernanceIn: bigint, isOneToOne: boolean) {
+  const client = getConnectedClient();
+
+  if (client !== null && client.account) {
+    try {
+      return await client.writeContract({
+        abi,
+        address,
+        functionName: "mintDollar",
+        args: [collateralIndex, dollarAmount, BigInt(0), maxCollateralIn, maxGovernanceIn, isOneToOne],
+        chain: mainnet,
+        account: client.account,
+      });
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  } else {
+    return Promise.reject(new Error("Client or account not initialized"));
   }
 }
