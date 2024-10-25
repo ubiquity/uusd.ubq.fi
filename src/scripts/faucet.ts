@@ -11,6 +11,8 @@ const publicClient = createPublicClient({
   transport: http(),
 });
 
+const CLIENT_OR_ACCOUNT_ERROR = "Client or account not initialized";
+
 export async function getAllCollaterals() {
   const contract = getContract({
     abi,
@@ -98,6 +100,48 @@ export async function mintDollar(collateralIndex: bigint, dollarAmount: bigint, 
       return Promise.reject(error);
     }
   } else {
-    return Promise.reject(new Error("Client or account not initialized"));
+    return Promise.reject(new Error(CLIENT_OR_ACCOUNT_ERROR));
+  }
+}
+
+export async function redeemDollar(collateralIndex: bigint, dollarAmount: bigint) {
+  const client = getConnectedClient();
+
+  if (client !== null && client.account) {
+    try {
+      return await client.writeContract({
+        abi,
+        address,
+        functionName: "redeemDollar",
+        args: [collateralIndex, dollarAmount, BigInt(0), BigInt(0)],
+        chain: mainnet,
+        account: client.account,
+      });
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  } else {
+    return Promise.reject(new Error(CLIENT_OR_ACCOUNT_ERROR));
+  }
+}
+
+export async function collectionRedemption(collateralIndex: bigint) {
+  const client = getConnectedClient();
+
+  if (client !== null && client.account) {
+    try {
+      return await client.writeContract({
+        abi,
+        address,
+        functionName: "collectRedemption",
+        args: [collateralIndex],
+        chain: mainnet,
+        account: client.account,
+      });
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  } else {
+    return Promise.reject(new Error(CLIENT_OR_ACCOUNT_ERROR));
   }
 }

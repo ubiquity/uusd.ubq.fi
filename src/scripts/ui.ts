@@ -18,6 +18,10 @@ export const allowanceButton = document.querySelector("#allowance-button") as HT
 export const mintButton = document.querySelector("#mint-button") as HTMLButtonElement;
 export const governanceCheckBox = document.querySelector("#governance-check") as HTMLInputElement;
 
+// Redeem UI
+export const redeemDollarButton = document.querySelector("#redeem-dollar-button") as HTMLButtonElement;
+export const collectRedemptionButton = document.querySelector("#collect-redemption-button") as HTMLButtonElement;
+
 // Providers
 const metamaskConnectButton = document.querySelector("#mm-button") as HTMLButtonElement;
 const cbConnectButton = document.querySelector("#cb-button") as HTMLButtonElement;

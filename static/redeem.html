@@ -6,8 +6,420 @@
     <title>Redeem | Ubiquity Dollar</title>
     <link rel="stylesheet" href="style/style.css" />
   </head>
-  <body>
-    <h1>Ubiquity TypeScript Template</h1>
+  <body class="w-screen overflow-x-hidden min-h-screen drawer">
+    <main class="container mx-auto flex max-w-full lg:w-[80%] flex-col justify-start items-center py-4 px-4 lg:px-5 gap-12 overflow-x-hidden drawer-content">
+      <div class="toast toast-end hidden z-50" id="toast">
+        <div class="alert"></div>
+      </div>
+      <input id="main-drawer" class="drawer-toggle" type="checkbox" />
+      <div class="hidden lg:flex w-full border-b border-b-[#fff] justify-evenly items-center gap-3 py-3">
+        <a href="/">Home</a>
+        <a href="/mint.html">Mint</a>
+        <a href="/redeem.html">Redeem</a>
+        <button class="btn btn-primary btn-md px-3 py-2" connectButton></button>
+      </div>
+
+      <div class="drawer-side lg:hidden">
+        <label class="drawer-overlay" for="main-drawer"></label>
+        <ul class="menu min-h-screen w-64 bg-[#000] px-4 py-5">
+          <li><a href="/">Home</a></li>
+          <li><a href="/mint.html">Mint</a></li>
+          <li><a href="/redeem.html">Redeem</a></li>
+          <li class="w-full">
+            <button class="btn btn-primary btn-sm px-3 py-2 w-full" connectButton></button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="flex lg:hidden w-full justify-start items-center px-4 py-4">
+        <label for="main-drawer" class="bg-[#fff] rounded-md border-none flex justify-center items-center px-2 py-2">
+          <svg width="20px" height="20px" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none">
+            <path
+              fill="#000000"
+              fill-rule="evenodd"
+              d="M19 4a1 1 0 01-1 1H2a1 1 0 010-2h16a1 1 0 011 1zm0 6a1 1 0 01-1 1H2a1 1 0 110-2h16a1 1 0 011 1zm-1 7a1 1 0 100-2H2a1 1 0 100 2h16z"
+            />
+          </svg>
+        </label>
+      </div>
+
+      <dialog id="providers-modal" class="modal">
+        <div class="modal-box gap-5">
+          <header class="flex justify-between items-center py-2">
+            <span class="capitalize text-[#f8f8f8] font-[700] text-xl lg:text-2xl">select provider</span>
+            <button class="rounded-full px-1 py-1 btn btn-circle btn-neutral btn-sm" id="close-modal">
+              <svg
+                fill="#000000"
+                height="16px"
+                width="16px"
+                version="1.1"
+                id="Capa_1"
+                xmlns="http://www.w3.org/2000/svg"
+                xmlns:xlink="http://www.w3.org/1999/xlink"
+                viewBox="0 0 460.775 460.775"
+                xml:space="preserve"
+              >
+                <path
+                  d="M285.08,230.397L456.218,59.27c6.076-6.077,6.076-15.911,0-21.986L423.511,4.565c-2.913-2.911-6.866-4.55-10.992-4.55
+    c-4.127,0-8.08,1.639-10.993,4.55l-171.138,171.14L59.25,4.565c-2.913-2.911-6.866-4.55-10.993-4.55
+    c-4.126,0-8.08,1.639-10.992,4.55L4.558,37.284c-6.077,6.075-6.077,15.909,0,21.986l171.138,171.128L4.575,401.505
+    c-6.074,6.077-6.074,15.911,0,21.986l32.709,32.719c2.911,2.911,6.865,4.55,10.992,4.55c4.127,0,8.08-1.639,10.994-4.55
+    l171.117-171.12l171.118,171.12c2.913,2.911,6.866,4.55,10.993,4.55c4.128,0,8.081-1.639,10.992-4.55l32.709-32.719
+    c6.074-6.075,6.074-15.909,0-21.986L285.08,230.397z"
+                />
+              </svg>
+            </button>
+          </header>
+
+          <ul class="menu w-full bg-base-200">
+            <li>
+              <button id="mm-button" class="flex justify-between items-center gap-1 w-full">
+                <svg
+                  version="1.1"
+                  xmlns="http://www.w3.org/2000/svg"
+                  xmlns:xlink="http://www.w3.org/1999/xlink"
+                  x="0px"
+                  y="0px"
+                  viewBox="0 0 204.8 192.4"
+                  style="enable-background: new 0 0 204.8 192.4"
+                  xml:space="preserve"
+                  height="50px"
+                  width="50px"
+                >
+                  <style type="text/css">
+                    .st0 {
+                      display: none;
+                    }
+                    .st1 {
+                      fill: #f5841f;
+                    }
+                    .st2 {
+                      fill: #e27625;
+                    }
+                    .st3 {
+                      fill: #d7c1b3;
+                    }
+                    .st4 {
+                      fill: #2f343b;
+                    }
+                    .st5 {
+                      fill: #cc6228;
+                    }
+                    .st6 {
+                      fill: #c0ad9e;
+                    }
+                    .st7 {
+                      fill: #763e1a;
+                    }
+                  </style>
+                  <g id="bg_x28_do_not_export_x29_" class="st0"></g>
+                  <g id="MM_Head_background__x28_Do_not_edit_x29_">
+                    <g>
+                      <path
+                        class="st1"
+                        d="M167.4,96.1l6.9-8.1l-3-2.2l4.8-4.4l-3.7-2.8l4.8-3.6l-3.1-2.4l5-24.4l-7.6-22.6 M171.5,25.6l-48.8,18.1l0,0
+          l0,0H82l0,0L33.2,25.6l0.3,0.2l-0.3-0.2l-7.6,22.6l5.1,24.4L27.5,75l4.9,3.6l-3.7,2.8l4.8,4.4l-3,2.2l6.9,8.1l-10.5,32.4h0l0,0
+          l9.7,33.1l34.1-9.4l0-0.1l0,0.1l0,0l0,0l0,0v0l0,0l0,0l0,0l6.6,5.4l13.5,9.2h23.1l13.5-9.2l6.6-5.4l0,0v0l0,0l0,0l34.2,9.4
+          l9.8-33.1l0,0h0l-10.6-32.4 M70.7,152.1L70.7,152.1L70.7,152.1"
+                      />
+                    </g>
+                  </g>
+                  <g id="Logos">
+                    <g>
+                      <polygon class="st2" points="171.5,25.6 111.6,69.7 122.7,43.7 		" />
+                      <polygon class="st2" points="33.2,25.6 92.6,70.1 82,43.7 		" />
+                      <polygon class="st2" points="150,127.9 134,152.1 168.2,161.5 178,128.4 		" />
+                      <polygon class="st2" points="26.9,128.4 36.6,161.5 70.7,152.1 54.8,127.9 		" />
+                      <polygon class="st2" points="68.9,86.9 59.4,101.2 93.2,102.7 92.1,66.5 		" />
+                      <polygon class="st2" points="135.9,86.9 112.3,66.1 111.6,102.7 145.4,101.2 		" />
+                      <polygon class="st2" points="70.7,152.1 91.2,142.3 73.5,128.7 		" />
+                      <polygon class="st2" points="113.6,142.3 134,152.1 131.2,128.7 		" />
+                      <polygon class="st3" points="134,152.1 113.6,142.3 115.3,155.5 115.1,161.1 		" />
+                      <polygon class="st3" points="70.7,152.1 89.7,161.1 89.6,155.5 91.2,142.3 		" />
+                      <polygon class="st4" points="90,119.9 73.1,115 85.1,109.5 		" />
+                      <polygon class="st4" points="114.7,119.9 119.7,109.5 131.7,115 		" />
+                      <polygon class="st5" points="70.7,152.1 73.7,127.9 54.8,128.4 		" />
+                      <polygon class="st5" points="131.1,127.9 134,152.1 150,128.4 		" />
+                      <polygon class="st5" points="145.4,101.2 111.6,102.7 114.7,119.9 119.7,109.5 131.7,115 		" />
+                      <polygon class="st5" points="73.1,115 85.1,109.5 90,119.9 93.2,102.7 59.4,101.2 		" />
+                      <polygon class="st2" points="59.4,101.2 73.5,128.7 73.1,115 		" />
+                      <polygon class="st2" points="131.7,115 131.2,128.7 145.4,101.2 		" />
+                      <polygon class="st2" points="93.2,102.7 90,119.9 94,140.3 94.9,113.5 		" />
+                      <polygon class="st2" points="111.6,102.7 109.9,113.4 110.7,140.3 114.7,119.9 		" />
+                      <polygon class="st1" points="114.7,119.9 110.7,140.3 113.6,142.3 131.2,128.7 131.7,115 		" />
+                      <polygon class="st1" points="73.1,115 73.5,128.7 91.2,142.3 94,140.3 90,119.9 		" />
+                      <polygon
+                        class="st6"
+                        points="115.1,161.1 115.3,155.5 113.7,154.2 91,154.2 89.6,155.5 89.7,161.1 70.7,152.1 77.3,157.5 
+          90.8,166.8 113.9,166.8 127.4,157.5 134,152.1 		"
+                      />
+                      <polygon class="st4" points="113.6,142.3 110.7,140.3 94,140.3 91.2,142.3 89.6,155.5 91,154.2 113.7,154.2 115.3,155.5 		" />
+                      <polygon
+                        class="st7"
+                        points="174.1,72.6 179.1,48.2 171.5,25.6 113.6,68.2 135.9,86.9 167.4,96.1 174.3,88 171.3,85.8 176.1,81.5 
+          172.4,78.6 177.2,75 		"
+                      />
+                      <polygon
+                        class="st7"
+                        points="25.6,48.2 30.7,72.6 27.5,75 32.3,78.7 28.6,81.5 33.4,85.8 30.4,88 37.4,96.1 68.9,86.9 91.2,68.2 
+          33.2,25.6 		"
+                      />
+                      <polygon class="st1" points="167.4,96.1 135.9,86.9 145.4,101.2 131.2,128.7 150,128.4 178,128.4 		" />
+                      <polygon class="st1" points="68.9,86.9 37.4,96.1 26.9,128.4 54.8,128.4 73.5,128.7 59.4,101.2 		" />
+                      <polygon
+                        class="st1"
+                        points="111.6,102.7 113.6,68.2 122.7,43.7 82,43.7 91.2,68.2 93.2,102.7 94,113.5 94,140.3 110.7,140.3 
+          110.8,113.5 		"
+                      />
+                    </g>
+                  </g>
+                </svg>
+                <span class="text-[#f8f8f8] text-lg lg:text-[xl] font-[600] capitalize">metamask</span>
+              </button>
+            </li>
+
+            <li>
+              <button id="cb-button" class="flex justify-between items-center gap-1 w-full">
+                <svg width="50px" height="50px" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="512" cy="512" r="512" style="fill: #0052ff" />
+                  <path
+                    d="M516.3 361.83c60.28 0 108.1 37.18 126.26 92.47H764C742 336.09 644.47 256 517.27 256 372.82 256 260 365.65 260 512.49S370 768 517.27 768c124.35 0 223.82-80.09 245.84-199.28H642.55c-17.22 55.3-65 93.45-125.32 93.45-83.23 0-141.56-63.89-141.56-149.68.04-86.77 57.43-150.66 140.63-150.66z"
+                    style="fill: #fff"
+                  />
+                </svg>
+                <span class="text-[#f8f8f8] text-lg lg:text-[xl] font-[600] capitalize">coinbase</span>
+              </button>
+            </li>
+
+            <li>
+              <button id="trust-button" class="flex justify-between items-center gap-1 w-full">
+                <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 2000 2000">
+                  <circle cx="1000" cy="1000" r="1000" fill="#3375bb" />
+                  <path
+                    d="M1490.78 504.57a65.1 65.1 0 0 1 65 65.94c-3.12 186.3-10.31 328.8-23.75 441.6-13.1 112.8-32.81 196.6-62.5 264.4-20 45.3-44.69 82.8-73.7 114.7-39.1 42.2-83.7 72.82-132.5 101.9-20.84 12.46-42.51 24.77-65.2 37.68-48.5 27.54-101.8 57.83-162.3 98.3a64.66 64.66 0 0 1 -72.18 0c-61.4-40.91-115.4-71.6-164.3-99.3q-16.32-9.25-31.92-18.2c-57.2-33.1-108.7-64.7-153.7-110.3-30-30-55.94-66.6-76.6-110-28.1-58.1-47.2-128.4-61.2-219.4C457 950.2 447.7 791.1 444.2 570.5A65.13 65.13 0 0 1 462.66 524a66.25 66.25 0 0 1 46.56 -19.38H536.1c82.8.31 265.6-7.81 423.7-130.9a65.21 65.21 0 0 1 79.69 0c158.1 123.1 340.9 131.3 424.1 130.9m-118.1 730.3c20.31-41.87 37.2-99.7 50-182.8 15.31-99.4 24.69-234.4 29.1-418.1-97.5-2.82-265-21.57-424.7-129.1C840.2 612.1 672.7 630.8 575.5 634c3.44 151.9 10.31 270 21.25 362.8 12.5 105.6 30.3 177.2 52.5 227.5 14.69 33.44 30.94 57.5 50.3 78.8 25.94 28.44 58.75 51.87 103.4 78.8 18.54 11.1 39 22.69 61.2 35.3 39.64 22.43 85 48.1 135.6 80.3 49.71-31.7 94.4-57.1 133.6-79.4 11.81-6.72 23.1-13.1 33.89-19.37 55-31.56 95.6-57.81 125.9-88.4C1313.6 1289.3 1330.2 1266.5 1345.5 1234.9"
+                    fill="#fff"
+                    fill-rule="evenodd"
+                  />
+                </svg>
+                <span class="text-[#f8f8f8] text-lg lg:text-[xl] font-[600] capitalize">trust wallet</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </dialog>
+
+      <div class="flex justify-center items-center w-full lg:w-1/3 overflow-hidden my-20" id="connect-prompt">
+        <div class="flex justify-center items-center flex-col gap-9 w-full">
+          <span class="text-[#f8f8f8] capitalize font-[700] text-center text-xl lg:text-2xl">please connect your wallet</span>
+          <svg
+            height="60px"
+            width="60px"
+            version="1.1"
+            id="Capa_1"
+            xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink"
+            viewBox="0 0 504 504"
+            xml:space="preserve"
+          >
+            <g>
+              <g>
+                <path
+                  style="fill: #73d14f"
+                  d="M441.773,43.762c-2.07-13.066-14.352-22.004-27.453-19.949L54.75,80.715
+			c-4.125,0.652-7.055,4.367-6.727,8.531c0.328,4.16,3.805,7.371,7.977,7.371l384.75-0.125c2.344,0,4.563-1.027,6.086-2.805
+			c1.516-1.777,2.18-4.133,1.813-6.445L441.773,43.762z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #9e6459"
+                  d="M440,80.481H56c-30.875,0-56,25.121-56,56v288c0,30.879,25.125,56,56,56h384
+			c30.875,0,56-25.121,56-56v-288C496,105.602,470.875,80.481,440,80.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M432,432.481h-8c-4.422,0-8-3.582-8-8s3.578-8,8-8h8c2.398-3.719,7.367-4.785,11.063-2.395
+			c3.711,2.395,4.789,7.34,2.398,11.055C442.5,429.739,437.469,432.481,432,432.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M392,432.481h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S396.422,432.481,392,432.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M344,432.481h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S348.422,432.481,344,432.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M296,432.481h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S300.422,432.481,296,432.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M248,432.481h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S252.422,432.481,248,432.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M200,432.481h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S204.422,432.481,200,432.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M152,432.481h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S156.422,432.481,152,432.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M104,432.481H88c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S108.422,432.481,104,432.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M56,432.481H40c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S60.422,432.481,56,432.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M440,397.055c-4.422,0-8-3.582-8-8v-16c0-4.418,3.578-8,8-8s8,3.582,8,8v16
+			C448,393.473,444.422,397.055,440,397.055z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #5c546a"
+                  d="M384,344.481h104c8.837,0,16-7.163,16-16v-96c0-8.837-7.163-16-16-16H384
+			c-35.346,0-64,28.654-64,64v0C320,315.827,348.654,344.481,384,344.481z"
+                />
+              </g>
+              <g>
+                <circle style="fill: #ffd100" cx="384" cy="280.481" r="32" />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M440,208.481c-4.422,0-8-3.582-8-8v-16c0-4.418,3.578-8,8-8s8,3.582,8,8v16
+			C448,204.899,444.422,208.481,440,208.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M440,160.481c-4.422,0-8-3.582-8-8v-8.004c-3.711-2.395-4.789-7.348-2.391-11.063
+			c2.383-3.711,7.313-4.801,11.055-2.391c4.594,2.961,7.336,7.992,7.336,13.453v8.004C448,156.899,444.422,160.481,440,160.481z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M404.578,144.477h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S409,144.477,404.578,144.477z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M356.578,144.477h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S361,144.477,356.578,144.477z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M308.578,144.477h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S313,144.477,308.578,144.477z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M260.578,144.477h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S265,144.477,260.578,144.477z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M212.578,144.477h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S217,144.477,212.578,144.477z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M164.578,144.477h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S169,144.477,164.578,144.477z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M116.578,144.477h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S121,144.477,116.578,144.477z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M68.578,144.477h-16c-4.422,0-8-3.582-8-8s3.578-8,8-8h16c4.422,0,8,3.582,8,8
+			S73,144.477,68.578,144.477z"
+                />
+              </g>
+              <g>
+                <path
+                  style="fill: #7e5c62"
+                  d="M20.578,128.477h-16c-1.551,0-2.915,0.557-4.141,1.32C0.175,131.993,0,134.215,0,136.481v6.381
+			c1.313,0.943,2.837,1.615,4.578,1.615h16c4.422,0,8-3.582,8-8S25,128.477,20.578,128.477z"
+                />
+              </g>
+              <g>
+                <path style="fill: #7e5c62" d="M8,416.481H0v8c0,2.723,0.262,5.38,0.639,8H8c4.422,0,8-3.582,8-8S12.422,416.481,8,416.481z" />
+              </g>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="hidden justify-center items-center border border-solid border-[#fff] rounded-[10px] px-3 py-4 max-w-full lg:w-1/3 my-20" id="white-container">
+        <div class="justify-start items-center gap-6 w-full form-control">
+          <select id="collateral-select" class="select select-primary w-full capitalize">
+            <option disabled selected class="capitalize">select collateral</option>
+          </select>
+          <label class="input input-bordered input-primary flex items-center gap-2 capitalize w-full py-1">
+            dollar amount
+            <input id="dollar-input" class="grow" type="number" />
+          </label>
+          <button class="btn btn-warning w-full capitalize text-[#f8f8f8] py-4 px-3 flex justify-center items-center" id="redeem-dollar-button"
+            >redeem dollar</button
+          >
+          <button disabled class="btn btn-success w-full capitalize text-[#f8f8f8] py-4 px-3 justify-center items-center" id="collect-redemption-button"
+            >collect redemption</button
+          >
+        </div>
+      </div>
+    </main>
     <script type="module" src="dist/main.js"></script>
   </body>
 </html>

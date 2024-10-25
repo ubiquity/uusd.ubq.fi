@@ -15,6 +15,10 @@ let isOneToOne = false;
 
 const collateralRecord: Record<string | number, `0x${string}`> = {};
 const toastActions = new ToastActions();
+const pubClient = createPublicClient({
+  chain: mainnet,
+  transport: http(),
+});
 
 (() => {
   setInterval(() => {
@@ -30,11 +34,6 @@ const toastActions = new ToastActions();
 })();
 
 void (async () => {
-  const pubClient = createPublicClient({
-    chain: mainnet,
-    transport: http(),
-  });
-
   pubClient.watchBlocks({
     onBlock: async (block) => {
       toastActions.showToast({
@@ -135,19 +134,19 @@ export async function initUiEvents() {
   }
 
   if (governanceInput !== null) {
-    governanceInput.addEventListener("change", (ev) => {
+    governanceInput.addEventListener("input", (ev) => {
       maxGovernanceIn = Number((ev.target as HTMLInputElement).value || "0");
     });
   }
 
   if (dollarInput !== null) {
-    dollarInput.addEventListener("change", (ev) => {
+    dollarInput.addEventListener("input", (ev) => {
       dollarAmount = Number((ev.target as HTMLInputElement).value || "0");
     });
   }
 
   if (collateralInput !== null) {
-    collateralInput.addEventListener("change", (ev) => {
+    collateralInput.addEventListener("input", (ev) => {
       maxCollateralIn = Number((ev.target as HTMLInputElement).value || "0");
     });
   }
@@ -167,7 +166,7 @@ export async function initUiEvents() {
         const err = error as Error;
         toastActions.showToast({
           toastType: "error",
-          msg: err.message,
+          msg: err.name,
         });
       }
     });
@@ -186,14 +185,14 @@ export async function initUiEvents() {
         mintButton.disabled = false;
         toastActions.showToast({
           toastType: "success",
-          msg: `Successfully approved: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
+          msg: `Successfully minted: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
         });
       } catch (error) {
         mintButton.disabled = false;
         const err = error as Error;
         toastActions.showToast({
           toastType: "error",
-          msg: err.message,
+          msg: err.name,
         });
       }
     });
