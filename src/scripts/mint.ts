@@ -1,10 +1,11 @@
 import { createPublicClient, http, parseUnits } from "viem";
-import { getAllCollaterals, getCollateralInformation } from "./faucet";
+import { getAllCollaterals, getCollateralInformation, mintDollar } from "./faucet";
 import { allowanceButton, collateralInput, collateralSelect, dollarInput, governanceCheckBox, governanceInput, mintButton } from "./ui";
 import { mainnet } from "viem/chains";
-import { getAllowance, getTokenDecimals } from "./erc20";
+import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
 import { getConnectedClient } from "./connect-wallet";
 import { uFaucetAddress } from "./constants";
+import { ToastActions } from "./toast";
 
 let selectedCollateralIndex = 0;
 let dollarAmount = 0;
@@ -13,6 +14,7 @@ let maxGovernanceIn = 0;
 let isOneToOne = false;
 
 const collateralRecord: Record<string | number, `0x${string}`> = {};
+const toastActions = new ToastActions();
 
 (() => {
   setInterval(() => {
@@ -34,7 +36,12 @@ void (async () => {
   });
 
   pubClient.watchBlocks({
-    onBlock: async () => {
+    onBlock: async (block) => {
+      toastActions.showToast({
+        toastType: "info",
+        msg: `New block mined: ${Number(block.number)}`,
+      });
+
       try {
         const collateralAddress = collateralRecord[selectedCollateralIndex];
         const web3Client = getConnectedClient();
@@ -46,7 +53,11 @@ void (async () => {
           await check(collateralAddress, web3Client);
         }
       } catch (error) {
-        // Do something
+        const err = error as Error;
+        toastActions.showToast({
+          toastType: "error",
+          msg: err.message,
+        });
       }
     },
   });
@@ -138,6 +149,53 @@ export async function initUiEvents() {
   if (collateralInput !== null) {
     collateralInput.addEventListener("change", (ev) => {
       maxCollateralIn = Number((ev.target as HTMLInputElement).value || "0");
+    });
+  }
+
+  if (allowanceButton !== null) {
+    allowanceButton.addEventListener("click", async () => {
+      try {
+        const collateralAddress = collateralRecord[selectedCollateralIndex];
+        const decimals = await getTokenDecimals(collateralAddress);
+        const allowedToSpend = parseUnits(maxCollateralIn.toString(), decimals);
+        const txHash = await approveToSpend(collateralAddress, uFaucetAddress, allowedToSpend);
+        toastActions.showToast({
+          toastType: "success",
+          msg: `Successfully approved: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
+        });
+      } catch (error) {
+        const err = error as Error;
+        toastActions.showToast({
+          toastType: "error",
+          msg: err.message,
+        });
+      }
+    });
+  }
+
+  if (mintButton !== null) {
+    mintButton.addEventListener("click", async () => {
+      try {
+        mintButton.disabled = true;
+        const collateralAddress = collateralRecord[selectedCollateralIndex];
+        const decimals = await getTokenDecimals(collateralAddress);
+        const allowedToSpend = parseUnits(maxCollateralIn.toString(), decimals);
+        const dollarAmountBi = parseUnits(dollarAmount.toString(), 18);
+        const governanceBi = parseUnits(maxGovernanceIn.toString(), 18);
+        const txHash = await mintDollar(BigInt(selectedCollateralIndex), dollarAmountBi, allowedToSpend, governanceBi, isOneToOne);
+        mintButton.disabled = false;
+        toastActions.showToast({
+          toastType: "success",
+          msg: `Successfully approved: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
+        });
+      } catch (error) {
+        mintButton.disabled = false;
+        const err = error as Error;
+        toastActions.showToast({
+          toastType: "error",
+          msg: err.message,
+        });
+      }
     });
   }
 }

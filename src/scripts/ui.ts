@@ -9,7 +9,6 @@ export const uusdPriceText = document.querySelector("#uusd-price") as HTMLSpanEl
 export const governancePriceText = document.querySelector("#governance-price") as HTMLSpanElement;
 export const totalCollateralValueText = document.querySelector("#total-collateral-value") as HTMLSpanElement;
 export const collateralSelect = document.querySelector("#collateral-select") as HTMLSelectElement;
-export const governanceCheckBox = document.querySelector("#governance-check") as HTMLInputElement;
 
 // Mint UI
 export const governanceInput = document.querySelector("#governance-input") as HTMLInputElement;
@@ -17,11 +16,15 @@ export const collateralInput = document.querySelector("#collateral-input") as HT
 export const dollarInput = document.querySelector("#dollar-input") as HTMLInputElement;
 export const allowanceButton = document.querySelector("#allowance-button") as HTMLButtonElement;
 export const mintButton = document.querySelector("#mint-button") as HTMLButtonElement;
+export const governanceCheckBox = document.querySelector("#governance-check") as HTMLInputElement;
 
 // Providers
 const metamaskConnectButton = document.querySelector("#mm-button") as HTMLButtonElement;
 const cbConnectButton = document.querySelector("#cb-button") as HTMLButtonElement;
 const trustConnectButton = document.querySelector("#trust-button") as HTMLButtonElement;
+
+// Message displays
+export const toast = document.querySelector("#toast") as HTMLDivElement;
 
 export function initUiEvents() {
   connectButtons.forEach((connectButton) => {
