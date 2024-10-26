@@ -65,6 +65,12 @@ export async function connectWallet(providerType: "metamask" | "trust" | "coinba
       if (providersModal.open) {
         providersModal.close();
       }
+
+      const currentChain = await provider.request<string>({ method: "eth_chainId" });
+
+      if (currentChain !== "0x1") {
+        await provider.request<null>({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1" }] });
+      }
     } catch (error) {
       updateConnectButtonText("");
     }
@@ -118,6 +124,12 @@ export async function connectIfAuthorized() {
       updateConnectButtonText(truncateString(account as string));
       connectPrompt.classList.add("hidden");
       whiteContainer.classList.replace("hidden", "flex");
+
+      const currentChain = await provider.request<string>({ method: "eth_chainId" });
+
+      if (currentChain !== "0x1") {
+        await provider.request<null>({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1" }] });
+      }
     }
   }
 }
