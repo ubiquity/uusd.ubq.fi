@@ -8,26 +8,26 @@ const subscriptions: WatchBlocksReturnType[] = [];
 
 export function watchForPrices() {
   if (uusdPriceText !== null && governancePriceText !== null && totalCollateralValueText !== null) {
-    const pubClient = createPublicClient({
+    const publicClient = createPublicClient({
       chain: mainnet,
       transport: http(),
     });
 
-    const sub0 = pubClient.watchBlocks({
+    const sub0 = publicClient.watchBlocks({
       onBlock: async () => {
         const priceUsd = await getDollarPriceUsd();
         uusdPriceText.innerText = `$${toSf(formatUnits(priceUsd, 6))}`;
       },
     });
 
-    const sub1 = pubClient.watchBlocks({
+    const sub1 = publicClient.watchBlocks({
       onBlock: async () => {
         const priceUsd = await getGovernancePriceUsd();
         governancePriceText.innerText = `$${toSf(formatUnits(priceUsd, 6))}`;
       },
     });
 
-    const sub2 = pubClient.watchBlocks({
+    const sub2 = publicClient.watchBlocks({
       onBlock: async () => {
         const priceUsd = await getCollateralUsdBalance();
         totalCollateralValueText.innerText = `$${toSf(formatUnits(priceUsd, 6))}`;

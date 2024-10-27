@@ -15,7 +15,7 @@ let isOneToOne = false;
 
 const collateralRecord: Record<string | number, `0x${string}`> = {};
 const toastActions = new ToastActions();
-const pubClient = createPublicClient({
+const publicClient = createPublicClient({
   chain: mainnet,
   transport: http(),
 });
@@ -34,7 +34,7 @@ const pubClient = createPublicClient({
 })();
 
 void (async () => {
-  pubClient.watchBlocks({
+  publicClient.watchBlocks({
     onBlock: async (block) => {
       toastActions.showToast({
         toastType: "info",

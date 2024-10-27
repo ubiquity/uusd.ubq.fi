@@ -9,7 +9,7 @@ let dollarAmount = 0;
 let blockOfRedemption = BigInt(0);
 
 const toastActions = new ToastActions();
-const pubClient = createPublicClient({
+const publicClient = createPublicClient({
   chain: mainnet,
   transport: http(),
 });
@@ -23,7 +23,7 @@ const pubClient = createPublicClient({
 })();
 
 void (async () => {
-  pubClient.watchBlocks({
+  publicClient.watchBlocks({
     onBlock: async (block) => {
       const currentBlock = Number(block.number);
       toastActions.showToast({
@@ -82,10 +82,10 @@ export async function initUiEvents() {
     redeemDollarButton.addEventListener("click", async () => {
       try {
         redeemDollarButton.disabled = true;
-        const dollarAmountBi = parseUnits(dollarAmount.toString(), 18);
-        const txHash = await redeemDollar(BigInt(selectedCollateralIndex), dollarAmountBi);
+        const dollarAmountInWei = parseUnits(dollarAmount.toString(), 18);
+        const txHash = await redeemDollar(BigInt(selectedCollateralIndex), dollarAmountInWei);
         redeemDollarButton.disabled = false;
-        blockOfRedemption = await pubClient.getBlockNumber();
+        blockOfRedemption = await publicClient.getBlockNumber();
         toastActions.showToast({
           toastType: "success",
           msg: `Successfully redeemed: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
