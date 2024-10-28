@@ -11,6 +11,7 @@ export const totalCollateralValueText = document.querySelector("#total-collatera
 export const collateralSelect = document.querySelector("#collateral-select") as HTMLSelectElement;
 
 // Mint UI
+export const governanceFormControl = document.querySelector("#governance-form-control") as HTMLLabelElement;
 export const governanceInput = document.querySelector("#governance-input") as HTMLInputElement;
 export const collateralInput = document.querySelector("#collateral-input") as HTMLInputElement;
 export const dollarInput = document.querySelector("#dollar-input") as HTMLInputElement;

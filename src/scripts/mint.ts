@@ -1,10 +1,10 @@
 import { createPublicClient, http, parseUnits } from "viem";
 import { getAllCollaterals, getCollateralInformation, mintDollar } from "./faucet";
-import { allowanceButton, collateralInput, collateralSelect, dollarInput, governanceCheckBox, governanceInput, mintButton } from "./ui";
+import { allowanceButton, collateralInput, collateralSelect, dollarInput, governanceCheckBox, governanceFormControl, governanceInput, mintButton } from "./ui";
 import { mainnet } from "viem/chains";
 import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
 import { getConnectedClient } from "./connect-wallet";
-import { uFaucetAddress } from "./constants";
+import { diamondAddress } from "./constants";
 import { ToastActions } from "./toast";
 
 let selectedCollateralIndex = 0;
@@ -35,12 +35,7 @@ const publicClient = createPublicClient({
 
 void (async () => {
   publicClient.watchBlocks({
-    onBlock: async (block) => {
-      toastActions.showToast({
-        toastType: "info",
-        msg: `New block mined: ${Number(block.number)}`,
-      });
-
+    onBlock: async () => {
       try {
         const collateralAddress = collateralRecord[selectedCollateralIndex];
         const web3Client = getConnectedClient();
@@ -65,7 +60,7 @@ void (async () => {
 async function check(collateralAddress: `0x${string}`, web3Client: ReturnType<typeof getConnectedClient>) {
   const decimals = await getTokenDecimals(collateralAddress);
   const maxCollatIn = parseUnits(maxCollateralIn.toString(), decimals);
-  const allowance = web3Client?.account ? await getAllowance(collateralAddress, web3Client.account.address, uFaucetAddress) : BigInt(0);
+  const allowance = web3Client?.account ? await getAllowance(collateralAddress, web3Client.account.address, diamondAddress) : BigInt(0);
   const isAllowed = Number(allowance) >= Number(maxCollatIn);
 
   if (isAllowed) {
@@ -125,9 +120,9 @@ export async function initUiEvents() {
       setTimeout(() => {
         isOneToOne = !(ev.target as HTMLInputElement).checked;
 
-        if (governanceInput !== null) {
-          if (isOneToOne) governanceInput.classList.add("hidden");
-          else governanceInput.classList.remove("hidden");
+        if (governanceFormControl !== null) {
+          if (isOneToOne) governanceFormControl.classList.add("hidden");
+          else governanceFormControl.classList.remove("hidden");
         }
       }, 500);
     });
@@ -154,10 +149,12 @@ export async function initUiEvents() {
   if (allowanceButton !== null) {
     allowanceButton.addEventListener("click", async () => {
       try {
+        allowanceButton.disabled = true;
         const collateralAddress = collateralRecord[selectedCollateralIndex];
         const decimals = await getTokenDecimals(collateralAddress);
         const allowedToSpend = parseUnits(maxCollateralIn.toString(), decimals);
-        const txHash = await approveToSpend(collateralAddress, uFaucetAddress, allowedToSpend);
+        const txHash = await approveToSpend(collateralAddress, diamondAddress, allowedToSpend);
+        allowanceButton.disabled = false;
         toastActions.showToast({
           toastType: "success",
           msg: `Successfully approved: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,

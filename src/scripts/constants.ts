@@ -296,8 +296,6 @@ export const ufaucetAbi = [
   },
 ] as const;
 
-export const uFaucetAddress = "0xb64f2347752192F51930Ad6Ad3bEa0B3A2074fAC";
-
 export const erc20Abi = [
   {
     constant: true,
@@ -520,3 +518,5 @@ export const erc20Abi = [
     type: "event",
   },
 ] as const;
+
+export const diamondAddress = "0xED3084c98148e2528DaDCB53C56352e549C488fA";

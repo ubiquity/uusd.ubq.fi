@@ -2,7 +2,7 @@ import { createWalletClient, custom } from "viem";
 import { mainnet } from "viem/chains";
 import { truncateString } from "./utils";
 import { connectButtons, connectPrompt, whiteContainer, providersModal } from "./ui";
-import { unwatchForPrices, watchForPrices } from "./price-polling";
+import { getPricesOnLaunch, unwatchForPrices, watchForPrices } from "./price-polling";
 import { type MetaMaskInpageProvider } from "@metamask/providers";
 
 let client: ReturnType<typeof createWalletClient> | null = null;
@@ -57,6 +57,7 @@ export async function connectWallet(providerType: "metamask" | "trust" | "coinba
       updateConnectButtonText(truncateString(accounts?.[0] as string));
       wireEvents(provider);
 
+      getPricesOnLaunch();
       watchForPrices();
 
       connectPrompt.classList.add("hidden");
@@ -120,6 +121,7 @@ export async function connectIfAuthorized() {
         transport: custom(provider),
       });
 
+      getPricesOnLaunch();
       watchForPrices();
       updateConnectButtonText(truncateString(account as string));
       connectPrompt.classList.add("hidden");

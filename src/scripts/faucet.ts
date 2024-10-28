@@ -1,11 +1,11 @@
 import { createPublicClient, getContract, http } from "viem";
-import { uFaucetAddress, ufaucetAbi } from "./constants";
+import { diamondAddress, ufaucetAbi } from "./constants";
 // import { getConnectedClient } from "./connect-wallet";
 import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
 
 const abi = ufaucetAbi;
-const address = uFaucetAddress;
+const address = diamondAddress;
 const publicClient = createPublicClient({
   chain: mainnet,
   transport: http(),
@@ -69,7 +69,7 @@ export async function getDollarPriceUsd() {
   }
 }
 
-export async function getCollateralInformation(address: `0x${string}`) {
+export async function getCollateralInformation(collateralAddress: `0x${string}`) {
   const contract = getContract({
     abi,
     address,
@@ -77,7 +77,7 @@ export async function getCollateralInformation(address: `0x${string}`) {
   });
 
   try {
-    return await contract.read.collateralInformation([address]);
+    return await contract.read.collateralInformation([collateralAddress]);
   } catch (error) {
     return Promise.reject(error);
   }

@@ -26,14 +26,13 @@ void (async () => {
   publicClient.watchBlocks({
     onBlock: async (block) => {
       const currentBlock = Number(block.number);
-      toastActions.showToast({
-        toastType: "info",
-        msg: `New block mined: ${currentBlock}`,
-      });
 
       try {
         const bOfRedemption = Number(blockOfRedemption);
-        collectRedemptionButton.disabled = bOfRedemption === 0 || currentBlock - bOfRedemption < 2;
+
+        if (collectRedemptionButton !== null) {
+          collectRedemptionButton.disabled = bOfRedemption === 0 || currentBlock - bOfRedemption < 2;
+        }
       } catch (error) {
         const err = error as Error;
         toastActions.showToast({
