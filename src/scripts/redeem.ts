@@ -45,7 +45,7 @@ void (async () => {
 })();
 
 export async function initCollateralList() {
-  if (collateralSelect !== null) {
+  if (collateralSelect !== null && window.location.pathname.includes("redeem")) {
     const collaterals = await getAllCollaterals();
     const collateralInformation = await Promise.all(collaterals.map(getCollateralInformation));
 

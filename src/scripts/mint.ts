@@ -85,7 +85,7 @@ async function check(collateralAddress: `0x${string}`, web3Client: ReturnType<ty
 }
 
 export async function initCollateralList() {
-  if (collateralSelect !== null) {
+  if (collateralSelect !== null && window.location.pathname.includes("mint")) {
     const collaterals = await getAllCollaterals();
     const collateralInformation = await Promise.all(collaterals.map(getCollateralInformation));
 
