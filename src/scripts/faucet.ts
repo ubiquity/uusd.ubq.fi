@@ -1,6 +1,5 @@
 import { createPublicClient, getContract, http } from "viem";
 import { diamondAddress, ufaucetAbi } from "./constants";
-// import { getConnectedClient } from "./connect-wallet";
 import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
 
@@ -88,7 +87,7 @@ export async function mintDollar(collateralIndex: bigint, dollarAmount: bigint, 
 
   if (client !== null && client.account) {
     try {
-      return await client.writeContract({
+      const { request } = await publicClient.simulateContract({
         abi,
         address,
         functionName: "mintDollar",
@@ -96,6 +95,7 @@ export async function mintDollar(collateralIndex: bigint, dollarAmount: bigint, 
         chain: mainnet,
         account: client.account,
       });
+      return await client.writeContract(request);
     } catch (error) {
       return Promise.reject(error);
     }
@@ -109,7 +109,7 @@ export async function redeemDollar(collateralIndex: bigint, dollarAmount: bigint
 
   if (client !== null && client.account) {
     try {
-      return await client.writeContract({
+      const { request } = await publicClient.simulateContract({
         abi,
         address,
         functionName: "redeemDollar",
@@ -117,6 +117,7 @@ export async function redeemDollar(collateralIndex: bigint, dollarAmount: bigint
         chain: mainnet,
         account: client.account,
       });
+      return await client.writeContract(request);
     } catch (error) {
       return Promise.reject(error);
     }
@@ -130,7 +131,7 @@ export async function collectionRedemption(collateralIndex: bigint) {
 
   if (client !== null && client.account) {
     try {
-      return await client.writeContract({
+      const { request } = await publicClient.simulateContract({
         abi,
         address,
         functionName: "collectRedemption",
@@ -138,6 +139,7 @@ export async function collectionRedemption(collateralIndex: bigint) {
         chain: mainnet,
         account: client.account,
       });
+      return await client.writeContract(request);
     } catch (error) {
       return Promise.reject(error);
     }

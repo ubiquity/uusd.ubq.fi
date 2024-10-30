@@ -1,11 +1,11 @@
-import { createPublicClient, http, parseUnits } from "viem";
+import { BaseError, createPublicClient, http, parseUnits } from "viem";
 import { getAllCollaterals, getCollateralInformation, mintDollar } from "./faucet";
 import { allowanceButton, collateralInput, collateralSelect, dollarInput, governanceCheckBox, governanceFormControl, governanceInput, mintButton } from "./ui";
-import { mainnet } from "viem/chains";
 import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
 import { getConnectedClient } from "./connect-wallet";
 import { diamondAddress } from "./constants";
 import { ToastActions } from "./toast";
+import { mainnet } from "viem/chains";
 
 let selectedCollateralIndex = 0;
 let dollarAmount = 0;
@@ -154,16 +154,25 @@ export async function initUiEvents() {
         const decimals = await getTokenDecimals(collateralAddress);
         const allowedToSpend = parseUnits(maxCollateralIn.toString(), decimals);
         const txHash = await approveToSpend(collateralAddress, diamondAddress, allowedToSpend);
+        const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+        if (transactionReceipt.status === "success") {
+          toastActions.showToast({
+            toastType: "success",
+            msg: `Successfully minted: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
+          });
+        } else {
+          // transactionReceipt.logs.map((log) => log.topics)
+          // const errorDecoded = decodeExecutionError(transaction.input);
+          throw new Error("Transaction was reverted");
+        }
         allowanceButton.disabled = false;
-        toastActions.showToast({
-          toastType: "success",
-          msg: `Successfully approved: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
-        });
       } catch (error) {
-        const err = error as Error;
+        allowanceButton.disabled = false;
+        const err = error as BaseError;
         toastActions.showToast({
           toastType: "error",
-          msg: err.name,
+          msg: err.shortMessage ?? err.message,
         });
       }
     });
@@ -176,20 +185,26 @@ export async function initUiEvents() {
         const collateralAddress = collateralRecord[selectedCollateralIndex];
         const decimals = await getTokenDecimals(collateralAddress);
         const allowedToSpend = parseUnits(maxCollateralIn.toString(), decimals);
-        const dollarAmountBi = parseUnits(dollarAmount.toString(), 18);
-        const governanceBi = parseUnits(maxGovernanceIn.toString(), 18);
-        const txHash = await mintDollar(BigInt(selectedCollateralIndex), dollarAmountBi, allowedToSpend, governanceBi, isOneToOne);
+        const dollarAmountInDecimals = parseUnits(dollarAmount.toString(), 6);
+        const governanceAmountInDecimals = parseUnits(maxGovernanceIn.toString(), 18);
+        const txHash = await mintDollar(BigInt(selectedCollateralIndex), dollarAmountInDecimals, allowedToSpend, governanceAmountInDecimals, isOneToOne);
+        const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+        if (transactionReceipt.status === "success") {
+          toastActions.showToast({
+            toastType: "success",
+            msg: `Successfully minted: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
+          });
+        } else {
+          throw new Error("Transaction was reverted");
+        }
         mintButton.disabled = false;
-        toastActions.showToast({
-          toastType: "success",
-          msg: `Successfully minted: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
-        });
       } catch (error) {
         mintButton.disabled = false;
-        const err = error as Error;
+        const err = error as BaseError;
         toastActions.showToast({
           toastType: "error",
-          msg: err.name,
+          msg: err.shortMessage ?? err.message,
         });
       }
     });
