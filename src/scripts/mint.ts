@@ -1,14 +1,26 @@
 import { BaseError, createPublicClient, http, parseUnits } from "viem";
 import { getAllCollaterals, getCollateralInformation, mintDollar } from "./faucet";
-import { allowanceButton, collateralInput, collateralSelect, dollarInput, governanceCheckBox, governanceFormControl, governanceInput, mintButton } from "./ui";
+import {
+  allowanceButton,
+  collateralInput,
+  collateralSelect,
+  dollarInput,
+  governanceCheckBox,
+  governanceFormControl,
+  governanceInput,
+  minDollarInput,
+  mintButton,
+} from "./ui";
 import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
 import { getConnectedClient } from "./connect-wallet";
 import { diamondAddress } from "./constants";
 import { ToastActions } from "./toast";
-import { mainnet } from "viem/chains";
+// import { mainnet } from "viem/chains";
+import { localhost } from "./custom-chains";
 
 let selectedCollateralIndex = 0;
 let dollarAmount = 0;
+let dollarOutMin = 0;
 let maxCollateralIn = 0;
 let maxGovernanceIn = 0;
 let isOneToOne = false;
@@ -16,7 +28,7 @@ let isOneToOne = false;
 const collateralRecord: Record<string | number, `0x${string}`> = {};
 const toastActions = new ToastActions();
 const publicClient = createPublicClient({
-  chain: mainnet,
+  chain: localhost,
   transport: http(),
 });
 
@@ -24,7 +36,11 @@ const publicClient = createPublicClient({
   setInterval(() => {
     if (mintButton !== null) {
       mintButton.disabled =
-        dollarAmount <= 0 || maxCollateralIn <= 0 || (!isOneToOne && maxGovernanceIn <= 0) || typeof collateralRecord[selectedCollateralIndex] === "undefined";
+        dollarAmount <= 0 ||
+        dollarOutMin <= 0 ||
+        maxCollateralIn <= 0 ||
+        (!isOneToOne && maxGovernanceIn <= 0) ||
+        typeof collateralRecord[selectedCollateralIndex] === "undefined";
     }
 
     if (allowanceButton !== null) {
@@ -33,7 +49,7 @@ const publicClient = createPublicClient({
   }, 500);
 })();
 
-void (async () => {
+void (() => {
   publicClient.watchBlocks({
     onBlock: async () => {
       try {
@@ -61,8 +77,11 @@ async function check(collateralAddress: `0x${string}`, web3Client: ReturnType<ty
   const decimals = await getTokenDecimals(collateralAddress);
   const maxCollatIn = parseUnits(maxCollateralIn.toString(), decimals);
   const allowance = web3Client?.account ? await getAllowance(collateralAddress, web3Client.account.address, diamondAddress) : BigInt(0);
-  const isAllowed = Number(allowance) >= Number(maxCollatIn);
+  const isAllowed = allowance >= maxCollatIn;
+  updateUiBasedOnAllowance(isAllowed);
+}
 
+function updateUiBasedOnAllowance(isAllowed: boolean) {
   if (isAllowed) {
     if (mintButton !== null && mintButton.classList.contains("hidden")) {
       mintButton.classList.remove("hidden");
@@ -140,6 +159,12 @@ export async function initUiEvents() {
     });
   }
 
+  if (minDollarInput !== null) {
+    minDollarInput.addEventListener("input", (ev) => {
+      dollarOutMin = Number((ev.target as HTMLInputElement).value || "0");
+    });
+  }
+
   if (collateralInput !== null) {
     collateralInput.addEventListener("input", (ev) => {
       maxCollateralIn = Number((ev.target as HTMLInputElement).value || "0");
@@ -186,8 +211,16 @@ export async function initUiEvents() {
         const decimals = await getTokenDecimals(collateralAddress);
         const allowedToSpend = parseUnits(maxCollateralIn.toString(), decimals);
         const dollarAmountInDecimals = parseUnits(dollarAmount.toString(), 6);
+        const dollarOutInDecimals = parseUnits(dollarOutMin.toString(), 6);
         const governanceAmountInDecimals = parseUnits(maxGovernanceIn.toString(), 18);
-        const txHash = await mintDollar(BigInt(selectedCollateralIndex), dollarAmountInDecimals, allowedToSpend, governanceAmountInDecimals, isOneToOne);
+        const txHash = await mintDollar(
+          BigInt(selectedCollateralIndex),
+          dollarAmountInDecimals,
+          dollarOutInDecimals,
+          allowedToSpend,
+          governanceAmountInDecimals,
+          isOneToOne
+        );
         const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
         if (transactionReceipt.status === "success") {

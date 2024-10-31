@@ -1,12 +1,13 @@
 import { createPublicClient, getContract, http } from "viem";
 import { erc20Abi } from "./constants";
 // import { getConnectedClient } from "./connect-wallet";
-import { mainnet } from "viem/chains";
+// import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
+import { localhost } from "./custom-chains";
 
 const abi = erc20Abi;
 const publicClient = createPublicClient({
-  chain: mainnet,
+  chain: localhost,
   transport: http(),
 });
 
@@ -48,7 +49,7 @@ export async function approveToSpend(address: `0x${string}`, spender: `0x${strin
         address,
         functionName: "approve",
         args: [spender, amount],
-        chain: mainnet,
+        chain: localhost,
         account: client.account,
       });
     } catch (error) {

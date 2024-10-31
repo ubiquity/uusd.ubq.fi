@@ -1,12 +1,13 @@
 import { createPublicClient, getContract, http } from "viem";
 import { diamondAddress, ufaucetAbi } from "./constants";
-import { mainnet } from "viem/chains";
+// import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
+import { localhost } from "./custom-chains";
 
 const abi = ufaucetAbi;
 const address = diamondAddress;
 const publicClient = createPublicClient({
-  chain: mainnet,
+  chain: localhost,
   transport: http(),
 });
 
@@ -82,7 +83,14 @@ export async function getCollateralInformation(collateralAddress: `0x${string}`)
   }
 }
 
-export async function mintDollar(collateralIndex: bigint, dollarAmount: bigint, maxCollateralIn: bigint, maxGovernanceIn: bigint, isOneToOne: boolean) {
+export async function mintDollar(
+  collateralIndex: bigint,
+  dollarAmount: bigint,
+  dollarOutMin: bigint,
+  maxCollateralIn: bigint,
+  maxGovernanceIn: bigint,
+  isOneToOne: boolean
+) {
   const client = getConnectedClient();
 
   if (client !== null && client.account) {
@@ -91,8 +99,8 @@ export async function mintDollar(collateralIndex: bigint, dollarAmount: bigint, 
         abi,
         address,
         functionName: "mintDollar",
-        args: [collateralIndex, dollarAmount, BigInt(0), maxCollateralIn, maxGovernanceIn, isOneToOne],
-        chain: mainnet,
+        args: [collateralIndex, dollarAmount, dollarOutMin, maxCollateralIn, maxGovernanceIn, isOneToOne],
+        chain: localhost,
         account: client.account,
       });
       return await client.writeContract(request);
@@ -104,7 +112,7 @@ export async function mintDollar(collateralIndex: bigint, dollarAmount: bigint, 
   }
 }
 
-export async function redeemDollar(collateralIndex: bigint, dollarAmount: bigint) {
+export async function redeemDollar(collateralIndex: bigint, dollarAmount: bigint, governanceOutMin: bigint, collateralOutMin: bigint) {
   const client = getConnectedClient();
 
   if (client !== null && client.account) {
@@ -113,8 +121,8 @@ export async function redeemDollar(collateralIndex: bigint, dollarAmount: bigint
         abi,
         address,
         functionName: "redeemDollar",
-        args: [collateralIndex, dollarAmount, BigInt(0), BigInt(0)],
-        chain: mainnet,
+        args: [collateralIndex, dollarAmount, governanceOutMin, collateralOutMin],
+        chain: localhost,
         account: client.account,
       });
       return await client.writeContract(request);
@@ -136,7 +144,7 @@ export async function collectionRedemption(collateralIndex: bigint) {
         address,
         functionName: "collectRedemption",
         args: [collateralIndex],
-        chain: mainnet,
+        chain: localhost,
         account: client.account,
       });
       return await client.writeContract(request);

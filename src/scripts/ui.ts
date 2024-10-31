@@ -15,6 +15,7 @@ export const governanceFormControl = document.querySelector("#governance-form-co
 export const governanceInput = document.querySelector("#governance-input") as HTMLInputElement;
 export const collateralInput = document.querySelector("#collateral-input") as HTMLInputElement;
 export const dollarInput = document.querySelector("#dollar-input") as HTMLInputElement;
+export const minDollarInput = document.querySelector("#min-dollar-input") as HTMLInputElement;
 export const allowanceButton = document.querySelector("#allowance-button") as HTMLButtonElement;
 export const mintButton = document.querySelector("#mint-button") as HTMLButtonElement;
 export const governanceCheckBox = document.querySelector("#governance-check") as HTMLInputElement;
@@ -22,6 +23,8 @@ export const governanceCheckBox = document.querySelector("#governance-check") as
 // Redeem UI
 export const redeemDollarButton = document.querySelector("#redeem-dollar-button") as HTMLButtonElement;
 export const collectRedemptionButton = document.querySelector("#collect-redemption-button") as HTMLButtonElement;
+export const minGovernanceInput = document.querySelector("#min-governance-input") as HTMLInputElement;
+export const minCollateralInput = document.querySelector("#min-collateral-input") as HTMLInputElement;
 
 // Providers
 const metamaskConnectButton = document.querySelector("#mm-button") as HTMLButtonElement;
