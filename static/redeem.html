@@ -1,4 +1,48 @@
-<div id="redeem" class="page-wrapper">
-    <h1>Redeem Page</h1>
+<div class="page-wrapper">
+  <div id="actionContainer">
+    <div id="columnsWrapper">
+      <!-- Redeem Input Column -->
+      <div id="redeemInput" class="column actionInput">
+        <h2>Redeem Dollars</h2>
+
+        <label for="collateralSelect">Select Collateral</label>
+        <select id="collateralSelect">
+          <option value="">Select a collateral</option>
+        </select>
+
+        <label for="dollarAmount">Dollar Amount</label>
+        <input type="number" id="dollarAmount" placeholder="Enter dollar amount to redeem" />
+
+        <button id="toggleSlippageSettings" type="button">Slippage Settings</button>
+
+        <div id="slippageSettings" class="hidden">
+          <label for="collateralOutMin">Collateral Out Min</label>
+          <input type="number" id="collateralOutMin" placeholder="Minimum collateral output (slippage)" />
+
+          <label for="governanceOutMin">Governance Out Min</label>
+          <input type="number" id="governanceOutMin" placeholder="Minimum governance output (slippage)" />
+        </div>
+      </div>
+
+      <!-- Fees Column -->
+      <div id="centerColumn" class="column">
+        <h2>Fees</h2>
+        <p>Redemption Fee: <span id="redemptionFee">-</span></p>
+      </div>
+
+      <!-- Results Column -->
+      <div id="rightColumn" class="column">
+        <div id="redeemOutput">
+          <h3>Results</h3>
+          <p>Collateral Redeemed: <span id="collateralRedeemed">-</span></p>
+          <p>Governance Redeemed: <span id="governanceRedeemed">-</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar with Redeem Button -->
+    <div id="bottomBar">
+      <button id="redeemButton" disabled>Redeem</button>
+    </div>
   </div>
-  
+</div>
