@@ -1,7 +1,8 @@
 import { ethers } from "ethers";
 import { appState, diamondContract, dollarSpotPrice, governanceSpotPrice, userSigner } from "../main";
 import { debounce } from "../utils";
-import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../collateral";
+import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
+import { toggleSlippageSettings } from "../common/render-slippage-toggle";
 
 let currentOutput: {
   collateralRedeemed: ethers.BigNumber;
@@ -93,18 +94,6 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
   }, 300); // 300ms debounce
 
   dollarAmountInput.addEventListener("input", debouncedInputHandler);
-}
-
-export function toggleSlippageSettings() {
-  const toggleButton = document.getElementById("toggleSlippageSettings") as HTMLButtonElement;
-  const slippageSettings = document.getElementById("slippageSettings") as HTMLDivElement;
-
-  toggleButton.addEventListener("click", () => {
-    slippageSettings.classList.toggle("hidden");
-    toggleButton.textContent = slippageSettings.classList.contains("hidden")
-      ? "Show Slippage Settings"
-      : "Hide Slippage Settings";
-  });
 }
 
 function handleSlippageInput() {
