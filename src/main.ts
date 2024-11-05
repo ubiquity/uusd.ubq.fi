@@ -1,6 +1,6 @@
 import { createAppKit } from "@reown/appkit";
 import { Ethers5Adapter } from "@reown/appkit-adapter-ethers5";
-import { mainnet, sepolia } from "@reown/appkit/networks";
+import { mainnet } from "@reown/appkit/networks";
 import { ethers } from "ethers";
 import "./router";
 
@@ -14,13 +14,13 @@ const metadata = {
 };
 
 // create provider & signer for Ethereum mainnet
-export const provider = new ethers.providers.JsonRpcProvider("https://1rpc.io/sepolia"); // for mainnet https://eth.llamarpc.com
+export const provider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
 export const userSigner = provider.getSigner();
 
 export const appState = createAppKit({
   adapters: [new Ethers5Adapter()],
-  networks: [mainnet, sepolia],
-  defaultNetwork: sepolia,
+  networks: [mainnet],
+  defaultNetwork: mainnet,
   metadata,
   projectId,
   features: {
