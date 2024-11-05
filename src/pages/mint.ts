@@ -191,6 +191,13 @@ function displayMintOutput(
   ).toFixed(2);
   const formattedGovernanceNeeded = parseFloat(ethers.utils.formatUnits(output.governanceNeeded, 18)).toFixed(2);
 
+  // Calculate the dollar value of totalDollarMint and governanceNeeded using spot prices
+  const totalDollarMintValue = output.totalDollarMint.mul(ethers.utils.parseUnits(dollarSpotPrice as string, 6)).div(ethers.BigNumber.from("1000000"));
+  const formattedTotalDollarMintValue = parseFloat(ethers.utils.formatUnits(totalDollarMintValue, 18)).toFixed(2);
+
+  const governanceNeededValue = output.governanceNeeded.mul(ethers.utils.parseUnits(governanceSpotPrice as string, 6)).div(ethers.BigNumber.from("1000000"));
+  const formattedGovernanceNeededValue = parseFloat(ethers.utils.formatUnits(governanceNeededValue, 18)).toFixed(2);
+
   // Calculate the dollar value of the minting fee
   const mintingFeeDollarValue = output.totalDollarMint
     .mul(selectedCollateral.mintingFee.toString()) // this is 1e6 so we divide by 1e6 below
@@ -199,13 +206,13 @@ function displayMintOutput(
   const formattedMintingFeeDollarValue = parseFloat(ethers.utils.formatUnits(mintingFeeDollarValue, 18)).toFixed(2);
 
   if (totalDollarMinted) {
-    totalDollarMinted.textContent = `${formattedTotalDollarMint} UUSD`;
+    totalDollarMinted.textContent = `${formattedTotalDollarMint} UUSD ($${formattedTotalDollarMintValue})`;
   }
   if (collateralNeededElement) {
     collateralNeededElement.textContent = `${formattedCollateralNeeded} ${selectedCollateral.name}`;
   }
   if (governanceNeededElement) {
-    governanceNeededElement.textContent = `${formattedGovernanceNeeded} UBQ`;
+    governanceNeededElement.textContent = `${formattedGovernanceNeeded} UBQ ($${formattedGovernanceNeededValue})`;
   }
   if (mintingFeeElement) {
     mintingFeeElement.textContent = `${selectedCollateral.mintingFee}% (${formattedMintingFeeDollarValue} ${selectedCollateral.name})`;
