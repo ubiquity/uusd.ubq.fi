@@ -13,17 +13,21 @@
         <label for="dollarAmount">Dollar Amount</label>
         <input type="number" id="dollarAmount" placeholder="Enter dollar amount" />
 
-        <label for="dollarOutMin">Dollar Out Min</label>
-        <input type="number" id="dollarOutMin" placeholder="Minimum dollar output (slippage)" />
-
-        <label for="maxCollateralIn">Max Collateral In</label>
-        <input type="number" id="maxCollateralIn" placeholder="Max collateral input (slippage)" />
-
-        <label for="maxGovernanceIn">Max Governance In</label>
-        <input type="number" id="maxGovernanceIn" placeholder="Max governance input (slippage)" />
-
         <label for="forceCollateralOnly">Force Collateral Only</label>
         <input type="checkbox" id="forceCollateralOnly" />
+
+        <button id="toggleSlippageSettings" type="button">Slippage Settings</button>
+
+        <div id="slippageSettings" class="hidden">
+          <label for="dollarOutMin">Dollar Out Min</label>
+          <input type="number" id="dollarOutMin" placeholder="Minimum dollar output (slippage)" />
+
+          <label for="maxCollateralIn">Max Collateral In</label>
+          <input type="number" id="maxCollateralIn" placeholder="Max collateral input (slippage)" />
+
+          <label for="maxGovernanceIn">Max Governance In</label>
+          <input type="number" id="maxGovernanceIn" placeholder="Max governance input (slippage)" />
+        </div>
       </div>
 
       <!-- Fees Column -->

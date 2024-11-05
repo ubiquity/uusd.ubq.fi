@@ -27,6 +27,9 @@ export async function loadMintPage() {
       const html = await response.text();
       contentArea.innerHTML = html;
 
+      // setup toggle for slippage settings
+      toggleSlippageSettings();
+
       // fetch collateral options
       const collateralOptions = await fetchCollateralOptions();
 
@@ -37,7 +40,7 @@ export async function loadMintPage() {
       handleCollateralInput(collateralOptions);
 
       // handle slippage checks
-      handleSlippage();
+      handleSlippageInput();
 
       // link mint button
       linkMintButton();
@@ -143,7 +146,22 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
   forceCollateralOnly.addEventListener("change", debouncedInputHandler);
 }
 
-function handleSlippage() {
+export function toggleSlippageSettings() {
+  const toggleButton = document.getElementById("toggleSlippageSettings") as HTMLButtonElement;
+  const slippageSettings = document.getElementById("slippageSettings") as HTMLDivElement;
+
+  toggleButton.addEventListener("click", () => {
+    // Toggle the hidden class on the slippage settings container
+    slippageSettings.classList.toggle("hidden");
+
+    // Update button text based on visibility
+    toggleButton.textContent = slippageSettings.classList.contains("hidden")
+      ? "Show Slippage Settings"
+      : "Hide Slippage Settings";
+  });
+}
+
+function handleSlippageInput() {
   const dollarOutMinInput = document.getElementById("dollarOutMin") as HTMLInputElement;
   const maxCollateralInInput = document.getElementById("maxCollateralIn") as HTMLInputElement;
   const maxGovernanceInInput = document.getElementById("maxGovernanceIn") as HTMLInputElement;
