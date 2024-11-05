@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { diamondContract } from "./main";
+import { diamondContract } from "../main";
 
 export interface CollateralOption {
     index: number;
