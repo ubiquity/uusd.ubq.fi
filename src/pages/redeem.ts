@@ -53,26 +53,24 @@ async function calculateRedeemOutput(
   const collateralRatio = await diamondContract.collateralRatio();
   const governancePrice = await diamondContract.getGovernancePriceUsd();
   const poolPricePrecision = ethers.BigNumber.from("1000000");
+  const redemptionFee = ethers.utils.parseUnits(selectedCollateral.mintingFee.toString(), 6);
+  const dollarAfterFee = dollarAmount.mul(poolPricePrecision.sub(redemptionFee)).div(poolPricePrecision);
+  const redemptionFeeInDollar = dollarAmount.sub(dollarAfterFee);
 
   let collateralRedeemed: ethers.BigNumber;
   let governanceRedeemed: ethers.BigNumber;
 
   if (collateralRatio.gte(poolPricePrecision)) {
-    collateralRedeemed = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAmount);
+    collateralRedeemed = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAfterFee);
     governanceRedeemed = ethers.BigNumber.from(0);
   } else if (collateralRatio.isZero()) {
     collateralRedeemed = ethers.BigNumber.from(0);
-    governanceRedeemed = dollarAmount.mul(poolPricePrecision).div(governancePrice);
+    governanceRedeemed = dollarAfterFee.mul(poolPricePrecision).div(governancePrice);
   } else {
-    const dollarForCollateral = dollarAmount.mul(collateralRatio).div(poolPricePrecision);
-    const dollarForGovernance = dollarAmount.sub(dollarForCollateral);
-
-    collateralRedeemed = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarForCollateral);
-    governanceRedeemed = dollarForGovernance.mul(poolPricePrecision).div(governancePrice);
+    const collateralOut = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAfterFee)
+    collateralRedeemed = collateralOut.mul(collateralRatio).div(poolPricePrecision);
+    governanceRedeemed = dollarAfterFee.mul(poolPricePrecision.sub(collateralRatio)).div(governancePrice);
   }
-
-  const redemptionFee = ethers.utils.parseUnits(selectedCollateral.mintingFee.toString(), 6);
-  const redemptionFeeInDollar = dollarAmount.mul(redemptionFee).div(poolPricePrecision);
 
   return { collateralRedeemed, governanceRedeemed, redemptionFeeInDollar };
 }
@@ -157,7 +155,7 @@ function displayRedeemOutput(
     governanceRedeemedElement.textContent = `${formattedGovernanceRedeemed} UBQ`;
   }
   if (redemptionFeeElement) {
-    redemptionFeeElement.textContent = `${selectedCollateral.mintingFee}% (${formattedRedemptionFeeInDollar} UUSD)`;
+    redemptionFeeElement.textContent = `${selectedCollateral.redemptionFee * 100}% (${formattedRedemptionFeeInDollar} UUSD)`;
   }
 }
 

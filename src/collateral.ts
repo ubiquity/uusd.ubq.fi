@@ -6,6 +6,7 @@ export interface CollateralOption {
     name: string;
     address: string;
     mintingFee: number;
+    redemptionFee: number;
     missingDecimals: number;
 }
 
@@ -20,6 +21,7 @@ export async function fetchCollateralOptions(): Promise<CollateralOption[]> {
             name: info.symbol,
             address: address,
             mintingFee: parseFloat(ethers.utils.formatUnits(info.mintingFee, 6)), // 1e6 precision
+            redemptionFee: parseFloat(ethers.utils.formatUnits(info.redemptionFee, 6)), // 1e6 precision
             missingDecimals: info.missingDecimals.toNumber(),
             isEnabled: info.isEnabled,
             isMintPaused: info.isMintPaused,
