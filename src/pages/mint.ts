@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import { diamondContract } from "../main";
 import { debounce } from "../utils";
+import { dollarSpotPrice, governanceSpotPrice } from "../main";
 
 interface CollateralOption {
   index: number;

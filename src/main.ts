@@ -50,15 +50,15 @@ async function waitForConnection() {
 // global dollar and governance prices
 export let dollarSpotPrice: string | null = null;
 export let dollarTwapPrice: string | null = null;
-export let governancePrice: string | null = null;
+export let governanceSpotPrice: string | null = null;
 
 async function updatePrices() {
   try {
     const dollarSpotPriceRaw = await diamondContract.getDollarPriceUsd();
-    const governancePriceRaw = await diamondContract.getGovernancePriceUsd();
+    const governanceSpotPriceRaw = await diamondContract.getGovernancePriceUsd();
 
     dollarSpotPrice = ethers.utils.formatUnits(dollarSpotPriceRaw, 6);
-    governancePrice = ethers.utils.formatUnits(governancePriceRaw, 6);
+    governanceSpotPrice = ethers.utils.formatUnits(governanceSpotPriceRaw, 6);
 
   } catch (error) {
     console.error("Error getting prices:", error);

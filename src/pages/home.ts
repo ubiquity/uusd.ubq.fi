@@ -1,4 +1,4 @@
-import { dollarSpotPrice, governancePrice } from "../main";
+import { dollarSpotPrice, governanceSpotPrice } from "../main";
 
 export async function loadHomePage() {
   const contentArea = document.getElementById("content-area");
@@ -11,15 +11,15 @@ export async function loadHomePage() {
       contentArea.innerHTML = html;
 
       // write dollar spot price to page
-      const spotPriceElement = contentArea.querySelector("#DollarPrice p:first-of-type");
-      if (spotPriceElement) {
-        spotPriceElement.textContent = `$ ${dollarSpotPrice} (SPOT)`;
+      const dollarSpotPriceElement = contentArea.querySelector("#DollarPrice p:first-of-type");
+      if (dollarSpotPriceElement) {
+        dollarSpotPriceElement.textContent = `$ ${dollarSpotPrice} (SPOT)`;
       }
 
       // write governance spot price to page
-      const governancePriceElement = contentArea.querySelector("#DollarPrice p:nth-of-type(2)");
-      if (governancePriceElement) {
-        governancePriceElement.textContent = `$ ${governancePrice} (SPOT)`;
+      const governanceSpotPriceElement = contentArea.querySelector("#DollarPrice p:nth-of-type(2)");
+      if (governanceSpotPriceElement) {
+        governanceSpotPriceElement.textContent = `$ ${governanceSpotPrice} (SPOT)`;
       }
 
       // // write TWAP price to page
