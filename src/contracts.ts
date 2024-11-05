@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 export const ubiquityDiamond = "0xED3084c98148e2528DaDCB53C56352e549C488fA";
 export const dollarAddress = "0xb6919ef2ee4afc163bc954c5678e2bb570c2d103";
 export const governanceAddress = "0xb6919ef2ee4afc163bc954c5678e2bb570c2d103";
+export const twapOracleAddress = "0x7944d5b8f9668AfB1e648a61e54DEa8DE734c1d1";
 
 const dollarAbi = [
   { inputs: [], stateMutability: "nonpayable", type: "constructor" },
@@ -707,10 +708,49 @@ const poolFacetAbi = [
   },
 ];
 
+const twapOracleAbi = [
+  {
+    inputs: [
+      { internalType: "address", name: "_pool", type: "address" },
+      { internalType: "address", name: "_uADtoken0", type: "address" },
+      { internalType: "address", name: "_curve3CRVtoken1", type: "address" },
+    ],
+    stateMutability: "nonpayable",
+    type: "constructor",
+  },
+  {
+    inputs: [{ internalType: "address", name: "token", type: "address" }],
+    name: "consult",
+    outputs: [{ internalType: "uint256", name: "amountOut", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  { inputs: [], name: "pool", outputs: [{ internalType: "address", name: "", type: "address" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "price0Average", outputs: [{ internalType: "uint256", name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "price1Average", outputs: [{ internalType: "uint256", name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "priceCumulativeLast",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "pricesBlockTimestampLast",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  { inputs: [], name: "token0", outputs: [{ internalType: "address", name: "", type: "address" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "token1", outputs: [{ internalType: "address", name: "", type: "address" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "update", outputs: [], stateMutability: "nonpayable", type: "function" },
+];
+
 export const setupContracts = (providerOrSigner: ethers.Signer | ethers.providers.Provider | undefined) => {
   const dollarContract = new ethers.Contract(dollarAddress, dollarAbi, providerOrSigner);
   const governanceContract = new ethers.Contract(governanceAddress, governanceAbi, providerOrSigner);
   const diamondContract = new ethers.Contract(ubiquityDiamond, poolFacetAbi, providerOrSigner);
-
-  return { dollarContract, governanceContract, diamondContract };
+  const twapOracleContract = new ethers.Contract(twapOracleAddress, twapOracleAbi, providerOrSigner);
+  return { dollarContract, governanceContract, diamondContract, twapOracleContract };
 };

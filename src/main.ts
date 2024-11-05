@@ -19,7 +19,7 @@ export const provider = new ethers.providers.JsonRpcProvider("https://eth.llamar
 export const userSigner = provider.getSigner();
 
 // setup contract instances
-export const { dollarContract, governanceContract, diamondContract } = setupContracts(provider);
+export const { dollarContract, governanceContract, diamondContract, twapOracleContract } = setupContracts(provider);
 
 export const appState = createAppKit({
   adapters: [new Ethers5Adapter()],

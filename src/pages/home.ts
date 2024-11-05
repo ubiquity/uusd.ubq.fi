@@ -15,12 +15,23 @@ export async function loadHomePage() {
       const spotPriceRaw = await diamondContract.getDollarPriceUsd();
       const spotPrice = ethers.utils.formatUnits(spotPriceRaw, 6);
 
-      // write price to page
+      // write SPOT price to page
       const spotPriceElement = contentArea.querySelector("#DollarPrice p:first-of-type");
-
       if (spotPriceElement) {
         spotPriceElement.textContent = `$ ${spotPrice} (SPOT)`;
       }
+
+      // twap is dead for now
+
+      // // retrieve the TWAP price
+      // const twapPriceRaw = await twapOracleContract.consult(dollarAddress);
+      // const twapPrice = ethers.utils.formatUnits(twapPriceRaw, 6); // Adjust decimal places if needed
+
+      // // write TWAP price to page
+      // const twapPriceElement = contentArea.querySelector("#DollarPrice p:nth-of-type(2)");
+      // if (twapPriceElement) {
+      //   twapPriceElement.textContent = `$ ${twapPrice} (TWAP)`;
+      // }
     } catch (error) {
       console.error("Error on home page:", error);
     }
