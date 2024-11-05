@@ -2,6 +2,7 @@ import { createAppKit } from "@reown/appkit";
 import { Ethers5Adapter } from "@reown/appkit-adapter-ethers5";
 import { mainnet, sepolia } from "@reown/appkit/networks";
 import { ethers } from "ethers";
+import "./router";
 
 const projectId = "415760038f8e330de4868120be3205b8";
 
