@@ -182,19 +182,31 @@ function displayMintOutput(
   const totalDollarMinted = document.getElementById("totalDollarMinted");
   const collateralNeededElement = document.getElementById("collateralNeeded");
   const governanceNeededElement = document.getElementById("governanceNeeded");
+  const mintingFeeElement = document.getElementById("mintingFee");
+
+  const formattedTotalDollarMint = parseFloat(ethers.utils.formatUnits(output.totalDollarMint, 18)).toFixed(2);
+  const formattedCollateralNeeded = parseFloat(
+    ethers.utils.formatUnits(output.collateralNeeded, 18 - selectedCollateral.missingDecimals)
+  ).toFixed(2);
+  const formattedGovernanceNeeded = parseFloat(ethers.utils.formatUnits(output.governanceNeeded, 18)).toFixed(2);
+
+  // Calculate the dollar value of the minting fee
+  const mintingFeeDollarValue = output.totalDollarMint
+    .mul(selectedCollateral.mintingFee.toString()) // this is 1e6 so we divide by 1e6 below
+    .div(ethers.BigNumber.from("1000000"));
+
+  const formattedMintingFeeDollarValue = parseFloat(ethers.utils.formatUnits(mintingFeeDollarValue, 18)).toFixed(2);
 
   if (totalDollarMinted) {
-    totalDollarMinted.textContent = ethers.utils.formatUnits(output.totalDollarMint, 18);
+    totalDollarMinted.textContent = `${formattedTotalDollarMint} UUSD`;
   }
   if (collateralNeededElement) {
-    collateralNeededElement.textContent = ethers.utils.formatUnits(output.collateralNeeded, 18 - selectedCollateral.missingDecimals);
+    collateralNeededElement.textContent = `${formattedCollateralNeeded} ${selectedCollateral.name}`;
   }
   if (governanceNeededElement) {
-    governanceNeededElement.textContent = ethers.utils.formatUnits(output.governanceNeeded, 18);
+    governanceNeededElement.textContent = `${formattedGovernanceNeeded} UBQ`;
   }
-
-  const mintingFeeElement = document.getElementById("mintingFee");
   if (mintingFeeElement) {
-    mintingFeeElement.textContent = `${selectedCollateral.mintingFee}%`;
+    mintingFeeElement.textContent = `${selectedCollateral.mintingFee}% (${formattedMintingFeeDollarValue} ${selectedCollateral.name})`;
   }
 }
