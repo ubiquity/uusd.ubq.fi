@@ -1,5 +1,4 @@
 import { ethers } from "ethers";
-import { provider } from "./main";
 
 export const ubiquityDiamond = "0xED3084c98148e2528DaDCB53C56352e549C488fA";
 export const dollarAddress = "0xb6919ef2ee4afc163bc954c5678e2bb570c2d103";
@@ -708,6 +707,10 @@ const poolFacetAbi = [
   },
 ];
 
-export const dollarContract = new ethers.Contract(dollarAddress, dollarAbi, provider);
-export const governanceContract = new ethers.Contract(governanceAddress, governanceAbi, provider);
-export const diamondContract = new ethers.Contract(ubiquityDiamond, poolFacetAbi, provider);
+export const setupContracts = (providerOrSigner: ethers.Signer | ethers.providers.Provider | undefined) => {
+  const dollarContract = new ethers.Contract(dollarAddress, dollarAbi, providerOrSigner);
+  const governanceContract = new ethers.Contract(governanceAddress, governanceAbi, providerOrSigner);
+  const diamondContract = new ethers.Contract(ubiquityDiamond, poolFacetAbi, providerOrSigner);
+
+  return { dollarContract, governanceContract, diamondContract };
+};

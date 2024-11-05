@@ -3,6 +3,7 @@ import { Ethers5Adapter } from "@reown/appkit-adapter-ethers5";
 import { mainnet } from "@reown/appkit/networks";
 import { ethers } from "ethers";
 import "./router";
+import { setupContracts } from "./contracts";
 
 const projectId = "415760038f8e330de4868120be3205b8";
 
@@ -16,6 +17,9 @@ const metadata = {
 // create provider & signer for Ethereum mainnet
 export const provider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
 export const userSigner = provider.getSigner();
+
+// setup contract instances
+export const { dollarContract, governanceContract, diamondContract } = setupContracts(provider);
 
 export const appState = createAppKit({
   adapters: [new Ethers5Adapter()],
