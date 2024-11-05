@@ -2,7 +2,7 @@
   "name": "ts-template",
   "version": "1.0.0",
   "description": "Template repository with TypeScript support.",
-  "main": "build/index.ts",
+  "main": "src/main.ts",
   "author": "Ubiquity DAO",
   "license": "MIT",
   "engines": {
