@@ -7,7 +7,6 @@ interface CollateralOption {
   name: string;
   address: string;
   mintingFee: number;
-  redemptionFee: number;
   missingDecimals: number;
 }
 
@@ -55,7 +54,6 @@ async function fetchCollateralOptions(): Promise<CollateralOption[]> {
           name: info.symbol,
           address: address,
           mintingFee: parseFloat(ethers.utils.formatUnits(info.mintingFee, 18)),
-          redemptionFee: parseFloat(ethers.utils.formatUnits(info.redemptionFee, 18)),
           missingDecimals: info.missingDecimals.toNumber(),
           isEnabled: info.isEnabled,
           isMintPaused: info.isMintPaused,
@@ -171,11 +169,7 @@ function displayMintOutput(
   }
 
   const mintingFeeElement = document.getElementById("mintingFee");
-  const redemptionFeeElement = document.getElementById("otherFees");
   if (mintingFeeElement) {
     mintingFeeElement.textContent = `${selectedCollateral.mintingFee}%`;
-  }
-  if (redemptionFeeElement) {
-    redemptionFeeElement.textContent = `${selectedCollateral.redemptionFee}%`;
   }
 }
