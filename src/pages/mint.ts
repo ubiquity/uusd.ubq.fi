@@ -1,7 +1,6 @@
 import { ethers } from "ethers";
-import { diamondContract } from "../main";
+import { diamondContract, dollarSpotPrice, governanceSpotPrice } from "../main";
 import { debounce } from "../utils";
-import { dollarSpotPrice, governanceSpotPrice } from "../main";
 
 interface CollateralOption {
   index: number;
@@ -15,6 +14,7 @@ let currentOutput: {
   totalDollarMint: ethers.BigNumber;
   collateralNeeded: ethers.BigNumber;
   governanceNeeded: ethers.BigNumber;
+  mintingFeeInDollar: ethers.BigNumber;
 } | null = null;
 
 export async function loadMintPage() {
@@ -54,7 +54,7 @@ async function fetchCollateralOptions(): Promise<CollateralOption[]> {
           index: info.index.toNumber(),
           name: info.symbol,
           address: address,
-          mintingFee: parseFloat(ethers.utils.formatUnits(info.mintingFee, 18)),
+          mintingFee: parseFloat(ethers.utils.formatUnits(info.mintingFee, 6)), // 1e6 precision
           missingDecimals: info.missingDecimals.toNumber(),
           isEnabled: info.isEnabled,
           isMintPaused: info.isMintPaused,
@@ -76,75 +76,67 @@ function populateCollateralDropdown(collateralOptions: CollateralOption[]) {
 
 async function calculateMintOutput(
   selectedCollateral: CollateralOption,
-  collateralAmount: ethers.BigNumber,
+  dollarAmount: ethers.BigNumber,
   forceCollateralOnlyChecked: boolean
 ): Promise<{
   totalDollarMint: ethers.BigNumber;
   collateralNeeded: ethers.BigNumber;
   governanceNeeded: ethers.BigNumber;
+  mintingFeeInDollar: ethers.BigNumber;
 }> {
   const collateralRatio = await diamondContract.collateralRatio();
   const governancePrice = await diamondContract.getGovernancePriceUsd();
-  const poolPricePrecision = ethers.BigNumber.from("1000000"); // Assuming 1e6 as the precision
-
-  const dollarAmount = collateralAmount.mul(poolPricePrecision).div(collateralRatio);
+  const poolPricePrecision = ethers.BigNumber.from("1000000");
 
   let collateralNeeded: ethers.BigNumber;
   let governanceNeeded: ethers.BigNumber;
 
-  // Collateral-only minting mode or 100%+ collateral ratio  
   if (forceCollateralOnlyChecked || collateralRatio.gte(poolPricePrecision)) {
-    collateralNeeded = await diamondContract.getDollarInCollateral(
-      selectedCollateral.index,
-      dollarAmount
-    );
+    collateralNeeded = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAmount);
     governanceNeeded = ethers.BigNumber.from(0);
-
-  } else if (collateralRatio.eq(ethers.BigNumber.from(0))) {
-    // Fully algorithmic mode (0% collateral ratio), only Governance tokens required
+  } else if (collateralRatio.isZero()) {
     collateralNeeded = ethers.BigNumber.from(0);
     governanceNeeded = dollarAmount.mul(poolPricePrecision).div(governancePrice);
-
   } else {
-    // Fractional collateral ratio (0 < collateralRatio < 100%)
     const dollarForCollateral = dollarAmount.mul(collateralRatio).div(poolPricePrecision);
     const dollarForGovernance = dollarAmount.sub(dollarForCollateral);
 
-    collateralNeeded = await diamondContract.getDollarInCollateral(
-      selectedCollateral.index,
-      dollarForCollateral
-    );
+    collateralNeeded = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarForCollateral);
     governanceNeeded = dollarForGovernance.mul(poolPricePrecision).div(governancePrice);
   }
 
-  const mintingFee = ethers.utils.parseUnits(selectedCollateral.mintingFee.toString(), 18);
-  const totalDollarMint = dollarAmount
-    .mul(poolPricePrecision.sub(mintingFee))
-    .div(poolPricePrecision);
+  const mintingFee = ethers.utils.parseUnits(selectedCollateral.mintingFee.toString(), 6);
+  // Calculate the dollar value of the minting fee
+  const mintingFeeInDollar = await diamondContract.getDollarInCollateral(
+    selectedCollateral.index,
+    dollarAmount.mul(mintingFee).div(poolPricePrecision)
+  );
 
-  return { totalDollarMint, collateralNeeded, governanceNeeded };
+  const totalDollarMint = dollarAmount.mul(poolPricePrecision.sub(mintingFee)).div(poolPricePrecision);
+
+  return { totalDollarMint, collateralNeeded, governanceNeeded, mintingFeeInDollar };
 }
 
 function handleCollateralInput(collateralOptions: CollateralOption[]) {
   const collateralSelect = document.getElementById("collateralSelect") as HTMLSelectElement;
-  const collateralAmountInput = document.getElementById("collateralAmount") as HTMLInputElement;
+  const dollarAmountInput = document.getElementById("dollarAmount") as HTMLInputElement;
   const forceCollateralOnly = document.getElementById("forceCollateralOnly") as HTMLInputElement;
 
   const debouncedInputHandler = debounce(async () => {
     const selectedCollateralIndex = collateralSelect.value;
-    const collateralAmountRaw = collateralAmountInput.value;
-    const collateralAmount = ethers.utils.parseUnits(collateralAmountRaw || "0", 18);
+    const dollarAmountRaw = dollarAmountInput.value;
+    const dollarAmount = ethers.utils.parseUnits(dollarAmountRaw || "0", 18);
     const forceCollateralOnlyChecked = forceCollateralOnly.checked;
 
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
 
     if (selectedCollateral) {
-      currentOutput = await calculateMintOutput(selectedCollateral, collateralAmount, forceCollateralOnlyChecked);
+      currentOutput = await calculateMintOutput(selectedCollateral, dollarAmount, forceCollateralOnlyChecked);
       displayMintOutput(currentOutput, selectedCollateral);
     }
   }, 300); // 300ms debounce
 
-  collateralAmountInput.addEventListener("input", debouncedInputHandler);
+  dollarAmountInput.addEventListener("input", debouncedInputHandler);
   forceCollateralOnly.addEventListener("change", debouncedInputHandler);
 }
 
@@ -177,7 +169,12 @@ function handleSlippage() {
 }
 
 function displayMintOutput(
-  output: { totalDollarMint: ethers.BigNumber; collateralNeeded: ethers.BigNumber; governanceNeeded: ethers.BigNumber },
+  output: {
+    totalDollarMint: ethers.BigNumber;
+    collateralNeeded: ethers.BigNumber;
+    governanceNeeded: ethers.BigNumber;
+    mintingFeeInDollar: ethers.BigNumber;
+  },
   selectedCollateral: CollateralOption
 ) {
   const totalDollarMinted = document.getElementById("totalDollarMinted");
@@ -190,20 +187,16 @@ function displayMintOutput(
     ethers.utils.formatUnits(output.collateralNeeded, 18 - selectedCollateral.missingDecimals)
   ).toFixed(2);
   const formattedGovernanceNeeded = parseFloat(ethers.utils.formatUnits(output.governanceNeeded, 18)).toFixed(2);
+  const formattedmintingFeeInDollar = parseFloat(
+    ethers.utils.formatUnits(output.mintingFeeInDollar, 18 - selectedCollateral.missingDecimals)
+  ).toFixed(2);
 
   // Calculate the dollar value of totalDollarMint and governanceNeeded using spot prices
-  const totalDollarMintValue = output.totalDollarMint.mul(ethers.utils.parseUnits(dollarSpotPrice as string, 6)).div(ethers.BigNumber.from("1000000"));
+  const totalDollarMintValue = output.totalDollarMint.mul(ethers.utils.parseUnits(dollarSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
   const formattedTotalDollarMintValue = parseFloat(ethers.utils.formatUnits(totalDollarMintValue, 18)).toFixed(2);
 
-  const governanceNeededValue = output.governanceNeeded.mul(ethers.utils.parseUnits(governanceSpotPrice as string, 6)).div(ethers.BigNumber.from("1000000"));
+  const governanceNeededValue = output.governanceNeeded.mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
   const formattedGovernanceNeededValue = parseFloat(ethers.utils.formatUnits(governanceNeededValue, 18)).toFixed(2);
-
-  // Calculate the dollar value of the minting fee
-  const mintingFeeDollarValue = output.totalDollarMint
-    .mul(selectedCollateral.mintingFee.toString()) // this is 1e6 so we divide by 1e6 below
-    .div(ethers.BigNumber.from("1000000"));
-
-  const formattedMintingFeeDollarValue = parseFloat(ethers.utils.formatUnits(mintingFeeDollarValue, 18)).toFixed(2);
 
   if (totalDollarMinted) {
     totalDollarMinted.textContent = `${formattedTotalDollarMint} UUSD ($${formattedTotalDollarMintValue})`;
@@ -215,6 +208,6 @@ function displayMintOutput(
     governanceNeededElement.textContent = `${formattedGovernanceNeeded} UBQ ($${formattedGovernanceNeededValue})`;
   }
   if (mintingFeeElement) {
-    mintingFeeElement.textContent = `${selectedCollateral.mintingFee}% (${formattedMintingFeeDollarValue} ${selectedCollateral.name})`;
+    mintingFeeElement.textContent = `${selectedCollateral.mintingFee}% (${formattedmintingFeeInDollar} UUSD)`;
   }
 }
