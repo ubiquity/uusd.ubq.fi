@@ -132,16 +132,21 @@ function displayRedeemOutput(
   const formattedCollateralRedeemed = parseFloat(
     ethers.utils.formatUnits(output.collateralRedeemed, 18 - selectedCollateral.missingDecimals)
   ).toFixed(2);
+
   const formattedGovernanceRedeemed = parseFloat(ethers.utils.formatUnits(output.governanceRedeemed, 18)).toFixed(2);
   const formattedRedemptionFeeInDollar = parseFloat(
     ethers.utils.formatUnits(output.redemptionFeeInDollar, 18)
   ).toFixed(2);
 
+  // Calculate dollar value of governance redeemed
+  const governanceDollarValue = output.governanceRedeemed.mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
+  const formattedGovernanceDollarValue = parseFloat(ethers.utils.formatUnits(governanceDollarValue, 18)).toFixed(2);
+
   if (collateralRedeemedElement) {
     collateralRedeemedElement.textContent = `${formattedCollateralRedeemed} ${selectedCollateral.name}`;
   }
   if (governanceRedeemedElement) {
-    governanceRedeemedElement.textContent = `${formattedGovernanceRedeemed} UBQ`;
+    governanceRedeemedElement.textContent = `${formattedGovernanceRedeemed} UBQ ($${formattedGovernanceDollarValue})`;
   }
   if (redemptionFeeElement) {
     redemptionFeeElement.textContent = `${selectedCollateral.redemptionFee * 100}% (${formattedRedemptionFeeInDollar} UUSD)`;
