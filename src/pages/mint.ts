@@ -1,6 +1,11 @@
 export function loadMintPage() {
   const contentArea = document.getElementById("content-area");
   if (contentArea) {
-    contentArea.innerHTML = `<h1>Mint Page</h1>`;
+    fetch("mint.html")
+      .then((response) => response.text())
+      .then((html) => {
+        contentArea.innerHTML = html;
+      })
+      .catch((error) => console.error("Error loading mint page:", error));
   }
 }

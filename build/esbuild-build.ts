@@ -4,7 +4,7 @@ import esbuild from "esbuild";
 config();
 
 const typescriptEntries = ["src/main.ts"];
-const cssEntries = ["static/style.css"];
+const cssEntries = ["static/style.css", "static/pages.css"];
 const entries = [...typescriptEntries, ...cssEntries];
 
 export const esBuildContext: esbuild.BuildOptions = {

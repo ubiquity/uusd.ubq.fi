@@ -1,6 +1,11 @@
 export function loadRedeemPage() {
   const contentArea = document.getElementById("content-area");
   if (contentArea) {
-    contentArea.innerHTML = `<h1>Redeem Page</h1>`;
+    fetch("redeem.html")
+      .then((response) => response.text())
+      .then((html) => {
+        contentArea.innerHTML = html;
+      })
+      .catch((error) => console.error("Error loading redeem page:", error));
   }
 }

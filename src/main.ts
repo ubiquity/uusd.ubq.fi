@@ -49,8 +49,6 @@ export async function mainModule() {
 
     console.log("Waiting for user connection...");
     await waitForConnection();
-
-    console.log("User connected:", appState.getAddress());
   } catch (error) {
     console.error("Error in main:", error);
   }
