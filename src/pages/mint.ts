@@ -75,7 +75,8 @@ function populateCollateralDropdown(collateralOptions: CollateralOption[]) {
 
 async function calculateMintOutput(
   selectedCollateral: CollateralOption,
-  collateralAmount: ethers.BigNumber
+  collateralAmount: ethers.BigNumber,
+  forceCollateralOnlyChecked: boolean
 ): Promise<{
   totalDollarMint: ethers.BigNumber;
   collateralNeeded: ethers.BigNumber;
@@ -83,21 +84,42 @@ async function calculateMintOutput(
 }> {
   const collateralRatio = await diamondContract.collateralRatio();
   const governancePrice = await diamondContract.getGovernancePriceUsd();
-  const poolPricePrecision = ethers.BigNumber.from("1000000"); // 1e6 constant
+  const poolPricePrecision = ethers.BigNumber.from("1000000"); // Assuming 1e6 as the precision
 
   const dollarAmount = collateralAmount.mul(poolPricePrecision).div(collateralRatio);
 
-  const dollarForCollateral = dollarAmount.mul(collateralRatio).div(poolPricePrecision);
-  const dollarForGovernance = dollarAmount.sub(dollarForCollateral);
+  let collateralNeeded: ethers.BigNumber;
+  let governanceNeeded: ethers.BigNumber;
 
-  const collateralNeededRaw = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarForCollateral);
+  // Collateral-only minting mode or 100%+ collateral ratio  
+  if (forceCollateralOnlyChecked || collateralRatio.gte(poolPricePrecision)) {
+    collateralNeeded = await diamondContract.getDollarInCollateral(
+      selectedCollateral.index,
+      dollarAmount
+    );
+    governanceNeeded = ethers.BigNumber.from(0);
 
-  const collateralNeeded = collateralNeededRaw.div(ethers.BigNumber.from(10).pow(selectedCollateral.missingDecimals));
+  } else if (collateralRatio.eq(ethers.BigNumber.from(0))) {
+    // Fully algorithmic mode (0% collateral ratio), only Governance tokens required
+    collateralNeeded = ethers.BigNumber.from(0);
+    governanceNeeded = dollarAmount.mul(poolPricePrecision).div(governancePrice);
 
-  const governanceNeeded = dollarForGovernance.mul(poolPricePrecision).div(governancePrice);
+  } else {
+    // Fractional collateral ratio (0 < collateralRatio < 100%)
+    const dollarForCollateral = dollarAmount.mul(collateralRatio).div(poolPricePrecision);
+    const dollarForGovernance = dollarAmount.sub(dollarForCollateral);
+
+    collateralNeeded = await diamondContract.getDollarInCollateral(
+      selectedCollateral.index,
+      dollarForCollateral
+    );
+    governanceNeeded = dollarForGovernance.mul(poolPricePrecision).div(governancePrice);
+  }
 
   const mintingFee = ethers.utils.parseUnits(selectedCollateral.mintingFee.toString(), 18);
-  const totalDollarMint = dollarAmount.mul(poolPricePrecision.sub(mintingFee)).div(poolPricePrecision);
+  const totalDollarMint = dollarAmount
+    .mul(poolPricePrecision.sub(mintingFee))
+    .div(poolPricePrecision);
 
   return { totalDollarMint, collateralNeeded, governanceNeeded };
 }
@@ -105,21 +127,24 @@ async function calculateMintOutput(
 function handleCollateralInput(collateralOptions: CollateralOption[]) {
   const collateralSelect = document.getElementById("collateralSelect") as HTMLSelectElement;
   const collateralAmountInput = document.getElementById("collateralAmount") as HTMLInputElement;
+  const forceCollateralOnly = document.getElementById("forceCollateralOnly") as HTMLInputElement;
 
   const debouncedInputHandler = debounce(async () => {
     const selectedCollateralIndex = collateralSelect.value;
     const collateralAmountRaw = collateralAmountInput.value;
     const collateralAmount = ethers.utils.parseUnits(collateralAmountRaw || "0", 18);
+    const forceCollateralOnlyChecked = forceCollateralOnly.checked;
 
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
 
     if (selectedCollateral) {
-      currentOutput = await calculateMintOutput(selectedCollateral, collateralAmount);
+      currentOutput = await calculateMintOutput(selectedCollateral, collateralAmount, forceCollateralOnlyChecked);
       displayMintOutput(currentOutput, selectedCollateral);
     }
   }, 300); // 300ms debounce
 
   collateralAmountInput.addEventListener("input", debouncedInputHandler);
+  forceCollateralOnly.addEventListener("change", debouncedInputHandler);
 }
 
 function handleSlippage() {
