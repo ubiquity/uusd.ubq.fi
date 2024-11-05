@@ -3,7 +3,7 @@ import { loadMintPage } from "./pages/mint";
 import { loadRedeemPage } from "./pages/redeem";
 
 // URL Path based routing
-function handleRouting() {
+export function handleRouting() {
   const contentArea = document.getElementById("content-area");
 
   if (!contentArea) return;
@@ -27,8 +27,7 @@ function handleRouting() {
   }
 }
 
-// Run handleRouting on hashchange and DOMContentLoaded
+// Run handleRouting on hashchange
 window.addEventListener("hashchange", handleRouting);
-document.addEventListener("DOMContentLoaded", handleRouting);
 
 export {};

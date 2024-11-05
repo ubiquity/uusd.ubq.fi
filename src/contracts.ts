@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 
 export const ubiquityDiamond = "0xED3084c98148e2528DaDCB53C56352e549C488fA";
 export const dollarAddress = "0xb6919ef2ee4afc163bc954c5678e2bb570c2d103";
-export const governanceAddress = "0xb6919ef2ee4afc163bc954c5678e2bb570c2d103";
+export const governanceAddress = "0x4e38d89362f7e5db0096ce44ebd021c3962aa9a0";
 export const twapOracleAddress = "0x7944d5b8f9668AfB1e648a61e54DEa8DE734c1d1";
 
 const dollarAbi = [

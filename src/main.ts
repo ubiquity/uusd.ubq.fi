@@ -4,6 +4,7 @@ import { mainnet } from "@reown/appkit/networks";
 import { ethers } from "ethers";
 import "./router";
 import { setupContracts } from "./contracts";
+import { handleRouting } from "./router";
 
 const projectId = "415760038f8e330de4868120be3205b8";
 
@@ -46,13 +47,35 @@ async function waitForConnection() {
   });
 }
 
+// global dollar and governance prices
+export let dollarSpotPrice: string | null = null;
+export let dollarTwapPrice: string | null = null;
+export let governancePrice: string | null = null;
+
+async function updatePrices() {
+  try {
+    const dollarSpotPriceRaw = await diamondContract.getDollarPriceUsd();
+    const governancePriceRaw = await diamondContract.getGovernancePriceUsd();
+
+    dollarSpotPrice = ethers.utils.formatUnits(dollarSpotPriceRaw, 6);
+    governancePrice = ethers.utils.formatUnits(governancePriceRaw, 6);
+
+  } catch (error) {
+    console.error("Error getting prices:", error);
+  }
+}
+
 export async function mainModule() {
   try {
     console.log("Provider:", provider);
     console.log("Signer:", userSigner);
 
     console.log("Waiting for user connection...");
-    await waitForConnection();
+    void waitForConnection();
+
+    await updatePrices();
+
+    handleRouting();
   } catch (error) {
     console.error("Error in main:", error);
   }

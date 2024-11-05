@@ -1,5 +1,4 @@
-import { ethers } from "ethers";
-import { diamondContract } from "../main";
+import { dollarSpotPrice, governancePrice } from "../main";
 
 export async function loadHomePage() {
   const contentArea = document.getElementById("content-area");
@@ -11,24 +10,20 @@ export async function loadHomePage() {
       const html = await response.text();
       contentArea.innerHTML = html;
 
-      // retrieve the SPOT price from Pool
-      const spotPriceRaw = await diamondContract.getDollarPriceUsd();
-      const spotPrice = ethers.utils.formatUnits(spotPriceRaw, 6);
-
-      // write SPOT price to page
+      // write dollar spot price to page
       const spotPriceElement = contentArea.querySelector("#DollarPrice p:first-of-type");
       if (spotPriceElement) {
-        spotPriceElement.textContent = `$ ${spotPrice} (SPOT)`;
+        spotPriceElement.textContent = `$ ${dollarSpotPrice} (SPOT)`;
       }
 
-      // twap is dead for now
-
-      // // retrieve the TWAP price
-      // const twapPriceRaw = await twapOracleContract.consult(dollarAddress);
-      // const twapPrice = ethers.utils.formatUnits(twapPriceRaw, 6); // Adjust decimal places if needed
+      // write governance spot price to page
+      const governancePriceElement = contentArea.querySelector("#DollarPrice p:nth-of-type(2)");
+      if (governancePriceElement) {
+        governancePriceElement.textContent = `$ ${governancePrice} (SPOT)`;
+      }
 
       // // write TWAP price to page
-      // const twapPriceElement = contentArea.querySelector("#DollarPrice p:nth-of-type(2)");
+      // const twapPriceElement = contentArea.querySelector("#DollarPrice p:nth-of-type(3)");
       // if (twapPriceElement) {
       //   twapPriceElement.textContent = `$ ${twapPrice} (TWAP)`;
       // }
