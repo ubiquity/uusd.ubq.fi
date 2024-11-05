@@ -80,6 +80,19 @@
     background-color: #004999;
 }
 
+#bottomBar button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+    color: #666666;
+}
+
+#bottomBar button:disabled:hover {
+    background-color: #bbbbbb;
+    cursor: not-allowed;
+    color: #666666;
+}
+
+
 #mintInput label {
     display: inline-block;
     margin: 10px 0 5px;

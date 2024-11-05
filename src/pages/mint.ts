@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { diamondContract, dollarSpotPrice, governanceSpotPrice } from "../main";
+import { appState, diamondContract, dollarSpotPrice, governanceSpotPrice, userSigner } from "../main";
 import { debounce } from "../utils";
 
 interface CollateralOption {
@@ -38,6 +38,9 @@ export async function loadMintPage() {
 
       // handle slippage checks
       handleSlippage();
+
+      // link mint button
+      linkMintButton();
     } catch (error) {
       console.error("Error loading mint page:", error);
     }
@@ -210,4 +213,55 @@ function displayMintOutput(
   if (mintingFeeElement) {
     mintingFeeElement.textContent = `${selectedCollateral.mintingFee}% (${formattedmintingFeeInDollar} UUSD)`;
   }
+}
+
+function linkMintButton() {
+  const mintButton = document.getElementById("mintButton") as HTMLButtonElement;
+  const collateralSelect = document.getElementById("collateralSelect") as HTMLSelectElement;
+  const dollarAmountInput = document.getElementById("dollarAmount") as HTMLInputElement;
+  const forceCollateralOnly = document.getElementById("forceCollateralOnly") as HTMLInputElement;
+
+  const updateButtonState = async () => {
+    const selectedCollateralIndex = collateralSelect.value;
+    const dollarAmountRaw = dollarAmountInput.value;
+    const dollarAmount = dollarAmountRaw ? ethers.utils.parseUnits(dollarAmountRaw, 18) : null;
+    
+    mintButton.disabled = !appState.getIsConnectedState() || !selectedCollateralIndex || !dollarAmount || dollarAmount.isZero();
+  };
+
+  // Attach event listeners to update the button state whenever inputs change
+  collateralSelect.addEventListener("change", updateButtonState);
+  dollarAmountInput.addEventListener("input", updateButtonState);
+  forceCollateralOnly.addEventListener("change", updateButtonState);
+
+  // Send transaction
+  mintButton.addEventListener("click", async () => {
+    const selectedCollateralIndex = collateralSelect.value;
+    const dollarAmountRaw = dollarAmountInput.value;
+    const dollarAmount = ethers.utils.parseUnits(dollarAmountRaw || "0", 18);
+    const dollarOutMin = ethers.BigNumber.from("0");
+    const maxCollateralIn = ethers.constants.MaxUint256;
+    const maxGovernanceIn = ethers.constants.MaxUint256;
+    const forceCollateralOnlyChecked = forceCollateralOnly.checked;
+
+    try {
+      const signerDiamondContract = diamondContract.connect(userSigner);
+
+      await signerDiamondContract.mintDollar(
+        parseInt(selectedCollateralIndex),
+        dollarAmount,
+        dollarOutMin,
+        maxCollateralIn,
+        maxGovernanceIn,
+        forceCollateralOnlyChecked
+      );
+
+      alert("Minting transaction sent successfully!");
+    } catch (error) {
+      console.error("Minting transaction failed:", error);
+    }
+  });
+
+  // Initialize the button state on page load
+  updateButtonState();
 }
