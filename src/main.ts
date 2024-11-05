@@ -17,7 +17,7 @@ const metadata = {
 
 // create provider & signer for Ethereum mainnet
 export const provider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
-export const userSigner = provider.getSigner();
+export let userSigner : ethers.Signer;
 
 // setup contract instances
 export const { dollarContract, governanceContract, diamondContract, twapOracleContract } = setupContracts(provider);
@@ -37,6 +37,7 @@ async function waitForConnection() {
   return new Promise<void>((resolve) => {
     const interval = setInterval(() => {
       if (appState.getIsConnectedState()) {
+        userSigner = provider.getSigner(appState.getAddress());
         console.log(`User connected: ${appState.getAddress()}`);
         clearInterval(interval);
         resolve();
@@ -68,7 +69,6 @@ async function updatePrices() {
 export async function mainModule() {
   try {
     console.log("Provider:", provider);
-    console.log("Signer:", userSigner);
 
     console.log("Waiting for user connection...");
     void waitForConnection();
