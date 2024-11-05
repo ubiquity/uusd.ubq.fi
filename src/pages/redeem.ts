@@ -178,6 +178,7 @@ function linkRedeemButton() {
 
     try {
       const signerDiamondContract = diamondContract.connect(userSigner);
+
       await signerDiamondContract.redeemDollar(
         parseInt(selectedCollateralIndex),
         dollarAmount,
@@ -185,11 +186,17 @@ function linkRedeemButton() {
         collateralOutMin
       );
 
-      alert("Redemption transaction sent successfully!");
+      // After redeemDollar succeeds, initiate the collection
+      await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
+      
+      alert("Redemption collected successfully!");
+
     } catch (error) {
-      console.error("Redemption transaction failed:", error);
+      console.error("Redemption transaction or collection failed:", error);
+      alert("Redemption transaction or collection failed. Please try again.");
     }
   });
 
+  // Initialize the button state on page load
   updateButtonState();
 }
