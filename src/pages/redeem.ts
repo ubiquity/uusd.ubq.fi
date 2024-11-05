@@ -54,7 +54,7 @@ async function calculateRedeemOutput(
   const collateralRatio = await diamondContract.collateralRatio();
   const governancePrice = await diamondContract.getGovernancePriceUsd();
   const poolPricePrecision = ethers.BigNumber.from("1000000");
-  const redemptionFee = ethers.utils.parseUnits(selectedCollateral.mintingFee.toString(), 6);
+  const redemptionFee = ethers.utils.parseUnits(selectedCollateral.redemptionFee.toString(), 6);
   const dollarAfterFee = dollarAmount.mul(poolPricePrecision.sub(redemptionFee)).div(poolPricePrecision);
   const redemptionFeeInDollar = dollarAmount.sub(dollarAfterFee);
 
