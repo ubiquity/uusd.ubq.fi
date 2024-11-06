@@ -29,7 +29,7 @@ export async function loadMintPage() {
       const collateralOptions = await fetchCollateralOptions();
 
       // add collateral options to dropdown
-      populateCollateralDropdown(collateralOptions);
+      await populateCollateralDropdown(collateralOptions);
 
       // handle collateral input
       handleCollateralInput(collateralOptions);
@@ -123,11 +123,11 @@ function handleSlippageInput() {
     const maxGovernanceIn = maxGovernanceInInput.value ? ethers.utils.parseUnits(maxGovernanceInInput.value, 18) : ethers.constants.MaxUint256;
 
     if (currentOutput.totalDollarMint.lt(dollarOutMin)) {
-      alert("Dollar slippage exceeded");
+      renderErrorInModal(new Error("Dollar slippage exceeded"));
     } else if (currentOutput.collateralNeeded.gt(maxCollateralIn)) {
-      alert("Collateral slippage exceeded");
+      renderErrorInModal(new Error("Collateral slippage exceeded"));
     } else if (currentOutput.governanceNeeded.gt(maxGovernanceIn)) {
-      alert("Governance slippage exceeded");
+      renderErrorInModal(new Error("Governance slippage exceeded"));
     }
   }, 1000); // 1s debounce
 
@@ -208,7 +208,14 @@ async function linkMintButton() {
     try {
       const signerDiamondContract = diamondContract.connect(userSigner);
 
-      console.log("Minting", parseInt(selectedCollateralIndex), dollarAmount, dollarOutMin, maxCollateralIn, maxGovernanceIn, isForceCollateralOnlyChecked);
+      console.log("Mint Input", {
+        selectedCollateralIndex: parseInt(selectedCollateralIndex),
+        dollarAmount: dollarAmount.toString(),
+        dollarOutMin: dollarOutMin.toString(),
+        maxCollateralIn: maxCollateralIn.toString(),
+        maxGovernanceIn: maxGovernanceIn.toString(),
+        isForceCollateralOnlyChecked,
+      });
 
       await signerDiamondContract.mintDollar(
         parseInt(selectedCollateralIndex),

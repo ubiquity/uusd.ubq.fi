@@ -28,7 +28,7 @@ export async function loadRedeemPage() {
       const collateralOptions = await fetchCollateralOptions();
 
       // add collateral options to dropdown
-      populateCollateralDropdown(collateralOptions);
+      await populateCollateralDropdown(collateralOptions);
 
       // handle collateral input
       handleCollateralInput(collateralOptions);
@@ -108,9 +108,9 @@ function handleSlippageInput() {
     const governanceOutMin = governanceOutMinInput.value ? ethers.utils.parseUnits(governanceOutMinInput.value, 18) : ethers.BigNumber.from("0");
 
     if (currentOutput.collateralRedeemed.lt(collateralOutMin)) {
-      alert("Collateral slippage exceeded");
+      renderErrorInModal(new Error("Collateral slippage exceeded"));
     } else if (currentOutput.governanceRedeemed.lt(governanceOutMin)) {
-      alert("Governance slippage exceeded");
+      renderErrorInModal(new Error("Governance slippage exceeded"));
     }
   }, 1000); // 1s debounce
 
@@ -175,6 +175,13 @@ async function linkRedeemButton() {
 
     try {
       const signerDiamondContract = diamondContract.connect(userSigner);
+
+      console.log("Redeem Input", {
+        selectedCollateralIndex: parseInt(selectedCollateralIndex),
+        dollarAmount: dollarAmount.toString(),
+        governanceOutMin: governanceOutMin.toString(),
+        collateralOutMin: collateralOutMin.toString(),
+      });
 
       await signerDiamondContract.redeemDollar(parseInt(selectedCollateralIndex), dollarAmount, governanceOutMin, collateralOutMin);
 
