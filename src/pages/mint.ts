@@ -182,6 +182,10 @@ async function linkMintButton() {
   const dollarAmountInput = document.getElementById("dollarAmount") as HTMLInputElement;
   const forceCollateralOnly = document.getElementById("forceCollateralOnly") as HTMLInputElement;
 
+  const dollarOutMinInput = document.getElementById("dollarOutMin") as HTMLInputElement;
+  const maxCollateralInInput = document.getElementById("maxCollateralIn") as HTMLInputElement;
+  const maxGovernanceInInput = document.getElementById("maxGovernanceIn") as HTMLInputElement;
+
   const updateButtonState = async () => {
     const selectedCollateralIndex = collateralSelect.value;
     const dollarAmountRaw = dollarAmountInput.value;
@@ -195,14 +199,18 @@ async function linkMintButton() {
   dollarAmountInput.addEventListener("input", updateButtonState);
   forceCollateralOnly.addEventListener("change", updateButtonState);
 
-  // Send transaction
   mintButton.addEventListener("click", async () => {
     const selectedCollateralIndex = collateralSelect.value;
     const dollarAmountRaw = dollarAmountInput.value;
     const dollarAmount = ethers.utils.parseUnits(dollarAmountRaw || "0", 18);
-    const dollarOutMin = ethers.BigNumber.from("0");
-    const maxCollateralIn = ethers.constants.MaxUint256;
-    const maxGovernanceIn = ethers.constants.MaxUint256;
+
+    // use provided slippage values or default to min/max
+    const dollarOutMin = dollarOutMinInput.value ? ethers.utils.parseUnits(dollarOutMinInput.value, 18) : ethers.BigNumber.from("0");
+
+    const maxCollateralIn = maxCollateralInInput.value ? ethers.utils.parseUnits(maxCollateralInInput.value, 18) : ethers.constants.MaxUint256;
+
+    const maxGovernanceIn = maxGovernanceInInput.value ? ethers.utils.parseUnits(maxGovernanceInInput.value, 18) : ethers.constants.MaxUint256;
+
     const isForceCollateralOnlyChecked = forceCollateralOnly.checked;
 
     try {

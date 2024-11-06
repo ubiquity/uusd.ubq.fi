@@ -154,6 +154,8 @@ async function linkRedeemButton() {
   const redeemButton = document.getElementById("redeemButton") as HTMLButtonElement;
   const collateralSelect = document.getElementById("collateralSelect") as HTMLSelectElement;
   const dollarAmountInput = document.getElementById("dollarAmount") as HTMLInputElement;
+  const collateralOutMinInput = document.getElementById("collateralOutMin") as HTMLInputElement;
+  const governanceOutMinInput = document.getElementById("governanceOutMin") as HTMLInputElement;
 
   const updateButtonState = async () => {
     const selectedCollateralIndex = collateralSelect.value;
@@ -163,6 +165,7 @@ async function linkRedeemButton() {
     redeemButton.disabled = !appState.getIsConnectedState() || !selectedCollateralIndex || !dollarAmount || dollarAmount.isZero();
   };
 
+  // Attach event listeners to update the button state whenever inputs change
   collateralSelect.addEventListener("change", updateButtonState);
   dollarAmountInput.addEventListener("input", updateButtonState);
 
@@ -170,8 +173,11 @@ async function linkRedeemButton() {
     const selectedCollateralIndex = collateralSelect.value;
     const dollarAmountRaw = dollarAmountInput.value;
     const dollarAmount = ethers.utils.parseUnits(dollarAmountRaw || "0", 18);
-    const collateralOutMin = ethers.BigNumber.from("0");
-    const governanceOutMin = ethers.BigNumber.from("0");
+
+    // use provided slippage values or default to min/max
+    const collateralOutMin = collateralOutMinInput.value ? ethers.utils.parseUnits(collateralOutMinInput.value, 18) : ethers.BigNumber.from("0");
+
+    const governanceOutMin = governanceOutMinInput.value ? ethers.utils.parseUnits(governanceOutMinInput.value, 18) : ethers.BigNumber.from("0");
 
     try {
       const signerDiamondContract = diamondContract.connect(userSigner);
