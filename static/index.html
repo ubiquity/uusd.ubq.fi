@@ -23,6 +23,22 @@
         <w3m-button></w3m-button>
     </header>
 
+    <div id="modal" class="error-modal">
+      <div class="error-modal-content">
+        <div class="error-modal-header">
+          <button class="close-modal">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960">
+              <path d="m336-280-56-56 144-144-144-143 56-56 144 144 143-144 56 56-144 143 144 144-56 56-143-144-144 144Z"></path>
+            </svg>
+          </button>
+          <h1 class="error-title">Error</h1>
+        </div>
+        <div class="error-modal-body">
+          <div id="error-message" class="error-message"></div>
+        </div>
+      </div>
+    </div>   
+
     <div id="content-area"></div>
     
     <script type="module" src="dist/src/main.js"></script>

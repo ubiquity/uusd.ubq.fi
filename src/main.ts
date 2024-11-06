@@ -1,10 +1,20 @@
+import "./router";
 import { createAppKit } from "@reown/appkit";
 import { Ethers5Adapter } from "@reown/appkit-adapter-ethers5";
 import { mainnet } from "@reown/appkit/networks";
 import { ethers } from "ethers";
-import "./router";
 import { setupContracts } from "./contracts";
 import { handleRouting } from "./router";
+import { renderErrorInModal } from "./common/display-popup-modal";
+
+// All unhandled errors are caught and displayed in a modal
+window.addEventListener("error", (event: ErrorEvent) => renderErrorInModal(event.error));
+
+// All unhandled promise rejections are caught and displayed in a modal
+window.addEventListener("unhandledrejection", (event: PromiseRejectionEvent) => {
+  renderErrorInModal(event.reason as Error);
+  event.preventDefault();
+});
 
 const projectId = "415760038f8e330de4868120be3205b8";
 
@@ -17,7 +27,7 @@ const metadata = {
 
 // create provider & signer for Ethereum mainnet
 export const provider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
-export let userSigner : ethers.Signer;
+export let userSigner: ethers.Signer;
 
 // setup contract instances
 export const { dollarContract, governanceContract, diamondContract, twapOracleContract } = setupContracts(provider);
@@ -50,7 +60,7 @@ async function waitForConnection() {
 
 // global dollar and governance prices
 export let dollarSpotPrice: string | null = null;
-export let dollarTwapPrice: string | null = null;
+export const dollarTwapPrice: string | null = null;
 export let governanceSpotPrice: string | null = null;
 
 async function updatePrices() {
@@ -60,7 +70,6 @@ async function updatePrices() {
 
     dollarSpotPrice = ethers.utils.formatUnits(dollarSpotPriceRaw, 6);
     governanceSpotPrice = ethers.utils.formatUnits(governanceSpotPriceRaw, 6);
-
   } catch (error) {
     console.error("Error getting prices:", error);
   }
@@ -72,7 +81,6 @@ export async function mainModule() {
 
     console.log("Waiting for user connection...");
     void waitForConnection();
-
     await updatePrices();
 
     handleRouting();

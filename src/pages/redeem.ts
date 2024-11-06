@@ -1,8 +1,9 @@
 import { ethers } from "ethers";
-import { appState, diamondContract, dollarSpotPrice, governanceSpotPrice, userSigner } from "../main";
+import { appState, diamondContract, governanceSpotPrice, userSigner } from "../main";
 import { debounce } from "../utils";
 import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
+import { renderErrorInModal } from "../common/display-popup-modal";
 
 let currentOutput: {
   collateralRedeemed: ethers.BigNumber;
@@ -36,7 +37,7 @@ export async function loadRedeemPage() {
       handleSlippageInput();
 
       // link redeem button
-      linkRedeemButton();
+      await linkRedeemButton();
     } catch (error) {
       console.error("Error loading redeem page:", error);
     }
@@ -68,7 +69,7 @@ async function calculateRedeemOutput(
     collateralRedeemed = ethers.BigNumber.from(0);
     governanceRedeemed = dollarAfterFee.mul(poolPricePrecision).div(governancePrice);
   } else {
-    const collateralOut = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAfterFee)
+    const collateralOut = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAfterFee);
     collateralRedeemed = collateralOut.mul(collateralRatio).div(poolPricePrecision);
     governanceRedeemed = dollarAfterFee.mul(poolPricePrecision.sub(collateralRatio)).div(governancePrice);
   }
@@ -129,14 +130,10 @@ function displayRedeemOutput(
   const governanceRedeemedElement = document.getElementById("governanceRedeemed");
   const redemptionFeeElement = document.getElementById("redemptionFee");
 
-  const formattedCollateralRedeemed = parseFloat(
-    ethers.utils.formatUnits(output.collateralRedeemed, 18 - selectedCollateral.missingDecimals)
-  ).toFixed(2);
+  const formattedCollateralRedeemed = parseFloat(ethers.utils.formatUnits(output.collateralRedeemed, 18 - selectedCollateral.missingDecimals)).toFixed(2);
 
   const formattedGovernanceRedeemed = parseFloat(ethers.utils.formatUnits(output.governanceRedeemed, 18)).toFixed(2);
-  const formattedRedemptionFeeInDollar = parseFloat(
-    ethers.utils.formatUnits(output.redemptionFeeInDollar, 18)
-  ).toFixed(2);
+  const formattedRedemptionFeeInDollar = parseFloat(ethers.utils.formatUnits(output.redemptionFeeInDollar, 18)).toFixed(2);
 
   // Calculate dollar value of governance redeemed
   const governanceDollarValue = output.governanceRedeemed.mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
@@ -153,7 +150,7 @@ function displayRedeemOutput(
   }
 }
 
-function linkRedeemButton() {
+async function linkRedeemButton() {
   const redeemButton = document.getElementById("redeemButton") as HTMLButtonElement;
   const collateralSelect = document.getElementById("collateralSelect") as HTMLSelectElement;
   const dollarAmountInput = document.getElementById("dollarAmount") as HTMLInputElement;
@@ -179,24 +176,18 @@ function linkRedeemButton() {
     try {
       const signerDiamondContract = diamondContract.connect(userSigner);
 
-      await signerDiamondContract.redeemDollar(
-        parseInt(selectedCollateralIndex),
-        dollarAmount,
-        governanceOutMin,
-        collateralOutMin
-      );
+      await signerDiamondContract.redeemDollar(parseInt(selectedCollateralIndex), dollarAmount, governanceOutMin, collateralOutMin);
 
       // After redeemDollar succeeds, initiate the collection
       await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
-      
-      alert("Redemption collected successfully!");
 
+      alert("Redemption collected successfully!");
     } catch (error) {
       console.error("Redemption transaction or collection failed:", error);
-      alert("Redemption transaction or collection failed. Please try again.");
+      renderErrorInModal(error instanceof Error ? error : new Error(String(error)));
     }
   });
 
   // Initialize the button state on page load
-  updateButtonState();
+  await updateButtonState();
 }
