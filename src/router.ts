@@ -3,22 +3,22 @@ import { loadMintPage } from "./pages/mint";
 import { loadRedeemPage } from "./pages/redeem";
 
 // URL Path based routing
-export function handleRouting() {
+export async function handleRouting() {
   const contentArea = document.getElementById("content-area");
 
   if (!contentArea) return;
 
   switch (window.location.hash) {
     case "#/mint":
-      loadMintPage();
+      await loadMintPage();
       break;
     case "#/redeem":
-      loadRedeemPage();
+      await loadRedeemPage();
       break;
     case "":
     case "#/":
     case "#/index.html":
-      loadHomePage();
+      await loadHomePage();
       break;
     default:
       // Redirect to home if no route matches

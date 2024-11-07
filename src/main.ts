@@ -86,7 +86,7 @@ export async function mainModule() {
     void waitForConnection();
     await updatePrices();
 
-    handleRouting();
+    await handleRouting();
   } catch (error) {
     console.error("Error in main:", error);
   }
