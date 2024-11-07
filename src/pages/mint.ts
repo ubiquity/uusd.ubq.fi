@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { appState, diamondContract, dollarSpotPrice, governanceSpotPrice, userSigner } from "../main";
+import { appState, diamondContract, dollarSpotPrice, governanceSpotPrice, LUSDPrice, userSigner } from "../main";
 import { debounce } from "../utils";
 import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
@@ -153,26 +153,36 @@ function displayMintOutput(
   const formattedTotalDollarMint = parseFloat(ethers.utils.formatUnits(output.totalDollarMint, 18)).toFixed(2);
   const formattedCollateralNeeded = parseFloat(ethers.utils.formatUnits(output.collateralNeeded, 18 - selectedCollateral.missingDecimals)).toFixed(2);
   const formattedGovernanceNeeded = parseFloat(ethers.utils.formatUnits(output.governanceNeeded, 18)).toFixed(2);
-  const formattedmintingFeeInDollar = parseFloat(ethers.utils.formatUnits(output.mintingFeeInDollar, 18 - selectedCollateral.missingDecimals)).toFixed(2);
+  const formattedMintingFeeInDollar = parseFloat(ethers.utils.formatUnits(output.mintingFeeInDollar, 18)).toFixed(2);
 
-  // Calculate the dollar value of totalDollarMint and governanceNeeded using spot prices
-  const totalDollarMintValue = output.totalDollarMint.mul(ethers.utils.parseUnits(dollarSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
+  // Calculate dollar values using spot prices
+  const totalDollarMintValue = output.totalDollarMint
+    .mul(ethers.utils.parseUnits(dollarSpotPrice as string, 18))
+    .div(ethers.constants.WeiPerEther);
   const formattedTotalDollarMintValue = parseFloat(ethers.utils.formatUnits(totalDollarMintValue, 18)).toFixed(2);
 
-  const governanceNeededValue = output.governanceNeeded.mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
+  const collateralNeededValue = output.collateralNeeded
+    .mul(ethers.utils.parseUnits(LUSDPrice as string, 18))
+    .div(ethers.constants.WeiPerEther);
+  const formattedCollateralNeededValue = parseFloat(ethers.utils.formatUnits(collateralNeededValue, 18)).toFixed(2);
+
+  const governanceNeededValue = output.governanceNeeded
+    .mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18))
+    .div(ethers.constants.WeiPerEther);
   const formattedGovernanceNeededValue = parseFloat(ethers.utils.formatUnits(governanceNeededValue, 18)).toFixed(2);
 
+  // Update the displayed values
   if (totalDollarMinted) {
     totalDollarMinted.textContent = `${formattedTotalDollarMint} UUSD ($${formattedTotalDollarMintValue})`;
   }
   if (collateralNeededElement) {
-    collateralNeededElement.textContent = `${formattedCollateralNeeded} ${selectedCollateral.name}`;
+    collateralNeededElement.textContent = `${formattedCollateralNeeded} ${selectedCollateral.name} ($${formattedCollateralNeededValue})`;
   }
   if (governanceNeededElement) {
     governanceNeededElement.textContent = `${formattedGovernanceNeeded} UBQ ($${formattedGovernanceNeededValue})`;
   }
   if (mintingFeeElement) {
-    mintingFeeElement.textContent = `${selectedCollateral.mintingFee}% (${formattedmintingFeeInDollar} UUSD)`;
+    mintingFeeElement.textContent = `${selectedCollateral.mintingFee}% (${formattedMintingFeeInDollar} UUSD)`;
   }
 }
 

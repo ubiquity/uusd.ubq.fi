@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { appState, diamondContract, governanceSpotPrice, userSigner } from "../main";
+import { appState, diamondContract, governanceSpotPrice, LUSDPrice, userSigner } from "../main";
 import { debounce } from "../utils";
 import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
@@ -117,7 +117,6 @@ function handleSlippageInput() {
   collateralOutMinInput.addEventListener("input", debouncedSlippageCheck);
   governanceOutMinInput.addEventListener("input", debouncedSlippageCheck);
 }
-
 function displayRedeemOutput(
   output: {
     collateralRedeemed: ethers.BigNumber;
@@ -130,17 +129,37 @@ function displayRedeemOutput(
   const governanceRedeemedElement = document.getElementById("governanceRedeemed");
   const redemptionFeeElement = document.getElementById("redemptionFee");
 
-  const formattedCollateralRedeemed = parseFloat(ethers.utils.formatUnits(output.collateralRedeemed, 18 - selectedCollateral.missingDecimals)).toFixed(2);
+  // Format the amounts for display
+  const formattedCollateralRedeemed = parseFloat(
+    ethers.utils.formatUnits(output.collateralRedeemed, 18 - selectedCollateral.missingDecimals)
+  ).toFixed(2);
+  
+  const formattedGovernanceRedeemed = parseFloat(
+    ethers.utils.formatUnits(output.governanceRedeemed, 18)
+  ).toFixed(2);
 
-  const formattedGovernanceRedeemed = parseFloat(ethers.utils.formatUnits(output.governanceRedeemed, 18)).toFixed(2);
-  const formattedRedemptionFeeInDollar = parseFloat(ethers.utils.formatUnits(output.redemptionFeeInDollar, 18)).toFixed(2);
+  const formattedRedemptionFeeInDollar = parseFloat(
+    ethers.utils.formatUnits(output.redemptionFeeInDollar, 18)
+  ).toFixed(2);
 
-  // Calculate dollar value of governance redeemed
-  const governanceDollarValue = output.governanceRedeemed.mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
-  const formattedGovernanceDollarValue = parseFloat(ethers.utils.formatUnits(governanceDollarValue, 18)).toFixed(2);
+  // Calculate dollar values using spot prices
+  const collateralDollarValue = output.collateralRedeemed
+    .mul(ethers.utils.parseUnits(LUSDPrice as string, 18))
+    .div(ethers.constants.WeiPerEther);
+  const formattedCollateralDollarValue = parseFloat(
+    ethers.utils.formatUnits(collateralDollarValue, 18)
+  ).toFixed(2);
 
+  const governanceDollarValue = output.governanceRedeemed
+    .mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18))
+    .div(ethers.constants.WeiPerEther);
+  const formattedGovernanceDollarValue = parseFloat(
+    ethers.utils.formatUnits(governanceDollarValue, 18)
+  ).toFixed(2);
+
+  // Update the displayed values
   if (collateralRedeemedElement) {
-    collateralRedeemedElement.textContent = `${formattedCollateralRedeemed} ${selectedCollateral.name}`;
+    collateralRedeemedElement.textContent = `${formattedCollateralRedeemed} ${selectedCollateral.name} ($${formattedCollateralDollarValue})`;
   }
   if (governanceRedeemedElement) {
     governanceRedeemedElement.textContent = `${formattedGovernanceRedeemed} UBQ ($${formattedGovernanceDollarValue})`;
