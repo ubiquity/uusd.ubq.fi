@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { appState, diamondContract, governanceSpotPrice, LUSDPrice, userSigner } from "../main";
+import { appState, diamondContract, governanceSpotPrice, lusdPrice, userSigner } from "../main";
 import { debounce } from "../utils";
 import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
@@ -130,32 +130,18 @@ function displayRedeemOutput(
   const redemptionFeeElement = document.getElementById("redemptionFee");
 
   // Format the amounts for display
-  const formattedCollateralRedeemed = parseFloat(
-    ethers.utils.formatUnits(output.collateralRedeemed, 18 - selectedCollateral.missingDecimals)
-  ).toFixed(2);
-  
-  const formattedGovernanceRedeemed = parseFloat(
-    ethers.utils.formatUnits(output.governanceRedeemed, 18)
-  ).toFixed(2);
+  const formattedCollateralRedeemed = parseFloat(ethers.utils.formatUnits(output.collateralRedeemed, 18 - selectedCollateral.missingDecimals)).toFixed(2);
 
-  const formattedRedemptionFeeInDollar = parseFloat(
-    ethers.utils.formatUnits(output.redemptionFeeInDollar, 18)
-  ).toFixed(2);
+  const formattedGovernanceRedeemed = parseFloat(ethers.utils.formatUnits(output.governanceRedeemed, 18)).toFixed(2);
+
+  const formattedRedemptionFeeInDollar = parseFloat(ethers.utils.formatUnits(output.redemptionFeeInDollar, 18)).toFixed(2);
 
   // Calculate dollar values using spot prices
-  const collateralDollarValue = output.collateralRedeemed
-    .mul(ethers.utils.parseUnits(LUSDPrice as string, 18))
-    .div(ethers.constants.WeiPerEther);
-  const formattedCollateralDollarValue = parseFloat(
-    ethers.utils.formatUnits(collateralDollarValue, 18)
-  ).toFixed(2);
+  const collateralDollarValue = output.collateralRedeemed.mul(ethers.utils.parseUnits(lusdPrice as string, 18)).div(ethers.constants.WeiPerEther);
+  const formattedCollateralDollarValue = parseFloat(ethers.utils.formatUnits(collateralDollarValue, 18)).toFixed(2);
 
-  const governanceDollarValue = output.governanceRedeemed
-    .mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18))
-    .div(ethers.constants.WeiPerEther);
-  const formattedGovernanceDollarValue = parseFloat(
-    ethers.utils.formatUnits(governanceDollarValue, 18)
-  ).toFixed(2);
+  const governanceDollarValue = output.governanceRedeemed.mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
+  const formattedGovernanceDollarValue = parseFloat(ethers.utils.formatUnits(governanceDollarValue, 18)).toFixed(2);
 
   // Update the displayed values
   if (collateralRedeemedElement) {

@@ -4,7 +4,7 @@ export const ubiquityDiamond = "0xED3084c98148e2528DaDCB53C56352e549C488fA";
 export const dollarAddress = "0xb6919ef2ee4afc163bc954c5678e2bb570c2d103";
 export const governanceAddress = "0x4e38d89362f7e5db0096ce44ebd021c3962aa9a0";
 export const twapOracleAddress = "0x7944d5b8f9668AfB1e648a61e54DEa8DE734c1d1";
-export const LUSDFeedAddress = "0x3D7aE7E594f2f2091Ad8798313450130d0Aba3a0";
+export const lusdFeedAddress = "0x3D7aE7E594f2f2091Ad8798313450130d0Aba3a0";
 
 const dollarAbi = [
   { inputs: [], stateMutability: "nonpayable", type: "constructor" },
@@ -748,13 +748,15 @@ const twapOracleAbi = [
   { inputs: [], name: "update", outputs: [], stateMutability: "nonpayable", type: "function" },
 ];
 
-const chainlinkFeedAbi = [{inputs: [],name: "latestAnswer",outputs: [{ internalType: "int256", name: "", type: "int256" }],stateMutability: "view",type: "function",}];
+const chainlinkFeedAbi = [
+  { inputs: [], name: "latestAnswer", outputs: [{ internalType: "int256", name: "", type: "int256" }], stateMutability: "view", type: "function" },
+];
 
 export const setupContracts = (providerOrSigner: ethers.Signer | ethers.providers.Provider | undefined) => {
   const dollarContract = new ethers.Contract(dollarAddress, dollarAbi, providerOrSigner);
   const governanceContract = new ethers.Contract(governanceAddress, governanceAbi, providerOrSigner);
   const diamondContract = new ethers.Contract(ubiquityDiamond, poolFacetAbi, providerOrSigner);
   const twapOracleContract = new ethers.Contract(twapOracleAddress, twapOracleAbi, providerOrSigner);
-  const LUSDFeedContract = new ethers.Contract(LUSDFeedAddress, chainlinkFeedAbi, providerOrSigner);
-  return { dollarContract, governanceContract, diamondContract, twapOracleContract, LUSDFeedContract };
+  const lusdFeedContract = new ethers.Contract(lusdFeedAddress, chainlinkFeedAbi, providerOrSigner);
+  return { dollarContract, governanceContract, diamondContract, twapOracleContract, lusdFeedContract };
 };

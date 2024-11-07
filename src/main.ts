@@ -30,7 +30,7 @@ export const provider = new ethers.providers.JsonRpcProvider("https://eth.llamar
 export let userSigner: ethers.Signer;
 
 // setup contract instances
-export const { dollarContract, governanceContract, diamondContract, twapOracleContract, LUSDFeedContract } = setupContracts(provider);
+export const { dollarContract, governanceContract, diamondContract, twapOracleContract, lusdFeedContract } = setupContracts(provider);
 
 export const appState = createAppKit({
   adapters: [new Ethers5Adapter()],
@@ -62,17 +62,17 @@ async function waitForConnection() {
 export let dollarSpotPrice: string | null = null;
 export const dollarTwapPrice: string | null = null;
 export let governanceSpotPrice: string | null = null;
-export let LUSDPrice: string | null = null;
+export let lusdPrice: string | null = null;
 
 async function updatePrices() {
   try {
     const dollarSpotPriceRaw = await diamondContract.getDollarPriceUsd();
     const governanceSpotPriceRaw = await diamondContract.getGovernancePriceUsd();
-    const LUSDPriceRaw = await LUSDFeedContract.latestAnswer();
+    const lusdPriceRaw = await lusdFeedContract.latestAnswer();
 
     dollarSpotPrice = ethers.utils.formatUnits(dollarSpotPriceRaw, 6);
     governanceSpotPrice = ethers.utils.formatUnits(governanceSpotPriceRaw, 6);
-    LUSDPrice = ethers.utils.formatUnits(LUSDPriceRaw, 8);
+    lusdPrice = ethers.utils.formatUnits(lusdPriceRaw, 8);
   } catch (error) {
     console.error("Error getting prices:", error);
   }

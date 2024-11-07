@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { appState, diamondContract, dollarSpotPrice, governanceSpotPrice, LUSDPrice, userSigner } from "../main";
+import { appState, diamondContract, dollarSpotPrice, governanceSpotPrice, lusdPrice, userSigner } from "../main";
 import { debounce } from "../utils";
 import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
@@ -156,19 +156,13 @@ function displayMintOutput(
   const formattedMintingFeeInDollar = parseFloat(ethers.utils.formatUnits(output.mintingFeeInDollar, 18)).toFixed(2);
 
   // Calculate dollar values using spot prices
-  const totalDollarMintValue = output.totalDollarMint
-    .mul(ethers.utils.parseUnits(dollarSpotPrice as string, 18))
-    .div(ethers.constants.WeiPerEther);
+  const totalDollarMintValue = output.totalDollarMint.mul(ethers.utils.parseUnits(dollarSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
   const formattedTotalDollarMintValue = parseFloat(ethers.utils.formatUnits(totalDollarMintValue, 18)).toFixed(2);
 
-  const collateralNeededValue = output.collateralNeeded
-    .mul(ethers.utils.parseUnits(LUSDPrice as string, 18))
-    .div(ethers.constants.WeiPerEther);
+  const collateralNeededValue = output.collateralNeeded.mul(ethers.utils.parseUnits(lusdPrice as string, 18)).div(ethers.constants.WeiPerEther);
   const formattedCollateralNeededValue = parseFloat(ethers.utils.formatUnits(collateralNeededValue, 18)).toFixed(2);
 
-  const governanceNeededValue = output.governanceNeeded
-    .mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18))
-    .div(ethers.constants.WeiPerEther);
+  const governanceNeededValue = output.governanceNeeded.mul(ethers.utils.parseUnits(governanceSpotPrice as string, 18)).div(ethers.constants.WeiPerEther);
   const formattedGovernanceNeededValue = parseFloat(ethers.utils.formatUnits(governanceNeededValue, 18)).toFixed(2);
 
   // Update the displayed values
