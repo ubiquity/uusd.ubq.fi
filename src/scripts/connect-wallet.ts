@@ -1,10 +1,9 @@
 import { createWalletClient, custom } from "viem";
-// import { mainnet } from "viem/chains";
+import { mainnet } from "viem/chains";
 import { truncateString } from "./utils";
 import { connectButtons, connectPrompt, whiteContainer, providersModal } from "./ui";
 import { getPricesOnLaunch, unwatchForPrices, watchForPrices } from "./price-polling";
 import { type MetaMaskInpageProvider } from "@metamask/providers";
-import { localhost } from "./custom-chains";
 
 let client: ReturnType<typeof createWalletClient> | null = null;
 
@@ -51,7 +50,7 @@ export async function connectWallet(providerType: "metamask" | "trust" | "coinba
       const accounts = await provider.request<string[]>({ method: "eth_requestAccounts" });
       client = createWalletClient({
         account: accounts?.[0] as `0x${string}`,
-        chain: localhost,
+        chain: mainnet,
         transport: custom(provider),
       });
 
@@ -70,8 +69,8 @@ export async function connectWallet(providerType: "metamask" | "trust" | "coinba
 
       const currentChain = await provider.request<string>({ method: "eth_chainId" });
 
-      if (currentChain !== "0x7a69") {
-        await provider.request<null>({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x7a69" }] });
+      if (currentChain !== "0x1") {
+        await provider.request<null>({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1" }] });
       }
     } catch (error) {
       updateConnectButtonText("");
@@ -118,7 +117,7 @@ export async function connectIfAuthorized() {
       const [account] = accounts;
       client = createWalletClient({
         account: account as `0x${string}`,
-        chain: localhost,
+        chain: mainnet,
         transport: custom(provider),
       });
 
@@ -130,8 +129,8 @@ export async function connectIfAuthorized() {
 
       const currentChain = await provider.request<string>({ method: "eth_chainId" });
 
-      if (currentChain !== "0x7a69") {
-        await provider.request<null>({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x7a69" }] });
+      if (currentChain !== "0x1") {
+        await provider.request<null>({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1" }] });
       }
     }
   }
@@ -142,7 +141,7 @@ function wireEvents(provider: MetaMaskInpageProvider & { isCoinbaseWallet: boole
     const [account] = accounts as `0x${string}`[];
     client = createWalletClient({
       account,
-      chain: localhost,
+      chain: mainnet,
       transport: custom(provider),
     });
 

@@ -1,13 +1,12 @@
 import { createPublicClient, getContract, http } from "viem";
 import { diamondAddress, ufaucetAbi } from "./constants";
-// import { mainnet } from "viem/chains";
+import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
-import { localhost } from "./custom-chains";
 
 const abi = ufaucetAbi;
 const address = diamondAddress;
 const publicClient = createPublicClient({
-  chain: localhost,
+  chain: mainnet,
   transport: http(),
 });
 
@@ -100,7 +99,7 @@ export async function mintDollar(
         address,
         functionName: "mintDollar",
         args: [collateralIndex, dollarAmount, dollarOutMin, maxCollateralIn, maxGovernanceIn, isOneToOne],
-        chain: localhost,
+        chain: mainnet,
         account: client.account,
       });
       return await client.writeContract(request);
@@ -122,7 +121,7 @@ export async function redeemDollar(collateralIndex: bigint, dollarAmount: bigint
         address,
         functionName: "redeemDollar",
         args: [collateralIndex, dollarAmount, governanceOutMin, collateralOutMin],
-        chain: localhost,
+        chain: mainnet,
         account: client.account,
       });
       return await client.writeContract(request);
@@ -144,7 +143,7 @@ export async function collectionRedemption(collateralIndex: bigint) {
         address,
         functionName: "collectRedemption",
         args: [collateralIndex],
-        chain: localhost,
+        chain: mainnet,
         account: client.account,
       });
       return await client.writeContract(request);

@@ -13,10 +13,9 @@ import {
 } from "./ui";
 import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
 import { getConnectedClient } from "./connect-wallet";
-import { diamondAddress } from "./constants";
+import { diamondAddress, ubqAddress } from "./constants";
 import { ToastActions } from "./toast";
-// import { mainnet } from "viem/chains";
-import { localhost } from "./custom-chains";
+import { mainnet } from "viem/chains";
 
 let selectedCollateralIndex = 0;
 let dollarAmount = 0;
@@ -25,59 +24,79 @@ let maxCollateralIn = 0;
 let maxGovernanceIn = 0;
 let isOneToOne = false;
 
+let isButtonInteractionsDisabled = false;
+
 const collateralRecord: Record<string | number, `0x${string}`> = {};
 const toastActions = new ToastActions();
 const publicClient = createPublicClient({
-  chain: localhost,
+  chain: mainnet,
   transport: http(),
 });
 
-(() => {
-  setInterval(() => {
-    if (mintButton !== null) {
-      mintButton.disabled =
-        dollarAmount <= 0 ||
-        dollarOutMin <= 0 ||
-        maxCollateralIn <= 0 ||
-        (!isOneToOne && maxGovernanceIn <= 0) ||
-        typeof collateralRecord[selectedCollateralIndex] === "undefined";
-    }
+const pathName = "mint";
+const transactionReverted = "Transaction was reverted";
 
-    if (allowanceButton !== null) {
-      allowanceButton.disabled = typeof collateralRecord[selectedCollateralIndex] === "undefined" || maxCollateralIn <= 0;
-    }
-  }, 500);
-})();
-
-void (() => {
-  publicClient.watchBlocks({
-    onBlock: async () => {
-      try {
-        const collateralAddress = collateralRecord[selectedCollateralIndex];
-        const web3Client = getConnectedClient();
-
-        if (allowanceButton !== null) allowanceButton.disabled = web3Client === null || !collateralAddress || !web3Client.account;
-        if (mintButton !== null) mintButton.disabled = web3Client === null || !collateralAddress || !web3Client.account;
-
-        if (collateralAddress && web3Client && web3Client.account) {
-          await check(collateralAddress, web3Client);
-        }
-      } catch (error) {
-        const err = error as Error;
-        toastActions.showToast({
-          toastType: "error",
-          msg: err.message,
-        });
+if (window.location.pathname.includes(pathName)) {
+  (() => {
+    setInterval(() => {
+      if (mintButton !== null) {
+        mintButton.disabled =
+          dollarAmount <= 0 ||
+          dollarOutMin <= 0 ||
+          maxCollateralIn <= 0 ||
+          (!isOneToOne && maxGovernanceIn <= 0) ||
+          typeof collateralRecord[selectedCollateralIndex] === "undefined" ||
+          isButtonInteractionsDisabled;
       }
-    },
-  });
-})();
+
+      if (allowanceButton !== null) {
+        allowanceButton.disabled = typeof collateralRecord[selectedCollateralIndex] === "undefined" || maxCollateralIn <= 0 || isButtonInteractionsDisabled;
+      }
+
+      const appendableText = "+UBQ";
+
+      if (!isOneToOne) {
+        if (!allowanceButton.innerText.includes(appendableText)) allowanceButton.innerText = allowanceButton.innerText.concat(appendableText);
+      } else {
+        allowanceButton.innerText = allowanceButton.innerText.replace(appendableText, "");
+      }
+    }, 500);
+  })();
+
+  void (() => {
+    publicClient.watchBlocks({
+      onBlock: async () => {
+        try {
+          const collateralAddress = collateralRecord[selectedCollateralIndex];
+          const web3Client = getConnectedClient();
+
+          if (allowanceButton !== null)
+            allowanceButton.disabled = web3Client === null || !collateralAddress || !web3Client.account || isButtonInteractionsDisabled;
+          if (mintButton !== null) mintButton.disabled = web3Client === null || !collateralAddress || !web3Client.account || isButtonInteractionsDisabled;
+
+          if (collateralAddress && web3Client && web3Client.account) {
+            await check(collateralAddress, web3Client);
+          }
+        } catch (error) {
+          const err = error as Error;
+          toastActions.showToast({
+            toastType: "error",
+            msg: err.message,
+          });
+        }
+      },
+    });
+  })();
+}
 
 async function check(collateralAddress: `0x${string}`, web3Client: ReturnType<typeof getConnectedClient>) {
-  const decimals = await getTokenDecimals(collateralAddress);
-  const maxCollatIn = parseUnits(maxCollateralIn.toString(), decimals);
-  const allowance = web3Client?.account ? await getAllowance(collateralAddress, web3Client.account.address, diamondAddress) : BigInt(0);
-  const isAllowed = allowance >= maxCollatIn;
+  const collateralDecimals = await getTokenDecimals(collateralAddress);
+  const governanceDecimals = await getTokenDecimals(ubqAddress);
+  const maxCollatIn = parseUnits(maxCollateralIn.toString(), collateralDecimals);
+  const maxGovernIn = parseUnits(maxGovernanceIn.toString(), governanceDecimals);
+  const allowance0 = web3Client?.account ? await getAllowance(collateralAddress, web3Client.account.address, diamondAddress) : BigInt(0);
+  const allowance1 = web3Client?.account ? await getAllowance(ubqAddress, web3Client.account.address, diamondAddress) : BigInt(0);
+  const isAllowed = allowance0 >= maxCollatIn && (!isOneToOne ? allowance1 >= maxGovernIn : true);
   updateUiBasedOnAllowance(isAllowed);
 }
 
@@ -127,13 +146,15 @@ export async function initCollateralList() {
   }
 }
 
-export async function initUiEvents() {
+function updateCollateralIndex() {
   if (collateralSelect !== null) {
     collateralSelect.addEventListener("change", (ev) => {
       selectedCollateralIndex = Number((ev.target as HTMLSelectElement).value);
     });
   }
+}
 
+function updateOneToOne() {
   if (governanceCheckBox !== null) {
     governanceCheckBox.addEventListener("click", (ev) => {
       setTimeout(() => {
@@ -146,13 +167,17 @@ export async function initUiEvents() {
       }, 500);
     });
   }
+}
 
+function updateGovernanceAmount() {
   if (governanceInput !== null) {
     governanceInput.addEventListener("input", (ev) => {
       maxGovernanceIn = Number((ev.target as HTMLInputElement).value || "0");
     });
   }
+}
 
+function updateDollarAmounts() {
   if (dollarInput !== null) {
     dollarInput.addEventListener("input", (ev) => {
       dollarAmount = Number((ev.target as HTMLInputElement).value || "0");
@@ -164,36 +189,54 @@ export async function initUiEvents() {
       dollarOutMin = Number((ev.target as HTMLInputElement).value || "0");
     });
   }
+}
 
+function updateCollateralAmount() {
   if (collateralInput !== null) {
     collateralInput.addEventListener("input", (ev) => {
       maxCollateralIn = Number((ev.target as HTMLInputElement).value || "0");
     });
   }
+}
 
+function updateAllowance() {
   if (allowanceButton !== null) {
     allowanceButton.addEventListener("click", async () => {
       try {
-        allowanceButton.disabled = true;
+        isButtonInteractionsDisabled = true;
         const collateralAddress = collateralRecord[selectedCollateralIndex];
-        const decimals = await getTokenDecimals(collateralAddress);
-        const allowedToSpend = parseUnits(maxCollateralIn.toString(), decimals);
-        const txHash = await approveToSpend(collateralAddress, diamondAddress, allowedToSpend);
-        const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const collateralDecimals = await getTokenDecimals(collateralAddress);
+        const allowedToSpendCollateral = parseUnits(maxCollateralIn.toString(), collateralDecimals);
+        const collateralSpendtxHash = await approveToSpend(collateralAddress, diamondAddress, allowedToSpendCollateral);
+        const transactionReceiptForCollateralSpendApproval = await publicClient.waitForTransactionReceipt({ hash: collateralSpendtxHash });
 
-        if (transactionReceipt.status === "success") {
+        if (transactionReceiptForCollateralSpendApproval.status === "success") {
           toastActions.showToast({
             toastType: "success",
-            msg: `Successfully minted: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
+            msg: `Successfully allowed to spend collateral: <a href="https://etherscan.io/tx/${collateralSpendtxHash}" target="_blank">View on explorer</a>`,
           });
         } else {
-          // transactionReceipt.logs.map((log) => log.topics)
-          // const errorDecoded = decodeExecutionError(transaction.input);
-          throw new Error("Transaction was reverted");
+          throw new Error(transactionReverted);
         }
-        allowanceButton.disabled = false;
+
+        if (!isOneToOne) {
+          const ubqDecimals = await getTokenDecimals(ubqAddress);
+          const allowedToSpendUbq = parseUnits(maxGovernanceIn.toString(), ubqDecimals);
+          const ubqSpendtxHash = await approveToSpend(ubqAddress, diamondAddress, allowedToSpendUbq);
+          const transactionReceiptForUbqSpendApproval = await publicClient.waitForTransactionReceipt({ hash: ubqSpendtxHash });
+
+          if (transactionReceiptForUbqSpendApproval.status === "success") {
+            toastActions.showToast({
+              toastType: "success",
+              msg: `Successfully allowed to spend collateral: <a href="https://etherscan.io/tx/${ubqSpendtxHash}" target="_blank">View on explorer</a>`,
+            });
+          } else {
+            throw new Error(transactionReverted);
+          }
+        }
+        isButtonInteractionsDisabled = false;
       } catch (error) {
-        allowanceButton.disabled = false;
+        isButtonInteractionsDisabled = false;
         const err = error as BaseError;
         toastActions.showToast({
           toastType: "error",
@@ -202,11 +245,13 @@ export async function initUiEvents() {
       }
     });
   }
+}
 
+function mint() {
   if (mintButton !== null) {
     mintButton.addEventListener("click", async () => {
       try {
-        mintButton.disabled = true;
+        isButtonInteractionsDisabled = true;
         const collateralAddress = collateralRecord[selectedCollateralIndex];
         const decimals = await getTokenDecimals(collateralAddress);
         const allowedToSpend = parseUnits(maxCollateralIn.toString(), decimals);
@@ -229,11 +274,11 @@ export async function initUiEvents() {
             msg: `Successfully minted: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
           });
         } else {
-          throw new Error("Transaction was reverted");
+          throw new Error(transactionReverted);
         }
-        mintButton.disabled = false;
+        isButtonInteractionsDisabled = false;
       } catch (error) {
-        mintButton.disabled = false;
+        isButtonInteractionsDisabled = false;
         const err = error as BaseError;
         toastActions.showToast({
           toastType: "error",
@@ -241,5 +286,18 @@ export async function initUiEvents() {
         });
       }
     });
+  }
+}
+
+export async function initUiEvents() {
+  if (window.location.pathname.includes(pathName)) {
+    updateCollateralIndex();
+    updateOneToOne();
+    updateAllowance();
+    updateCollateralAmount();
+    updateCollateralIndex();
+    updateDollarAmounts();
+    updateGovernanceAmount();
+    mint();
   }
 }

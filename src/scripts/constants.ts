@@ -520,3 +520,5 @@ export const erc20Abi = [
 ] as const;
 
 export const diamondAddress = "0xED3084c98148e2528DaDCB53C56352e549C488fA";
+export const ubqAddress = "0x4e38D89362f7e5db0096CE44ebD021c3962aA9a0";
+export const dollarAddress = "0xb6919ef2ee4afc163bc954c5678e2bb570c2d103";

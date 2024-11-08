@@ -1,16 +1,15 @@
 import { createPublicClient, formatUnits, http, WatchBlocksReturnType } from "viem";
-// import { mainnet } from "viem/chains";
+import { mainnet } from "viem/chains";
 import { getCollateralUsdBalance, getDollarPriceUsd, getGovernancePriceUsd } from "./faucet";
 import { governancePriceText, totalCollateralValueText, uusdPriceText } from "./ui";
 import { toSf } from "./utils";
-import { localhost } from "./custom-chains";
 
 const subscriptions: WatchBlocksReturnType[] = [];
 
 export function watchForPrices() {
   if (uusdPriceText !== null && governancePriceText !== null && totalCollateralValueText !== null) {
     const publicClient = createPublicClient({
-      chain: localhost,
+      chain: mainnet,
       transport: http(),
     });
 
