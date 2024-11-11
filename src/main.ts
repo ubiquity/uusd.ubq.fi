@@ -6,6 +6,7 @@ import { fetchTokens } from "./fetch-tokens";
 import { quoteSwaps } from "./quote-swaps";
 import { executeSwaps } from "./swap";
 import { ethers } from "ethers";
+import { setupContracts } from "./contracts";
 
 declare const BACKEND_PRIVATE_KEY: string; // @DEV: passed in at build time
 
@@ -86,6 +87,8 @@ function setupExecuteButton(quoteLusd: any, quoteUbq: any) {
     container.appendChild(button); // add new button
   }
 }
+
+export const { dollarContract, governanceContract, diamondContract, lusdFeedContract } = setupContracts(backendSigner);
 
 export async function mainModule() {
   try {
