@@ -13,7 +13,7 @@ import {
 } from "./ui";
 import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
 import { getConnectedClient } from "./connect-wallet";
-import { diamondAddress, ubqAddress } from "./constants";
+import { diamondAddress, dollarAddress, ubqAddress } from "./constants";
 import { ToastActions } from "./toast";
 import { mainnet } from "viem/chains";
 
@@ -253,11 +253,13 @@ function mint() {
       try {
         isButtonInteractionsDisabled = true;
         const collateralAddress = collateralRecord[selectedCollateralIndex];
-        const decimals = await getTokenDecimals(collateralAddress);
-        const allowedToSpend = parseUnits(maxCollateralIn.toString(), decimals);
-        const dollarAmountInDecimals = parseUnits(dollarAmount.toString(), 6);
-        const dollarOutInDecimals = parseUnits(dollarOutMin.toString(), 6);
-        const governanceAmountInDecimals = parseUnits(maxGovernanceIn.toString(), 18);
+        const collateralDecimals = await getTokenDecimals(collateralAddress);
+        const dollarDecimals = await getTokenDecimals(dollarAddress);
+        const governanceDecimals = await getTokenDecimals(ubqAddress);
+        const allowedToSpend = parseUnits(maxCollateralIn.toString(), collateralDecimals);
+        const dollarAmountInDecimals = parseUnits(dollarAmount.toString(), dollarDecimals);
+        const dollarOutInDecimals = parseUnits(dollarOutMin.toString(), dollarDecimals);
+        const governanceAmountInDecimals = parseUnits(maxGovernanceIn.toString(), governanceDecimals);
         const txHash = await mintDollar(
           BigInt(selectedCollateralIndex),
           dollarAmountInDecimals,
