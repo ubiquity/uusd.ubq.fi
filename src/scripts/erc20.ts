@@ -1,13 +1,10 @@
-import { createPublicClient, getContract, http } from "viem";
+import { getContract } from "viem";
 import { erc20Abi } from "./constants";
 import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
+import { publicClient } from "./shared";
 
 const abi = erc20Abi;
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(),
-});
 
 export async function getTokenDecimals(address: `0x${string}`) {
   const contract = getContract({

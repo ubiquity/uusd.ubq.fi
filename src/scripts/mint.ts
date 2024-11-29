@@ -1,4 +1,4 @@
-import { BaseError, createPublicClient, http, parseUnits } from "viem";
+import { BaseError, parseUnits } from "viem";
 import { getAllCollaterals, getCollateralInformation, mintDollar } from "./faucet";
 import {
   allowanceButton,
@@ -15,23 +15,19 @@ import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
 import { getConnectedClient } from "./connect-wallet";
 import { diamondAddress, dollarAddress, ubqAddress } from "./constants";
 import { ToastActions } from "./toast";
-import { mainnet } from "viem/chains";
+import { publicClient } from "./shared";
 
 let selectedCollateralIndex = 0;
 let dollarAmount = 0;
 let dollarOutMin = 0;
 let maxCollateralIn = 0;
 let maxGovernanceIn = 0;
-let isOneToOne = false;
+let isOneToOne = true;
 
 let isButtonInteractionsDisabled = false;
 
 const collateralRecord: Record<string | number, `0x${string}`> = {};
 const toastActions = new ToastActions();
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(),
-});
 
 const pathName = "mint";
 const transactionReverted = "Transaction was reverted";
@@ -161,8 +157,13 @@ function updateOneToOne() {
         isOneToOne = !(ev.target as HTMLInputElement).checked;
 
         if (governanceFormControl !== null) {
-          if (isOneToOne) governanceFormControl.classList.add("hidden");
-          else governanceFormControl.classList.remove("hidden");
+          if (isOneToOne) {
+            governanceFormControl.classList.add("hidden");
+            governanceFormControl.classList.remove("flex");
+          } else {
+            governanceFormControl.classList.remove("hidden");
+            governanceFormControl.classList.add("flex");
+          }
         }
       }, 500);
     });

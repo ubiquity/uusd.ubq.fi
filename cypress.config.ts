@@ -6,6 +6,6 @@ export default defineConfig({
       // implement node event listeners here
     },
     experimentalStudio: true,
-    baseUrl: "http://localhost:10090",
+    baseUrl: "http://localhost:8080",
   },
 });

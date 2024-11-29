@@ -1,11 +1,11 @@
-import { createPublicClient, http, parseUnits, BaseError } from "viem";
+import { parseUnits, BaseError } from "viem";
 import { collectionRedemption, getAllCollaterals, getCollateralInformation, redeemDollar } from "./faucet";
 import { allowanceButton, collateralSelect, collectRedemptionButton, dollarInput, minCollateralInput, minGovernanceInput, redeemDollarButton } from "./ui";
-import { mainnet } from "viem/chains";
 import { ToastActions } from "./toast";
 import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
 import { diamondAddress, dollarAddress, ubqAddress } from "./constants";
 import { getConnectedClient } from "./connect-wallet";
+import { publicClient } from "./shared";
 
 let selectedCollateralIndex = 0;
 let dollarAmount = 0;
@@ -17,10 +17,6 @@ let isButtonInteractionsDisabled = false;
 
 const collateralRecord: Record<string | number, `0x${string}`> = {};
 const toastActions = new ToastActions();
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(),
-});
 
 const pathName = "redeem";
 const transactionReverted = "transactionReverted";

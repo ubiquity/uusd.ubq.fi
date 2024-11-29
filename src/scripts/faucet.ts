@@ -1,24 +1,20 @@
-import { createPublicClient, getContract, http } from "viem";
+import { getContract } from "viem";
 import { diamondAddress, ufaucetAbi } from "./constants";
 import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
+import { publicClient } from "./shared";
 
 const abi = ufaucetAbi;
 const address = diamondAddress;
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(),
-});
 
 const CLIENT_OR_ACCOUNT_ERROR = "Client or account not initialized";
+const contract = getContract({
+  abi,
+  address,
+  client: publicClient,
+});
 
 export async function getAllCollaterals() {
-  const contract = getContract({
-    abi,
-    address,
-    client: publicClient,
-  });
-
   try {
     return await contract.read.allCollaterals();
   } catch (error) {
@@ -27,12 +23,6 @@ export async function getAllCollaterals() {
 }
 
 export async function getCollateralUsdBalance() {
-  const contract = getContract({
-    abi,
-    address,
-    client: publicClient,
-  });
-
   try {
     return await contract.read.collateralUsdBalance();
   } catch (error) {
@@ -41,12 +31,6 @@ export async function getCollateralUsdBalance() {
 }
 
 export async function getGovernancePriceUsd() {
-  const contract = getContract({
-    abi,
-    address,
-    client: publicClient,
-  });
-
   try {
     return await contract.read.getGovernancePriceUsd();
   } catch (error) {
@@ -55,12 +39,6 @@ export async function getGovernancePriceUsd() {
 }
 
 export async function getDollarPriceUsd() {
-  const contract = getContract({
-    abi,
-    address,
-    client: publicClient,
-  });
-
   try {
     return await contract.read.getDollarPriceUsd();
   } catch (error) {
@@ -69,12 +47,6 @@ export async function getDollarPriceUsd() {
 }
 
 export async function getCollateralInformation(collateralAddress: `0x${string}`) {
-  const contract = getContract({
-    abi,
-    address,
-    client: publicClient,
-  });
-
   try {
     return await contract.read.collateralInformation([collateralAddress]);
   } catch (error) {
