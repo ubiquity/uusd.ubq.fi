@@ -3,7 +3,7 @@ export function truncateString(text: string) {
 }
 
 //eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function toSf(i: any, sf: number = 3) {
+export function toSignificantFigures(i: any, sf: number = 3) {
   return Number(i).toLocaleString("en-US", {
     maximumFractionDigits: sf,
     useGrouping: true,

@@ -2,7 +2,7 @@ import { createPublicClient, formatUnits, http, WatchBlocksReturnType } from "vi
 import { mainnet } from "viem/chains";
 import { getCollateralUsdBalance, getDollarPriceUsd, getGovernancePriceUsd } from "./faucet";
 import { governancePriceText, totalCollateralValueText, uusdPriceText } from "./ui";
-import { toSf } from "./utils";
+import { toSignificantFigures } from "./utils";
 
 const subscriptions: WatchBlocksReturnType[] = [];
 
@@ -16,21 +16,21 @@ export function watchForPrices() {
     const sub0 = publicClient.watchBlocks({
       onBlock: async () => {
         const priceUsd = await getDollarPriceUsd();
-        uusdPriceText.innerText = `$${toSf(formatUnits(priceUsd, 6))}`;
+        uusdPriceText.innerText = `$${toSignificantFigures(formatUnits(priceUsd, 6))}`;
       },
     });
 
     const sub1 = publicClient.watchBlocks({
       onBlock: async () => {
         const priceUsd = await getGovernancePriceUsd();
-        governancePriceText.innerText = `$${toSf(formatUnits(priceUsd, 6))}`;
+        governancePriceText.innerText = `$${toSignificantFigures(formatUnits(priceUsd, 6))}`;
       },
     });
 
     const sub2 = publicClient.watchBlocks({
       onBlock: async () => {
         const priceUsd = await getCollateralUsdBalance();
-        totalCollateralValueText.innerText = `$${toSf(formatUnits(priceUsd, 18))}`;
+        totalCollateralValueText.innerText = `$${toSignificantFigures(formatUnits(priceUsd, 18))}`;
       },
     });
 
@@ -48,13 +48,13 @@ export function getPricesOnLaunch() {
   void (async () => {
     if (uusdPriceText !== null && governancePriceText !== null && totalCollateralValueText !== null) {
       const uusdPriceInUsd = await getDollarPriceUsd();
-      uusdPriceText.innerText = `$${toSf(formatUnits(uusdPriceInUsd, 6))}`;
+      uusdPriceText.innerText = `$${toSignificantFigures(formatUnits(uusdPriceInUsd, 6))}`;
 
       const governanceTokenPriceInUsd = await getGovernancePriceUsd();
-      governancePriceText.innerText = `$${toSf(formatUnits(governanceTokenPriceInUsd, 6))}`;
+      governancePriceText.innerText = `$${toSignificantFigures(formatUnits(governanceTokenPriceInUsd, 6))}`;
 
       const totalCollateralValueInUsd = await getCollateralUsdBalance();
-      totalCollateralValueText.innerText = `$${toSf(formatUnits(totalCollateralValueInUsd, 18))}`;
+      totalCollateralValueText.innerText = `$${toSignificantFigures(formatUnits(totalCollateralValueInUsd, 18))}`;
     }
   })();
 }
