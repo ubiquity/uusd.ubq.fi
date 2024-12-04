@@ -24,33 +24,24 @@ let maxCollateralIn = 0;
 let maxGovernanceIn = 0;
 let isOneToOne = true;
 
-let isButtonInteractionsDisabled = false;
-
 const collateralRecord: Record<string | number, `0x${string}`> = {};
 const toastActions = new ToastActions();
 
 const pathName = "mint";
 const transactionReverted = "Transaction was reverted";
 
+let canDisableButtonsAtIntervals = true;
+
 if (window.location.pathname.includes(pathName)) {
   (() => {
     setInterval(() => {
-      if (mintButton !== null) {
-        mintButton.disabled =
-          dollarAmount <= 0 ||
-          dollarOutMin <= 0 ||
-          maxCollateralIn <= 0 ||
-          (!isOneToOne && maxGovernanceIn <= 0) ||
-          typeof collateralRecord[selectedCollateralIndex] === "undefined" ||
-          isButtonInteractionsDisabled;
-      }
+      const collateralAddress = collateralRecord[selectedCollateralIndex];
+      const web3Client = getConnectedClient();
 
-      if (allowanceButton !== null) {
-        allowanceButton.disabled = typeof collateralRecord[selectedCollateralIndex] === "undefined" || maxCollateralIn <= 0 || isButtonInteractionsDisabled;
-      }
+      if (allowanceButton !== null && canDisableButtonsAtIntervals) allowanceButton.disabled = web3Client === null || !collateralAddress || !web3Client.account;
+      if (mintButton !== null && canDisableButtonsAtIntervals) mintButton.disabled = web3Client === null || !collateralAddress || !web3Client.account;
 
       const appendableText = "+UBQ";
-
       if (!isOneToOne) {
         if (!allowanceButton.innerText.includes(appendableText)) allowanceButton.innerText = allowanceButton.innerText.concat(appendableText);
       } else {
@@ -65,10 +56,6 @@ if (window.location.pathname.includes(pathName)) {
         try {
           const collateralAddress = collateralRecord[selectedCollateralIndex];
           const web3Client = getConnectedClient();
-
-          if (allowanceButton !== null)
-            allowanceButton.disabled = web3Client === null || !collateralAddress || !web3Client.account || isButtonInteractionsDisabled;
-          if (mintButton !== null) mintButton.disabled = web3Client === null || !collateralAddress || !web3Client.account || isButtonInteractionsDisabled;
 
           if (collateralAddress && web3Client && web3Client.account) {
             await check(collateralAddress, web3Client);
@@ -92,7 +79,7 @@ async function check(collateralAddress: `0x${string}`, web3Client: ReturnType<ty
   const maxGovernIn = parseUnits(maxGovernanceIn.toString(), governanceDecimals);
   const allowance0 = web3Client?.account ? await getAllowance(collateralAddress, web3Client.account.address, diamondAddress) : BigInt(0);
   const allowance1 = web3Client?.account ? await getAllowance(ubqAddress, web3Client.account.address, diamondAddress) : BigInt(0);
-  const isAllowed = allowance0 >= maxCollatIn && (!isOneToOne ? allowance1 >= maxGovernIn : true);
+  const isAllowed = maxCollatIn > BigInt(0) && allowance0 >= maxCollatIn && (!isOneToOne ? maxGovernIn > BigInt(0) && allowance1 >= maxGovernIn : true);
   updateUiBasedOnAllowance(isAllowed);
 }
 
@@ -204,7 +191,8 @@ function updateAllowance() {
   if (allowanceButton !== null) {
     allowanceButton.addEventListener("click", async () => {
       try {
-        isButtonInteractionsDisabled = true;
+        canDisableButtonsAtIntervals = false;
+        allowanceButton.disabled = true;
         const collateralAddress = collateralRecord[selectedCollateralIndex];
         const collateralDecimals = await getTokenDecimals(collateralAddress);
         const allowedToSpendCollateral = parseUnits(maxCollateralIn.toString(), collateralDecimals);
@@ -235,9 +223,11 @@ function updateAllowance() {
             throw new Error(transactionReverted);
           }
         }
-        isButtonInteractionsDisabled = false;
+        allowanceButton.disabled = false;
+        canDisableButtonsAtIntervals = true;
       } catch (error) {
-        isButtonInteractionsDisabled = false;
+        allowanceButton.disabled = false;
+        canDisableButtonsAtIntervals = true;
         const err = error as BaseError;
         toastActions.showToast({
           toastType: "error",
@@ -252,7 +242,8 @@ function mint() {
   if (mintButton !== null) {
     mintButton.addEventListener("click", async () => {
       try {
-        isButtonInteractionsDisabled = true;
+        canDisableButtonsAtIntervals = false;
+        mintButton.disabled = true;
         const collateralAddress = collateralRecord[selectedCollateralIndex];
         const collateralDecimals = await getTokenDecimals(collateralAddress);
         const dollarDecimals = await getTokenDecimals(dollarAddress);
@@ -279,9 +270,11 @@ function mint() {
         } else {
           throw new Error(transactionReverted);
         }
-        isButtonInteractionsDisabled = false;
+        canDisableButtonsAtIntervals = true;
+        mintButton.disabled = false;
       } catch (error) {
-        isButtonInteractionsDisabled = false;
+        mintButton.disabled = false;
+        canDisableButtonsAtIntervals = true;
         const err = error as BaseError;
         toastActions.showToast({
           toastType: "error",

@@ -13,7 +13,7 @@ let governanceOutMin = 0;
 let collateralOutMin = 0;
 let blockOfRedemption = BigInt(0);
 
-let isButtonInteractionsDisabled = false;
+let canDisableButtonsAtIntervals = true;
 
 const collateralRecord: Record<string | number, `0x${string}`> = {};
 const toastActions = new ToastActions();
@@ -24,9 +24,14 @@ const transactionReverted = "transactionReverted";
 if (window.location.pathname.includes(pathName)) {
   (() => {
     setInterval(() => {
-      if (redeemDollarButton !== null) {
-        redeemDollarButton.disabled = dollarAmount <= 0 || isButtonInteractionsDisabled;
+      const connectedClient = getConnectedClient();
+
+      if (redeemDollarButton !== null && canDisableButtonsAtIntervals) {
+        redeemDollarButton.disabled = dollarAmount <= 0 || connectedClient === null || !connectedClient.account;
       }
+
+      if (allowanceButton !== null && canDisableButtonsAtIntervals) allowanceButton.disabled = connectedClient === null || !connectedClient.account;
+      if (redeemDollarButton !== null && canDisableButtonsAtIntervals) redeemDollarButton.disabled = connectedClient === null || !connectedClient.account;
     }, 500);
   })();
 
@@ -42,8 +47,8 @@ if (window.location.pathname.includes(pathName)) {
           }
           const bOfRedemption = Number(blockOfRedemption);
 
-          if (allowanceButton !== null) allowanceButton.disabled = connectedClient === null || !connectedClient.account || isButtonInteractionsDisabled;
-          if (redeemDollarButton !== null) redeemDollarButton.disabled = connectedClient === null || !connectedClient.account || isButtonInteractionsDisabled;
+          if (allowanceButton !== null && canDisableButtonsAtIntervals) allowanceButton.disabled = connectedClient === null || !connectedClient.account;
+          if (redeemDollarButton !== null && canDisableButtonsAtIntervals) redeemDollarButton.disabled = connectedClient === null || !connectedClient.account;
 
           if (collectRedemptionButton !== null) {
             collectRedemptionButton.disabled = bOfRedemption === 0 || currentBlock - bOfRedemption < 2;
@@ -64,7 +69,7 @@ async function check(web3Client: ReturnType<typeof getConnectedClient>) {
   const dollarDecimals = await getTokenDecimals(dollarAddress);
   const dAmount = parseUnits(dollarAmount.toString(), dollarDecimals);
   const allowance = web3Client?.account ? await getAllowance(dollarAddress, web3Client.account.address, diamondAddress) : BigInt(0);
-  const isAllowed = allowance >= dAmount;
+  const isAllowed = dAmount > BigInt(0) && allowance >= dAmount;
   updateUiBasedOnAllowance(isAllowed);
 }
 
@@ -149,7 +154,8 @@ function updateAllowance() {
   if (allowanceButton !== null) {
     allowanceButton.addEventListener("click", async () => {
       try {
-        isButtonInteractionsDisabled = true;
+        canDisableButtonsAtIntervals = false;
+        allowanceButton.disabled = true;
         const dollarDecimals = await getTokenDecimals(dollarAddress);
         const allowedToBurnDollar = parseUnits(dollarAmount.toString(), dollarDecimals);
         const txHash = await approveToSpend(dollarAddress, diamondAddress, allowedToBurnDollar);
@@ -163,9 +169,12 @@ function updateAllowance() {
         } else {
           throw new Error(transactionReverted);
         }
-        isButtonInteractionsDisabled = false;
+
+        allowanceButton.disabled = false;
+        canDisableButtonsAtIntervals = true;
       } catch (error) {
-        isButtonInteractionsDisabled = false;
+        allowanceButton.disabled = false;
+        canDisableButtonsAtIntervals = true;
         const err = error as BaseError;
         toastActions.showToast({
           toastType: "error",
@@ -180,7 +189,8 @@ function redeem() {
   if (redeemDollarButton !== null) {
     redeemDollarButton.addEventListener("click", async () => {
       try {
-        isButtonInteractionsDisabled = true;
+        canDisableButtonsAtIntervals = false;
+        redeemDollarButton.disabled = true;
         const collateralAddress = collateralRecord[selectedCollateralIndex];
         const collateralDecimals = await getTokenDecimals(collateralAddress);
         const dollarDecimals = await getTokenDecimals(dollarAddress);
@@ -189,7 +199,8 @@ function redeem() {
         const collateralOutMinInDecimals = parseUnits(collateralOutMin.toString(), collateralDecimals);
         const governanceOutMinInDecimals = parseUnits(governanceOutMin.toString(), governanceDecimals);
         const txHash = await redeemDollar(BigInt(selectedCollateralIndex), dollarAmountInDecimals, governanceOutMinInDecimals, collateralOutMinInDecimals);
-        isButtonInteractionsDisabled = false;
+        canDisableButtonsAtIntervals = true;
+        redeemDollarButton.disabled = false;
         blockOfRedemption = await publicClient.getBlockNumber();
         const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
@@ -202,7 +213,8 @@ function redeem() {
           throw new Error(transactionReverted);
         }
       } catch (error) {
-        isButtonInteractionsDisabled = false;
+        canDisableButtonsAtIntervals = true;
+        redeemDollarButton.disabled = false;
         const err = error as BaseError;
         toastActions.showToast({
           toastType: "error",
@@ -217,9 +229,11 @@ function collectRedemption() {
   if (collectRedemptionButton !== null) {
     collectRedemptionButton.addEventListener("click", async () => {
       try {
-        isButtonInteractionsDisabled = true;
+        canDisableButtonsAtIntervals = false;
+        collectRedemptionButton.disabled = true;
         const txHash = await collectionRedemption(BigInt(selectedCollateralIndex));
-        isButtonInteractionsDisabled = false;
+        canDisableButtonsAtIntervals = true;
+        collectRedemptionButton.disabled = false;
         const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
         if (transactionReceipt.status === "success") {
@@ -231,7 +245,8 @@ function collectRedemption() {
           throw new Error(transactionReverted);
         }
       } catch (error) {
-        isButtonInteractionsDisabled = false;
+        canDisableButtonsAtIntervals = true;
+        collectRedemptionButton.disabled = false;
         const err = error as BaseError;
         toastActions.showToast({
           toastType: "error",
