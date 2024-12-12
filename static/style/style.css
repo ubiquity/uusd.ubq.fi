@@ -4332,6 +4332,10 @@ html:has(.drawer-open.drawer-open) {
   gap: 2.25rem;
 }
 
+.overflow-auto {
+  overflow: auto;
+}
+
 .overflow-hidden {
   overflow: hidden;
 }
@@ -4468,6 +4472,11 @@ html:has(.drawer-open.drawer-open) {
 .text-xl {
   font-size: 1.25rem;
   line-height: 1.75rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+  line-height: 1rem;
 }
 
 .font-\[400\] {
@@ -4629,6 +4638,11 @@ html:has(.drawer-open.drawer-open) {
   .lg\:text-2xl {
     font-size: 1.5rem;
     line-height: 2rem;
+  }
+
+  .lg\:text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
   }
 
   .lg\:text-\[xl\] {
