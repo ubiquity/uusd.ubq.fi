@@ -1,12 +1,12 @@
 import { getContract } from "viem";
-import { erc20Abi } from "./constants";
+import { erc20Abi } from "./constants.json";
 import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
 import { publicClient } from "./shared";
 
 const abi = erc20Abi;
 
-export async function getTokenDecimals(address: `0x${string}`) {
+export async function getTokenDecimals(address: `0x${string}`): Promise<number> {
   const contract = getContract({
     abi,
     address,
@@ -14,13 +14,13 @@ export async function getTokenDecimals(address: `0x${string}`) {
   });
 
   try {
-    return await contract.read.decimals();
+    return (await contract.read.decimals()) as number;
   } catch (error) {
     return Promise.reject(error);
   }
 }
 
-export async function getAllowance(address: `0x${string}`, owner: `0x${string}`, spender: `0x${string}`) {
+export async function getAllowance(address: `0x${string}`, owner: `0x${string}`, spender: `0x${string}`): Promise<bigint> {
   const contract = getContract({
     abi,
     address,
@@ -28,7 +28,7 @@ export async function getAllowance(address: `0x${string}`, owner: `0x${string}`,
   });
 
   try {
-    return await contract.read.allowance([owner, spender]);
+    return (await contract.read.allowance([owner, spender])) as bigint;
   } catch (error) {
     return Promise.reject(error);
   }

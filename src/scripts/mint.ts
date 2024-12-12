@@ -13,9 +13,13 @@ import {
 } from "./ui";
 import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
 import { getConnectedClient } from "./connect-wallet";
-import { diamondAddress, dollarAddress, ubqAddress } from "./constants";
+import { diamondAddress as diamond, dollarAddress as dollar, ubqAddress as ubq } from "./constants.json";
 import { ToastActions } from "./toast";
 import { publicClient } from "./shared";
+
+const diamondAddress = diamond as `0x${string}`;
+const dollarAddress = dollar as `0x${string}`;
+const ubqAddress = ubq as `0x${string}`;
 
 let selectedCollateralIndex = 0;
 let dollarAmount = 0;

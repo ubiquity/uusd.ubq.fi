@@ -3,9 +3,13 @@ import { collectionRedemption, getAllCollaterals, getCollateralInformation, rede
 import { allowanceButton, collateralSelect, collectRedemptionButton, dollarInput, minCollateralInput, minGovernanceInput, redeemDollarButton } from "./ui";
 import { ToastActions } from "./toast";
 import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
-import { diamondAddress, dollarAddress, ubqAddress } from "./constants";
+import { diamondAddress as diamond, dollarAddress as dollar, ubqAddress as ubq } from "./constants.json";
 import { getConnectedClient } from "./connect-wallet";
 import { publicClient } from "./shared";
+
+const diamondAddress = diamond as `0x${string}`;
+const dollarAddress = dollar as `0x${string}`;
+const ubqAddress = ubq as `0x${string}`;
 
 let selectedCollateralIndex = 0;
 let dollarAmount = 0;
@@ -25,11 +29,6 @@ if (window.location.pathname.includes(pathName)) {
   (() => {
     setInterval(() => {
       const connectedClient = getConnectedClient();
-
-      if (redeemDollarButton !== null && canDisableButtonsAtIntervals) {
-        redeemDollarButton.disabled = dollarAmount <= 0 || connectedClient === null || !connectedClient.account;
-      }
-
       if (allowanceButton !== null && canDisableButtonsAtIntervals) allowanceButton.disabled = connectedClient === null || !connectedClient.account;
       if (redeemDollarButton !== null && canDisableButtonsAtIntervals) redeemDollarButton.disabled = connectedClient === null || !connectedClient.account;
     }, 500);

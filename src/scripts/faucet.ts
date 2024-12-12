@@ -1,11 +1,28 @@
 import { getContract } from "viem";
-import { diamondAddress, ufaucetAbi } from "./constants";
+import { diamondAddress, ufaucetAbi } from "./constants.json";
 import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
 import { publicClient } from "./shared";
 
+interface CollateralInformation {
+  index: bigint;
+  symbol: string;
+  collateralAddress: `0x${string}`;
+  collateralPriceFeedAddress: `0x${string}`;
+  collateralPriceFeedStalenessThreshold: bigint;
+  isEnabled: boolean;
+  missingDecimals: bigint;
+  price: bigint;
+  poolCeiling: bigint;
+  isMintPaused: boolean;
+  isRedeemPaused: boolean;
+  isBorrowPaused: boolean;
+  mintingFee: bigint;
+  redemptionFee: bigint;
+}
+
 const abi = ufaucetAbi;
-const address = diamondAddress;
+const address = diamondAddress as `0x${string}`;
 
 const CLIENT_OR_ACCOUNT_ERROR = "Client or account not initialized";
 const contract = getContract({
@@ -16,7 +33,7 @@ const contract = getContract({
 
 export async function getAllCollaterals() {
   try {
-    return await contract.read.allCollaterals();
+    return (await contract.read.allCollaterals()) as `0x${string}`[];
   } catch (error) {
     return [];
   }
@@ -24,7 +41,7 @@ export async function getAllCollaterals() {
 
 export async function getCollateralUsdBalance() {
   try {
-    return await contract.read.collateralUsdBalance();
+    return (await contract.read.collateralUsdBalance()) as bigint;
   } catch (error) {
     return BigInt(0);
   }
@@ -32,7 +49,7 @@ export async function getCollateralUsdBalance() {
 
 export async function getGovernancePriceUsd() {
   try {
-    return await contract.read.getGovernancePriceUsd();
+    return (await contract.read.getGovernancePriceUsd()) as bigint;
   } catch (error) {
     return BigInt(0);
   }
@@ -40,7 +57,7 @@ export async function getGovernancePriceUsd() {
 
 export async function getDollarPriceUsd() {
   try {
-    return await contract.read.getDollarPriceUsd();
+    return (await contract.read.getDollarPriceUsd()) as bigint;
   } catch (error) {
     return BigInt(0);
   }
@@ -48,7 +65,7 @@ export async function getDollarPriceUsd() {
 
 export async function getCollateralInformation(collateralAddress: `0x${string}`) {
   try {
-    return await contract.read.collateralInformation([collateralAddress]);
+    return (await contract.read.collateralInformation([collateralAddress])) as CollateralInformation;
   } catch (error) {
     return Promise.reject(error);
   }
