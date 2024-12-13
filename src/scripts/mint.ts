@@ -39,7 +39,7 @@ let canDisableButtonsAtIntervals = true;
 if (window.location.pathname.includes(pathName)) {
   (() => {
     setInterval(() => {
-      const collateralAddress = collateralRecord[selectedCollateralIndex];
+      const collateralAddress = Object.keys(collateralRecord).length ? collateralRecord[selectedCollateralIndex] : null;
       const web3Client = getConnectedClient();
 
       if (allowanceButton !== null && canDisableButtonsAtIntervals) allowanceButton.disabled = web3Client === null || !collateralAddress || !web3Client.account;
@@ -58,7 +58,7 @@ if (window.location.pathname.includes(pathName)) {
     publicClient.watchBlocks({
       onBlock: async () => {
         try {
-          const collateralAddress = collateralRecord[selectedCollateralIndex];
+          const collateralAddress = Object.keys(collateralRecord).length ? collateralRecord[selectedCollateralIndex] : null;
           const web3Client = getConnectedClient();
 
           if (collateralAddress && web3Client && web3Client.account) {
@@ -66,6 +66,7 @@ if (window.location.pathname.includes(pathName)) {
           }
         } catch (error) {
           const err = error as Error;
+          console.log(err);
           toastActions.showToast({
             toastType: "error",
             msg: err.message,

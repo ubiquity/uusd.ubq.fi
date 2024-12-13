@@ -29,7 +29,9 @@ if (window.location.pathname.includes(pathName)) {
   (() => {
     setInterval(() => {
       const connectedClient = getConnectedClient();
-      if (allowanceButton !== null && canDisableButtonsAtIntervals) allowanceButton.disabled = connectedClient === null || !connectedClient.account;
+      const collateralAddress = Object.keys(collateralRecord).length ? collateralRecord[selectedCollateralIndex] : null;
+      if (allowanceButton !== null && canDisableButtonsAtIntervals)
+        allowanceButton.disabled = connectedClient === null || !connectedClient.account || !collateralAddress;
       if (redeemDollarButton !== null && canDisableButtonsAtIntervals) redeemDollarButton.disabled = connectedClient === null || !connectedClient.account;
     }, 500);
   })();
@@ -45,9 +47,6 @@ if (window.location.pathname.includes(pathName)) {
             await check(connectedClient);
           }
           const bOfRedemption = Number(blockOfRedemption);
-
-          if (allowanceButton !== null && canDisableButtonsAtIntervals) allowanceButton.disabled = connectedClient === null || !connectedClient.account;
-          if (redeemDollarButton !== null && canDisableButtonsAtIntervals) redeemDollarButton.disabled = connectedClient === null || !connectedClient.account;
 
           if (collectRedemptionButton !== null) {
             collectRedemptionButton.disabled = bOfRedemption === 0 || currentBlock - bOfRedemption < 2;
