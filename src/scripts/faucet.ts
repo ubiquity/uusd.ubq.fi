@@ -1,7 +1,7 @@
 import { getContract } from "viem";
-import { diamondAddress, ufaucetAbi } from "./constants.json";
 import { mainnet } from "viem/chains";
 import { getConnectedClient } from "./connect-wallet";
+import { diamondAddress, ufaucetAbi } from "./constants.json";
 import { publicClient } from "./shared";
 
 interface CollateralInformation {
@@ -33,7 +33,8 @@ const contract = getContract({
 
 export async function getAllCollaterals() {
   try {
-    return (await contract.read.allCollaterals()) as `0x${string}`[];
+    const collaterals = (await contract.read.allCollaterals()) as `0x${string}`[];
+    return collaterals.filter((c): c is `0x${string}` => /^0x[0-9a-fA-F]+$/.test(c));
   } catch (error) {
     return [];
   }
