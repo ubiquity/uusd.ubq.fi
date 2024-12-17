@@ -2,7 +2,7 @@ import { parseUnits, BaseError } from "viem";
 import { collectionRedemption, getAllCollaterals, getCollateralInformation, redeemDollar } from "./faucet";
 import { allowanceButton, collateralSelect, collectRedemptionButton, dollarInput, minCollateralInput, minGovernanceInput, redeemDollarButton } from "./ui";
 import { ToastActions } from "./toast";
-import { approveToSpend, getAllowance, getTokenDecimals } from "./erc20";
+import { approveToSpend, getTokenDecimals } from "./erc20";
 import { diamondAddress as diamond, dollarAddress as dollar, ubqAddress as ubq } from "./constants.json";
 import { getConnectedClient } from "./connect-wallet";
 import { publicClient } from "./shared";
@@ -11,7 +11,7 @@ const diamondAddress = diamond as `0x${string}`;
 const dollarAddress = dollar as `0x${string}`;
 const ubqAddress = ubq as `0x${string}`;
 
-let selectedCollateralIndex = 0;
+let selectedCollateral: `0x${string}` | null = null;
 let dollarAmount = 0;
 let governanceOutMin = 0;
 let collateralOutMin = 0;
@@ -19,7 +19,19 @@ let blockOfRedemption = BigInt(0);
 
 let canDisableButtonsAtIntervals = true;
 
-const collateralRecord: Record<string | number, `0x${string}`> = {};
+// Track dollar decimals
+let dollarDecimals = 18;
+
+// Track governance decimals
+let governanceDecimals = 18;
+
+// Track collateral decimals
+let collateralDecimals = 18;
+
+// Track dollar spend allowance
+let dollarSpendAllowance = BigInt(0);
+
+const collateralRecord: Record<string, bigint> = {};
 const toastActions = new ToastActions();
 
 const pathName = "redeem";
@@ -28,28 +40,16 @@ const transactionReverted = "transactionReverted";
 if (window.location.pathname.includes(pathName)) {
   (() => {
     setInterval(() => {
-      const connectedClient = getConnectedClient();
-      const collateralAddress = Object.keys(collateralRecord).length ? collateralRecord[selectedCollateralIndex] : null;
-      if (allowanceButton !== null && canDisableButtonsAtIntervals)
-        allowanceButton.disabled = connectedClient === null || !connectedClient.account || !collateralAddress;
-      if (redeemDollarButton !== null && canDisableButtonsAtIntervals) redeemDollarButton.disabled = connectedClient === null || !connectedClient.account;
-    }, 500);
+      checkAndUpdateUi();
+    }, 50);
   })();
 
   void (() => {
     publicClient.watchBlocks({
       onBlock: async (block) => {
-        const currentBlock = Number(block.number);
-        const connectedClient = getConnectedClient();
-
         try {
-          if (connectedClient) {
-            await check(connectedClient);
-          }
-          const bOfRedemption = Number(blockOfRedemption);
-
           if (collectRedemptionButton !== null) {
-            collectRedemptionButton.disabled = bOfRedemption === 0 || currentBlock - bOfRedemption < 2;
+            collectRedemptionButton.disabled = blockOfRedemption === BigInt(0) || block.number - blockOfRedemption < BigInt(2);
           }
         } catch (error) {
           const err = error as Error;
@@ -63,12 +63,31 @@ if (window.location.pathname.includes(pathName)) {
   })();
 }
 
-async function check(web3Client: ReturnType<typeof getConnectedClient>) {
-  const dollarDecimals = await getTokenDecimals(dollarAddress);
+async function loadDollarDecimals() {
+  dollarDecimals = await getTokenDecimals(dollarAddress);
+}
+
+async function loadGovernanceDecimals() {
+  governanceDecimals = await getTokenDecimals(ubqAddress);
+}
+
+async function loadCollateralDecimals() {
+  if (selectedCollateral) collateralDecimals = await getTokenDecimals(selectedCollateral);
+}
+
+function checkAndUpdateUi() {
+  const connectedClient = getConnectedClient();
+
   const dAmount = parseUnits(dollarAmount.toString(), dollarDecimals);
-  const allowance = web3Client?.account ? await getAllowance(dollarAddress, web3Client.account.address, diamondAddress) : BigInt(0);
-  const isAllowed = dAmount > BigInt(0) && allowance >= dAmount;
+  const isAllowed = dAmount > BigInt(0) && dollarSpendAllowance >= dAmount;
+  const isValidInputs = dollarAmount > 0 && governanceOutMin > 0 && collateralOutMin > 0;
+
   updateUiBasedOnAllowance(isAllowed);
+
+  if (allowanceButton !== null && canDisableButtonsAtIntervals)
+    allowanceButton.disabled = connectedClient === null || !connectedClient.account || isAllowed || !selectedCollateral || !isValidInputs;
+  if (redeemDollarButton !== null && canDisableButtonsAtIntervals)
+    redeemDollarButton.disabled = connectedClient === null || !connectedClient.account || !isAllowed || !selectedCollateral || !isValidInputs;
 }
 
 function updateUiBasedOnAllowance(isAllowed: boolean) {
@@ -98,13 +117,13 @@ export async function initCollateralList() {
     const collaterals = await getAllCollaterals();
     const collateralInformation = await Promise.all(collaterals.map(getCollateralInformation));
     collateralInformation.forEach((info) => {
-      collateralRecord[Number(info.index)] = info.collateralAddress;
+      collateralRecord[info.collateralAddress] = info.index;
     });
 
     const options = collateralInformation.map((info) => {
       const option = document.createElement("option");
 
-      option.value = String(info.index);
+      option.value = info.collateralAddress;
       option.innerText = info.symbol;
 
       return option;
@@ -116,10 +135,11 @@ export async function initCollateralList() {
   }
 }
 
-function updateCollateralIndex() {
+function updateSelectedCollateral() {
   if (collateralSelect !== null) {
-    collateralSelect.addEventListener("change", (ev) => {
-      selectedCollateralIndex = Number((ev.target as HTMLSelectElement).value);
+    collateralSelect.addEventListener("change", async (ev) => {
+      selectedCollateral = (ev.target as HTMLSelectElement).value as `0x${string}`;
+      await loadCollateralDecimals();
     });
   }
 }
@@ -127,7 +147,7 @@ function updateCollateralIndex() {
 function updateDollarAmounts() {
   if (dollarInput !== null) {
     dollarInput.addEventListener("input", (ev) => {
-      dollarAmount = Number((ev.target as HTMLInputElement).value || "0");
+      dollarAmount = Number((ev.target as HTMLInputElement).value);
     });
   }
 }
@@ -135,7 +155,7 @@ function updateDollarAmounts() {
 function updateGovernanceAmount() {
   if (minGovernanceInput !== null) {
     minGovernanceInput.addEventListener("input", (ev) => {
-      governanceOutMin = Number((ev.target as HTMLInputElement).value || "0");
+      governanceOutMin = Number((ev.target as HTMLInputElement).value);
     });
   }
 }
@@ -143,7 +163,7 @@ function updateGovernanceAmount() {
 function updateCollateralAmount() {
   if (minCollateralInput !== null) {
     minCollateralInput.addEventListener("input", (ev) => {
-      collateralOutMin = Number((ev.target as HTMLInputElement).value || "0");
+      collateralOutMin = Number((ev.target as HTMLInputElement).value);
     });
   }
 }
@@ -154,18 +174,21 @@ function updateAllowance() {
       try {
         canDisableButtonsAtIntervals = false;
         allowanceButton.disabled = true;
-        const dollarDecimals = await getTokenDecimals(dollarAddress);
         const allowedToBurnDollar = parseUnits(dollarAmount.toString(), dollarDecimals);
-        const txHash = await approveToSpend(dollarAddress, diamondAddress, allowedToBurnDollar);
-        const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-        if (transactionReceipt.status === "success") {
-          toastActions.showToast({
-            toastType: "success",
-            msg: `Successfully allowed to burn dollar: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
-          });
-        } else {
-          throw new Error(transactionReverted);
+        if (allowedToBurnDollar > dollarSpendAllowance) {
+          const txHash = await approveToSpend(dollarAddress, diamondAddress, allowedToBurnDollar);
+          const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+          if (transactionReceipt.status === "success") {
+            dollarSpendAllowance = allowedToBurnDollar;
+            toastActions.showToast({
+              toastType: "success",
+              msg: `Successfully allowed to burn dollar: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
+            });
+          } else {
+            throw new Error(transactionReverted);
+          }
         }
 
         allowanceButton.disabled = false;
@@ -187,22 +210,19 @@ function redeem() {
   if (redeemDollarButton !== null) {
     redeemDollarButton.addEventListener("click", async () => {
       try {
+        if (!selectedCollateral) return;
         canDisableButtonsAtIntervals = false;
         redeemDollarButton.disabled = true;
-        const collateralAddress = collateralRecord[selectedCollateralIndex];
-        const collateralDecimals = await getTokenDecimals(collateralAddress);
-        const dollarDecimals = await getTokenDecimals(dollarAddress);
-        const governanceDecimals = await getTokenDecimals(ubqAddress);
+
         const dollarAmountInDecimals = parseUnits(dollarAmount.toString(), dollarDecimals);
         const collateralOutMinInDecimals = parseUnits(collateralOutMin.toString(), collateralDecimals);
         const governanceOutMinInDecimals = parseUnits(governanceOutMin.toString(), governanceDecimals);
-        const txHash = await redeemDollar(BigInt(selectedCollateralIndex), dollarAmountInDecimals, governanceOutMinInDecimals, collateralOutMinInDecimals);
-        canDisableButtonsAtIntervals = true;
-        redeemDollarButton.disabled = false;
+        const txHash = await redeemDollar(collateralRecord[selectedCollateral], dollarAmountInDecimals, governanceOutMinInDecimals, collateralOutMinInDecimals);
         blockOfRedemption = await publicClient.getBlockNumber();
         const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
         if (transactionReceipt.status === "success") {
+          dollarSpendAllowance = dollarSpendAllowance - dollarAmountInDecimals;
           toastActions.showToast({
             toastType: "success",
             msg: `Successfully redeemed: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
@@ -210,6 +230,9 @@ function redeem() {
         } else {
           throw new Error(transactionReverted);
         }
+
+        canDisableButtonsAtIntervals = true;
+        redeemDollarButton.disabled = false;
       } catch (error) {
         canDisableButtonsAtIntervals = true;
         redeemDollarButton.disabled = false;
@@ -227,9 +250,10 @@ function collectRedemption() {
   if (collectRedemptionButton !== null) {
     collectRedemptionButton.addEventListener("click", async () => {
       try {
+        if (!selectedCollateral) return;
         canDisableButtonsAtIntervals = false;
         collectRedemptionButton.disabled = true;
-        const txHash = await collectionRedemption(BigInt(selectedCollateralIndex));
+        const txHash = await collectionRedemption(collateralRecord[selectedCollateral]);
         canDisableButtonsAtIntervals = true;
         collectRedemptionButton.disabled = false;
         const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
@@ -257,7 +281,9 @@ function collectRedemption() {
 
 export async function initUiEvents() {
   if (window.location.pathname.includes(pathName)) {
-    updateCollateralIndex();
+    void loadDollarDecimals();
+    void loadGovernanceDecimals();
+    updateSelectedCollateral();
     updateAllowance();
     updateDollarAmounts();
     updateCollateralAmount();

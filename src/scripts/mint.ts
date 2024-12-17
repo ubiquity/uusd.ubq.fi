@@ -21,14 +21,29 @@ const diamondAddress = diamond as `0x${string}`;
 const dollarAddress = dollar as `0x${string}`;
 const ubqAddress = ubq as `0x${string}`;
 
-let selectedCollateralIndex = 0;
+let selectedCollateral: `0x${string}` | null = null;
 let dollarAmount = 0;
 let dollarOutMin = 0;
 let maxCollateralIn = 0;
 let maxGovernanceIn = 0;
 let isOneToOne = true;
 
-const collateralRecord: Record<string | number, `0x${string}`> = {};
+// Variable to track collateral spend allowance, and render UI appropriately
+let collateralSpendAllowance = BigInt(0);
+
+// Variable to track ubq spend allowance
+let ubqSpendAllowance = BigInt(0);
+
+// Track collateral decimals
+let collateralDecimals = 18;
+
+// Track governance decimals
+let governanceDecimals = 18;
+
+// Track dollar decimals
+let dollarDecimals = 18;
+
+const collateralRecord: Record<string, bigint> = {};
 const toastActions = new ToastActions();
 
 const pathName = "mint";
@@ -38,54 +53,54 @@ let canDisableButtonsAtIntervals = true;
 
 if (window.location.pathname.includes(pathName)) {
   (() => {
-    setInterval(() => {
-      const collateralAddress = Object.keys(collateralRecord).length ? collateralRecord[selectedCollateralIndex] : null;
-      const web3Client = getConnectedClient();
-
-      if (allowanceButton !== null && canDisableButtonsAtIntervals) allowanceButton.disabled = web3Client === null || !collateralAddress || !web3Client.account;
-      if (mintButton !== null && canDisableButtonsAtIntervals) mintButton.disabled = web3Client === null || !collateralAddress || !web3Client.account;
-
-      const appendableText = "+UBQ";
-      if (!isOneToOne) {
-        if (!allowanceButton.innerText.includes(appendableText)) allowanceButton.innerText = allowanceButton.innerText.concat(appendableText);
-      } else {
-        allowanceButton.innerText = allowanceButton.innerText.replace(appendableText, "");
-      }
-    }, 500);
-  })();
-
-  void (() => {
-    publicClient.watchBlocks({
-      onBlock: async () => {
-        try {
-          const collateralAddress = Object.keys(collateralRecord).length ? collateralRecord[selectedCollateralIndex] : null;
-          const web3Client = getConnectedClient();
-
-          if (collateralAddress && web3Client && web3Client.account) {
-            await check(collateralAddress, web3Client);
-          }
-        } catch (error) {
-          const err = error as Error;
-          console.log(err);
-          toastActions.showToast({
-            toastType: "error",
-            msg: err.message,
-          });
-        }
-      },
-    });
+    setInterval(async () => {
+      checkAndUpdateUi();
+    }, 50);
   })();
 }
 
-async function check(collateralAddress: `0x${string}`, web3Client: ReturnType<typeof getConnectedClient>) {
-  const collateralDecimals = await getTokenDecimals(collateralAddress);
-  const governanceDecimals = await getTokenDecimals(ubqAddress);
+function checkAndUpdateUi() {
+  // Check allowance
   const maxCollatIn = parseUnits(maxCollateralIn.toString(), collateralDecimals);
   const maxGovernIn = parseUnits(maxGovernanceIn.toString(), governanceDecimals);
-  const allowance0 = web3Client?.account ? await getAllowance(collateralAddress, web3Client.account.address, diamondAddress) : BigInt(0);
-  const allowance1 = web3Client?.account ? await getAllowance(ubqAddress, web3Client.account.address, diamondAddress) : BigInt(0);
-  const isAllowed = maxCollatIn > BigInt(0) && allowance0 >= maxCollatIn && (!isOneToOne ? maxGovernIn > BigInt(0) && allowance1 >= maxGovernIn : true);
+  const isAllowed = maxCollatIn > BigInt(0) && collateralSpendAllowance >= maxCollatIn && (!isOneToOne ? ubqSpendAllowance >= maxGovernIn : true);
   updateUiBasedOnAllowance(isAllowed);
+
+  const web3Client = getConnectedClient();
+  const isValidInputs = maxCollateralIn > 0 && (!isOneToOne ? maxGovernanceIn > 0 : true);
+
+  if (allowanceButton !== null && canDisableButtonsAtIntervals)
+    allowanceButton.disabled = web3Client === null || !selectedCollateral || !web3Client.account || isAllowed || !isValidInputs;
+  if (mintButton !== null && canDisableButtonsAtIntervals)
+    mintButton.disabled = web3Client === null || !selectedCollateral || !web3Client.account || !isAllowed || !isValidInputs;
+
+  const appendableText = "+UBQ";
+  if (!isOneToOne) {
+    if (!allowanceButton.innerText.includes(appendableText)) allowanceButton.innerText = allowanceButton.innerText.concat(appendableText);
+  } else {
+    allowanceButton.innerText = allowanceButton.innerText.replace(appendableText, "");
+  }
+}
+
+async function checkAllowance() {
+  const web3Client = getConnectedClient();
+
+  if (web3Client && web3Client.account) {
+    if (selectedCollateral) collateralSpendAllowance = await getAllowance(selectedCollateral, web3Client.account.address, diamondAddress);
+    ubqSpendAllowance = await getAllowance(ubqAddress, web3Client.account.address, diamondAddress);
+  }
+}
+
+async function loadGovernanceDecimals() {
+  governanceDecimals = await getTokenDecimals(ubqAddress);
+}
+
+async function loadCollateralDecimals() {
+  if (selectedCollateral) collateralDecimals = await getTokenDecimals(selectedCollateral);
+}
+
+async function loadDollarDecimals() {
+  dollarDecimals = await getTokenDecimals(dollarAddress);
 }
 
 function updateUiBasedOnAllowance(isAllowed: boolean) {
@@ -116,14 +131,16 @@ export async function initCollateralList() {
     const collateralInformation = await Promise.all(collaterals.map(getCollateralInformation));
 
     collateralInformation.forEach((info) => {
-      collateralRecord[Number(info.index)] = info.collateralAddress;
+      collateralRecord[info.collateralAddress] = info.index;
     });
 
     const options = collateralInformation.map((info) => {
       const option = document.createElement("option");
 
-      option.value = String(info.index);
+      option.value = info.collateralAddress;
       option.innerText = info.symbol;
+
+      collateralRecord;
 
       return option;
     });
@@ -134,10 +151,12 @@ export async function initCollateralList() {
   }
 }
 
-function updateCollateralIndex() {
+function updateSelectedCollateral() {
   if (collateralSelect !== null) {
-    collateralSelect.addEventListener("change", (ev) => {
-      selectedCollateralIndex = Number((ev.target as HTMLSelectElement).value);
+    collateralSelect.addEventListener("change", async (ev) => {
+      selectedCollateral = (ev.target as HTMLSelectElement).value as `0x${string}`;
+      await loadCollateralDecimals();
+      await checkAllowance();
     });
   }
 }
@@ -165,7 +184,7 @@ function updateOneToOne() {
 function updateGovernanceAmount() {
   if (governanceInput !== null) {
     governanceInput.addEventListener("input", (ev) => {
-      maxGovernanceIn = Number((ev.target as HTMLInputElement).value || "0");
+      maxGovernanceIn = Number((ev.target as HTMLInputElement).value);
     });
   }
 }
@@ -173,13 +192,13 @@ function updateGovernanceAmount() {
 function updateDollarAmounts() {
   if (dollarInput !== null) {
     dollarInput.addEventListener("input", (ev) => {
-      dollarAmount = Number((ev.target as HTMLInputElement).value || "0");
+      dollarAmount = Number((ev.target as HTMLInputElement).value);
     });
   }
 
   if (minDollarInput !== null) {
     minDollarInput.addEventListener("input", (ev) => {
-      dollarOutMin = Number((ev.target as HTMLInputElement).value || "0");
+      dollarOutMin = Number((ev.target as HTMLInputElement).value);
     });
   }
 }
@@ -187,7 +206,7 @@ function updateDollarAmounts() {
 function updateCollateralAmount() {
   if (collateralInput !== null) {
     collateralInput.addEventListener("input", (ev) => {
-      maxCollateralIn = Number((ev.target as HTMLInputElement).value || "0");
+      maxCollateralIn = Number((ev.target as HTMLInputElement).value);
     });
   }
 }
@@ -196,36 +215,45 @@ function updateAllowance() {
   if (allowanceButton !== null) {
     allowanceButton.addEventListener("click", async () => {
       try {
+        if (!selectedCollateral) return;
+
         canDisableButtonsAtIntervals = false;
         allowanceButton.disabled = true;
-        const collateralAddress = collateralRecord[selectedCollateralIndex];
-        const collateralDecimals = await getTokenDecimals(collateralAddress);
+
         const allowedToSpendCollateral = parseUnits(maxCollateralIn.toString(), collateralDecimals);
-        const collateralSpendtxHash = await approveToSpend(collateralAddress, diamondAddress, allowedToSpendCollateral);
-        const transactionReceiptForCollateralSpendApproval = await publicClient.waitForTransactionReceipt({ hash: collateralSpendtxHash });
 
-        if (transactionReceiptForCollateralSpendApproval.status === "success") {
-          toastActions.showToast({
-            toastType: "success",
-            msg: `Successfully allowed to spend collateral: <a href="https://etherscan.io/tx/${collateralSpendtxHash}" target="_blank">View on explorer</a>`,
-          });
-        } else {
-          throw new Error(transactionReverted);
-        }
+        if (allowedToSpendCollateral > collateralSpendAllowance) {
+          const collateralSpendtxHash = await approveToSpend(selectedCollateral, diamondAddress, allowedToSpendCollateral);
+          const transactionReceiptForCollateralSpendApproval = await publicClient.waitForTransactionReceipt({ hash: collateralSpendtxHash });
 
-        if (!isOneToOne) {
-          const ubqDecimals = await getTokenDecimals(ubqAddress);
-          const allowedToSpendUbq = parseUnits(maxGovernanceIn.toString(), ubqDecimals);
-          const ubqSpendtxHash = await approveToSpend(ubqAddress, diamondAddress, allowedToSpendUbq);
-          const transactionReceiptForUbqSpendApproval = await publicClient.waitForTransactionReceipt({ hash: ubqSpendtxHash });
+          if (transactionReceiptForCollateralSpendApproval.status === "success") {
+            collateralSpendAllowance = allowedToSpendCollateral;
 
-          if (transactionReceiptForUbqSpendApproval.status === "success") {
             toastActions.showToast({
               toastType: "success",
-              msg: `Successfully allowed to spend collateral: <a href="https://etherscan.io/tx/${ubqSpendtxHash}" target="_blank">View on explorer</a>`,
+              msg: `Successfully allowed to spend collateral: <a href="https://etherscan.io/tx/${collateralSpendtxHash}" target="_blank">View on explorer</a>`,
             });
           } else {
             throw new Error(transactionReverted);
+          }
+        }
+
+        if (!isOneToOne) {
+          const allowedToSpendUbq = parseUnits(maxGovernanceIn.toString(), governanceDecimals);
+
+          if (allowedToSpendUbq > ubqSpendAllowance) {
+            const ubqSpendtxHash = await approveToSpend(ubqAddress, diamondAddress, allowedToSpendUbq);
+            const transactionReceiptForUbqSpendApproval = await publicClient.waitForTransactionReceipt({ hash: ubqSpendtxHash });
+
+            if (transactionReceiptForUbqSpendApproval.status === "success") {
+              ubqSpendAllowance = allowedToSpendUbq;
+              toastActions.showToast({
+                toastType: "success",
+                msg: `Successfully allowed to spend collateral: <a href="https://etherscan.io/tx/${ubqSpendtxHash}" target="_blank">View on explorer</a>`,
+              });
+            } else {
+              throw new Error(transactionReverted);
+            }
           }
         }
         allowanceButton.disabled = false;
@@ -247,18 +275,17 @@ function mint() {
   if (mintButton !== null) {
     mintButton.addEventListener("click", async () => {
       try {
+        if (!selectedCollateral) return;
+
         canDisableButtonsAtIntervals = false;
         mintButton.disabled = true;
-        const collateralAddress = collateralRecord[selectedCollateralIndex];
-        const collateralDecimals = await getTokenDecimals(collateralAddress);
-        const dollarDecimals = await getTokenDecimals(dollarAddress);
-        const governanceDecimals = await getTokenDecimals(ubqAddress);
+
         const allowedToSpend = parseUnits(maxCollateralIn.toString(), collateralDecimals);
         const dollarAmountInDecimals = parseUnits(dollarAmount.toString(), dollarDecimals);
         const dollarOutInDecimals = parseUnits(dollarOutMin.toString(), dollarDecimals);
         const governanceAmountInDecimals = parseUnits(maxGovernanceIn.toString(), governanceDecimals);
         const txHash = await mintDollar(
-          BigInt(selectedCollateralIndex),
+          collateralRecord[selectedCollateral],
           dollarAmountInDecimals,
           dollarOutInDecimals,
           allowedToSpend,
@@ -268,6 +295,9 @@ function mint() {
         const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
         if (transactionReceipt.status === "success") {
+          collateralSpendAllowance = collateralSpendAllowance - allowedToSpend;
+          ubqSpendAllowance = ubqSpendAllowance - governanceAmountInDecimals;
+
           toastActions.showToast({
             toastType: "success",
             msg: `Successfully minted: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
@@ -292,11 +322,13 @@ function mint() {
 
 export async function initUiEvents() {
   if (window.location.pathname.includes(pathName)) {
-    updateCollateralIndex();
+    void loadGovernanceDecimals();
+    void loadDollarDecimals();
+    updateSelectedCollateral();
     updateOneToOne();
     updateAllowance();
     updateCollateralAmount();
-    updateCollateralIndex();
+    updateSelectedCollateral();
     updateDollarAmounts();
     updateGovernanceAmount();
     mint();
