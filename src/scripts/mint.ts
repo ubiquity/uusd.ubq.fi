@@ -63,11 +63,11 @@ function checkAndUpdateUi() {
   // Check allowance
   const maxCollatIn = parseUnits(maxCollateralIn.toString(), collateralDecimals);
   const maxGovernIn = parseUnits(maxGovernanceIn.toString(), governanceDecimals);
-  const isAllowed = maxCollatIn > BigInt(0) && collateralSpendAllowance >= maxCollatIn && (!isOneToOne ? ubqSpendAllowance >= maxGovernIn : true);
+  const isAllowed = collateralSpendAllowance > BigInt(0) && collateralSpendAllowance >= maxCollatIn && (!isOneToOne ? ubqSpendAllowance >= maxGovernIn : true);
   updateUiBasedOnAllowance(isAllowed);
 
   const web3Client = getConnectedClient();
-  const isValidInputs = maxCollateralIn > 0 && (!isOneToOne ? maxGovernanceIn > 0 : true);
+  const isValidInputs = dollarAmount > 0;
 
   if (allowanceButton !== null && canDisableButtonsAtIntervals)
     allowanceButton.disabled = web3Client === null || !selectedCollateral || !web3Client.account || isAllowed || !isValidInputs;

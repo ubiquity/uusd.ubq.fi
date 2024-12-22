@@ -80,7 +80,7 @@ function checkAndUpdateUi() {
 
   const dAmount = parseUnits(dollarAmount.toString(), dollarDecimals);
   const isAllowed = dAmount > BigInt(0) && dollarSpendAllowance >= dAmount;
-  const isValidInputs = dollarAmount > 0 && governanceOutMin > 0 && collateralOutMin > 0;
+  const isValidInputs = dollarAmount > 0;
 
   updateUiBasedOnAllowance(isAllowed);
 
