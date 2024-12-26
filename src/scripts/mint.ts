@@ -64,6 +64,7 @@ function checkAndUpdateUi() {
   const maxCollatIn = parseUnits(maxCollateralIn.toString(), collateralDecimals);
   const maxGovernIn = parseUnits(maxGovernanceIn.toString(), governanceDecimals);
   const isAllowed = collateralSpendAllowance > BigInt(0) && collateralSpendAllowance >= maxCollatIn && (!isOneToOne ? ubqSpendAllowance >= maxGovernIn : true);
+  console.log(isAllowed);
   updateUiBasedOnAllowance(isAllowed);
 
   const web3Client = getConnectedClient();
@@ -157,6 +158,7 @@ function updateSelectedCollateral() {
       selectedCollateral = (ev.target as HTMLSelectElement).value as `0x${string}`;
       await loadCollateralDecimals();
       await checkAllowance();
+      console.log(collateralSpendAllowance.toString());
     });
   }
 }
@@ -222,20 +224,18 @@ function updateAllowance() {
 
         const allowedToSpendCollateral = parseUnits(maxCollateralIn.toString(), collateralDecimals);
 
-        if (allowedToSpendCollateral > collateralSpendAllowance) {
-          const collateralSpendtxHash = await approveToSpend(selectedCollateral, diamondAddress, allowedToSpendCollateral);
-          const transactionReceiptForCollateralSpendApproval = await publicClient.waitForTransactionReceipt({ hash: collateralSpendtxHash });
+        const collateralSpendtxHash = await approveToSpend(selectedCollateral, diamondAddress, allowedToSpendCollateral);
+        const transactionReceiptForCollateralSpendApproval = await publicClient.waitForTransactionReceipt({ hash: collateralSpendtxHash });
+        console.log("Here====");
 
-          if (transactionReceiptForCollateralSpendApproval.status === "success") {
-            collateralSpendAllowance = allowedToSpendCollateral;
-
-            toastActions.showToast({
-              toastType: "success",
-              msg: `Successfully allowed to spend collateral: <a href="https://etherscan.io/tx/${collateralSpendtxHash}" target="_blank">View on explorer</a>`,
-            });
-          } else {
-            throw new Error(transactionReverted);
-          }
+        if (transactionReceiptForCollateralSpendApproval.status === "success") {
+          collateralSpendAllowance = allowedToSpendCollateral;
+          toastActions.showToast({
+            toastType: "success",
+            msg: `Successfully allowed to spend collateral: <a href="https://etherscan.io/tx/${collateralSpendtxHash}" target="_blank">View on explorer</a>`,
+          });
+        } else {
+          throw new Error(transactionReverted);
         }
 
         if (!isOneToOne) {
@@ -324,6 +324,7 @@ export async function initUiEvents() {
   if (window.location.pathname.includes(pathName)) {
     void loadGovernanceDecimals();
     void loadDollarDecimals();
+    void checkAllowance();
     updateSelectedCollateral();
     updateOneToOne();
     updateAllowance();

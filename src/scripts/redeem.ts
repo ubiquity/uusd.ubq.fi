@@ -254,18 +254,20 @@ function collectRedemption() {
         canDisableButtonsAtIntervals = false;
         collectRedemptionButton.disabled = true;
         const txHash = await collectionRedemption(collateralRecord[selectedCollateral]);
-        canDisableButtonsAtIntervals = true;
-        collectRedemptionButton.disabled = false;
         const transactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
         if (transactionReceipt.status === "success") {
           toastActions.showToast({
             toastType: "success",
-            msg: `Successfully minted: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
+            msg: `Successfully collected: <a href="https://etherscan.io/tx/${txHash}" target="_blank">View on explorer</a>`,
           });
         } else {
           throw new Error(transactionReverted);
         }
+
+        canDisableButtonsAtIntervals = true;
+        collectRedemptionButton.disabled = false;
+        blockOfRedemption = BigInt(0);
       } catch (error) {
         canDisableButtonsAtIntervals = true;
         collectRedemptionButton.disabled = false;
