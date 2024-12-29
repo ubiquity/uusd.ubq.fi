@@ -104,25 +104,44 @@ async function loadDollarDecimals() {
   dollarDecimals = await getTokenDecimals(dollarAddress);
 }
 
+function changeComponentsStateOnEnoughAllowance() {
+  if (mintButton !== null && mintButton.classList.contains("hidden")) {
+    mintButton.classList.remove("hidden");
+    mintButton.classList.add("flex");
+  }
+  if (allowanceButton !== null && !allowanceButton.classList.contains("hidden")) {
+    allowanceButton.classList.add("hidden");
+    allowanceButton.classList.remove("flex");
+  }
+
+  if (collateralInput !== null && minDollarInput !== null && dollarInput !== null) {
+    collateralInput.disabled = false;
+    minDollarInput.disabled = false;
+    dollarInput.disabled = false;
+  }
+}
+
+function changeComponentsStateOnAllowanceRequired() {
+  if (mintButton !== null && !mintButton.classList.contains("hidden")) {
+    mintButton.classList.add("hidden");
+    mintButton.classList.remove("flex");
+  }
+  if (allowanceButton !== null && allowanceButton.classList.contains("hidden")) {
+    allowanceButton.classList.remove("hidden");
+    allowanceButton.classList.add("flex");
+  }
+  if (collateralInput !== null && minDollarInput !== null && dollarInput !== null) {
+    collateralInput.disabled = true;
+    minDollarInput.disabled = true;
+    dollarInput.disabled = true;
+  }
+}
+
 function updateUiBasedOnAllowance(isAllowed: boolean) {
   if (isAllowed) {
-    if (mintButton !== null && mintButton.classList.contains("hidden")) {
-      mintButton.classList.remove("hidden");
-      mintButton.classList.add("flex");
-    }
-    if (allowanceButton !== null && !allowanceButton.classList.contains("hidden")) {
-      allowanceButton.classList.add("hidden");
-      allowanceButton.classList.remove("flex");
-    }
+    changeComponentsStateOnEnoughAllowance();
   } else {
-    if (mintButton !== null && !mintButton.classList.contains("hidden")) {
-      mintButton.classList.add("hidden");
-      mintButton.classList.remove("flex");
-    }
-    if (allowanceButton !== null && allowanceButton.classList.contains("hidden")) {
-      allowanceButton.classList.remove("hidden");
-      allowanceButton.classList.add("flex");
-    }
+    changeComponentsStateOnAllowanceRequired();
   }
 }
 
