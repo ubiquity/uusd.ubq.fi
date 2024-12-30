@@ -38,12 +38,6 @@ const pathName = "redeem";
 const transactionReverted = "transactionReverted";
 
 if (window.location.pathname.includes(pathName)) {
-  (() => {
-    setInterval(() => {
-      checkAndUpdateUi();
-    }, 50);
-  })();
-
   void (() => {
     publicClient.watchBlocks({
       onBlock: async (block) => {
@@ -80,6 +74,7 @@ function checkAndUpdateUi() {
 
   const dAmount = parseUnits(dollarAmount.toString(), dollarDecimals);
   const isAllowed = dAmount > BigInt(0) && dollarSpendAllowance >= dAmount;
+
   const isValidInputs = dollarAmount > 0;
 
   updateUiBasedOnAllowance(isAllowed);
@@ -90,25 +85,38 @@ function checkAndUpdateUi() {
     redeemDollarButton.disabled = connectedClient === null || !connectedClient.account || !isAllowed || !selectedCollateral || !isValidInputs;
 }
 
+function changeComponentsStateOnAllowanceRequired() {
+  if (redeemDollarButton !== null && !redeemDollarButton.classList.contains("hidden")) {
+    redeemDollarButton.classList.add("hidden");
+    redeemDollarButton.classList.remove("flex");
+  }
+  if (allowanceButton !== null && allowanceButton.classList.contains("hidden")) {
+    allowanceButton.classList.remove("hidden");
+    allowanceButton.classList.add("flex");
+  }
+  minCollateralInput.disabled = true;
+  minGovernanceInput.disabled = true;
+}
+
+function changeComponentsStateOnEnoughAllowance() {
+  if (redeemDollarButton !== null && redeemDollarButton.classList.contains("hidden")) {
+    redeemDollarButton.classList.remove("hidden");
+    redeemDollarButton.classList.add("flex");
+  }
+  if (allowanceButton !== null && !allowanceButton.classList.contains("hidden")) {
+    allowanceButton.classList.add("hidden");
+    allowanceButton.classList.remove("flex");
+  }
+
+  minCollateralInput.disabled = false;
+  minGovernanceInput.disabled = false;
+}
+
 function updateUiBasedOnAllowance(isAllowed: boolean) {
   if (isAllowed) {
-    if (redeemDollarButton !== null && redeemDollarButton.classList.contains("hidden")) {
-      redeemDollarButton.classList.remove("hidden");
-      redeemDollarButton.classList.add("flex");
-    }
-    if (allowanceButton !== null && !allowanceButton.classList.contains("hidden")) {
-      allowanceButton.classList.add("hidden");
-      allowanceButton.classList.remove("flex");
-    }
+    changeComponentsStateOnEnoughAllowance();
   } else {
-    if (redeemDollarButton !== null && !redeemDollarButton.classList.contains("hidden")) {
-      redeemDollarButton.classList.add("hidden");
-      redeemDollarButton.classList.remove("flex");
-    }
-    if (allowanceButton !== null && allowanceButton.classList.contains("hidden")) {
-      allowanceButton.classList.remove("hidden");
-      allowanceButton.classList.add("flex");
-    }
+    changeComponentsStateOnAllowanceRequired();
   }
 }
 
@@ -140,6 +148,7 @@ function updateSelectedCollateral() {
     collateralSelect.addEventListener("change", async (ev) => {
       selectedCollateral = (ev.target as HTMLSelectElement).value as `0x${string}`;
       await loadCollateralDecimals();
+      checkAndUpdateUi();
     });
   }
 }
@@ -148,6 +157,7 @@ function updateDollarAmounts() {
   if (dollarInput !== null) {
     dollarInput.addEventListener("input", (ev) => {
       dollarAmount = Number((ev.target as HTMLInputElement).value);
+      checkAndUpdateUi();
     });
   }
 }
@@ -156,6 +166,7 @@ function updateGovernanceAmount() {
   if (minGovernanceInput !== null) {
     minGovernanceInput.addEventListener("input", (ev) => {
       governanceOutMin = Number((ev.target as HTMLInputElement).value);
+      checkAndUpdateUi();
     });
   }
 }
@@ -164,6 +175,7 @@ function updateCollateralAmount() {
   if (minCollateralInput !== null) {
     minCollateralInput.addEventListener("input", (ev) => {
       collateralOutMin = Number((ev.target as HTMLInputElement).value);
+      checkAndUpdateUi();
     });
   }
 }
@@ -193,6 +205,7 @@ function updateAllowance() {
 
         allowanceButton.disabled = false;
         canDisableButtonsAtIntervals = true;
+        checkAndUpdateUi();
       } catch (error) {
         allowanceButton.disabled = false;
         canDisableButtonsAtIntervals = true;
@@ -233,6 +246,7 @@ function redeem() {
 
         canDisableButtonsAtIntervals = true;
         redeemDollarButton.disabled = false;
+        checkAndUpdateUi();
       } catch (error) {
         canDisableButtonsAtIntervals = true;
         redeemDollarButton.disabled = false;
@@ -268,6 +282,7 @@ function collectRedemption() {
         canDisableButtonsAtIntervals = true;
         collectRedemptionButton.disabled = false;
         blockOfRedemption = BigInt(0);
+        checkAndUpdateUi();
       } catch (error) {
         canDisableButtonsAtIntervals = true;
         collectRedemptionButton.disabled = false;
@@ -292,5 +307,6 @@ export async function initUiEvents() {
     updateGovernanceAmount();
     redeem();
     collectRedemption();
+    checkAndUpdateUi();
   }
 }

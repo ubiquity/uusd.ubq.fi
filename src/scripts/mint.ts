@@ -51,29 +51,21 @@ const transactionReverted = "Transaction was reverted";
 
 let canDisableButtonsAtIntervals = true;
 
-if (window.location.pathname.includes(pathName)) {
-  (() => {
-    setInterval(async () => {
-      checkAndUpdateUi();
-    }, 50);
-  })();
-}
-
 function checkAndUpdateUi() {
   // Check allowance
   const maxCollatIn = parseUnits(maxCollateralIn.toString(), collateralDecimals);
   const maxGovernIn = parseUnits(maxGovernanceIn.toString(), governanceDecimals);
   const isAllowed = collateralSpendAllowance > BigInt(0) && collateralSpendAllowance >= maxCollatIn && (!isOneToOne ? ubqSpendAllowance >= maxGovernIn : true);
-  console.log(isAllowed);
   updateUiBasedOnAllowance(isAllowed);
 
   const web3Client = getConnectedClient();
-  const isValidInputs = dollarAmount > 0;
+  const isAllowanceInputValid = maxCollateralIn > 0;
+  const isMintInputValid = dollarAmount > 0;
 
   if (allowanceButton !== null && canDisableButtonsAtIntervals)
-    allowanceButton.disabled = web3Client === null || !selectedCollateral || !web3Client.account || isAllowed || !isValidInputs;
+    allowanceButton.disabled = web3Client === null || !selectedCollateral || !web3Client.account || isAllowed || !isAllowanceInputValid;
   if (mintButton !== null && canDisableButtonsAtIntervals)
-    mintButton.disabled = web3Client === null || !selectedCollateral || !web3Client.account || !isAllowed || !isValidInputs;
+    mintButton.disabled = web3Client === null || !selectedCollateral || !web3Client.account || !isAllowed || !isMintInputValid;
 
   const appendableText = "+UBQ";
   if (!isOneToOne) {
@@ -115,7 +107,7 @@ function changeComponentsStateOnEnoughAllowance() {
   }
 
   if (collateralInput !== null && minDollarInput !== null && dollarInput !== null) {
-    collateralInput.disabled = false;
+    collateralInput.disabled = true;
     minDollarInput.disabled = false;
     dollarInput.disabled = false;
   }
@@ -130,10 +122,10 @@ function changeComponentsStateOnAllowanceRequired() {
     allowanceButton.classList.remove("hidden");
     allowanceButton.classList.add("flex");
   }
-  if (collateralInput !== null && minDollarInput !== null && dollarInput !== null) {
-    collateralInput.disabled = true;
+  if (minDollarInput !== null && dollarInput !== null) {
     minDollarInput.disabled = true;
     dollarInput.disabled = true;
+    collateralInput.disabled = false;
   }
 }
 
@@ -177,7 +169,7 @@ function updateSelectedCollateral() {
       selectedCollateral = (ev.target as HTMLSelectElement).value as `0x${string}`;
       await loadCollateralDecimals();
       await checkAllowance();
-      console.log(collateralSpendAllowance.toString());
+      checkAndUpdateUi();
     });
   }
 }
@@ -197,6 +189,8 @@ function updateOneToOne() {
             governanceFormControl.classList.add("flex");
           }
         }
+
+        checkAndUpdateUi();
       }, 500);
     });
   }
@@ -206,6 +200,7 @@ function updateGovernanceAmount() {
   if (governanceInput !== null) {
     governanceInput.addEventListener("input", (ev) => {
       maxGovernanceIn = Number((ev.target as HTMLInputElement).value);
+      checkAndUpdateUi();
     });
   }
 }
@@ -214,12 +209,14 @@ function updateDollarAmounts() {
   if (dollarInput !== null) {
     dollarInput.addEventListener("input", (ev) => {
       dollarAmount = Number((ev.target as HTMLInputElement).value);
+      checkAndUpdateUi();
     });
   }
 
   if (minDollarInput !== null) {
     minDollarInput.addEventListener("input", (ev) => {
       dollarOutMin = Number((ev.target as HTMLInputElement).value);
+      checkAndUpdateUi();
     });
   }
 }
@@ -228,6 +225,7 @@ function updateCollateralAmount() {
   if (collateralInput !== null) {
     collateralInput.addEventListener("input", (ev) => {
       maxCollateralIn = Number((ev.target as HTMLInputElement).value);
+      checkAndUpdateUi();
     });
   }
 }
@@ -245,7 +243,6 @@ function updateAllowance() {
 
         const collateralSpendtxHash = await approveToSpend(selectedCollateral, diamondAddress, allowedToSpendCollateral);
         const transactionReceiptForCollateralSpendApproval = await publicClient.waitForTransactionReceipt({ hash: collateralSpendtxHash });
-        console.log("Here====");
 
         if (transactionReceiptForCollateralSpendApproval.status === "success") {
           collateralSpendAllowance = allowedToSpendCollateral;
@@ -277,6 +274,7 @@ function updateAllowance() {
         }
         allowanceButton.disabled = false;
         canDisableButtonsAtIntervals = true;
+        checkAndUpdateUi();
       } catch (error) {
         allowanceButton.disabled = false;
         canDisableButtonsAtIntervals = true;
@@ -326,6 +324,7 @@ function mint() {
         }
         canDisableButtonsAtIntervals = true;
         mintButton.disabled = false;
+        checkAndUpdateUi();
       } catch (error) {
         mintButton.disabled = false;
         canDisableButtonsAtIntervals = true;
@@ -352,5 +351,6 @@ export async function initUiEvents() {
     updateDollarAmounts();
     updateGovernanceAmount();
     mint();
+    checkAndUpdateUi();
   }
 }
