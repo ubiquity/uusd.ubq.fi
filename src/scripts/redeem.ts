@@ -1,6 +1,16 @@
 import { parseUnits, BaseError } from "viem";
 import { collectionRedemption, getAllCollaterals, getCollateralInformation, redeemDollar } from "./faucet";
-import { allowanceButton, collateralSelect, collectRedemptionButton, dollarInput, minCollateralInput, minGovernanceInput, redeemDollarButton } from "./ui";
+import {
+  allowanceButton,
+  collateralFormControl,
+  collateralSelect,
+  collectRedemptionButton,
+  dollarInput,
+  governanceFormControl,
+  minCollateralInput,
+  minGovernanceInput,
+  redeemDollarButton,
+} from "./ui";
 import { ToastActions } from "./toast";
 import { approveToSpend, getTokenDecimals } from "./erc20";
 import { diamondAddress as diamond, dollarAddress as dollar, ubqAddress as ubq } from "./constants.json";
@@ -94,8 +104,11 @@ function changeComponentsStateOnAllowanceRequired() {
     allowanceButton.classList.remove("hidden");
     allowanceButton.classList.add("flex");
   }
-  minCollateralInput.disabled = true;
-  minGovernanceInput.disabled = true;
+
+  const className = "input-primary";
+  const replacementClass = "input-ghost";
+  collateralFormControl.classList.replace(className, replacementClass);
+  governanceFormControl.classList.replace(className, replacementClass);
 }
 
 function changeComponentsStateOnEnoughAllowance() {
@@ -108,8 +121,10 @@ function changeComponentsStateOnEnoughAllowance() {
     allowanceButton.classList.remove("flex");
   }
 
-  minCollateralInput.disabled = false;
-  minGovernanceInput.disabled = false;
+  const className = "input-ghost";
+  const replacementClass = "input-primary";
+  collateralFormControl.classList.replace(className, replacementClass);
+  governanceFormControl.classList.replace(className, replacementClass);
 }
 
 function updateUiBasedOnAllowance(isAllowed: boolean) {

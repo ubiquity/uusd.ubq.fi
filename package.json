@@ -24,7 +24,7 @@
     "test:increase-uusd-thresholds": "cypress/scripts/increase-uusd-thresholds.sh",
     "cy:open": "cypress open",
     "cy:run": "cypress run",
-    "tailwind:watch": "npx tailwindcss -i ./static/style/tailwind.css -o ./static/style/style.css --watch"
+    "tailwind:output": "npx tailwindcss -i ./static/style/tailwind.css -o ./static/style/style.css"
   },
   "keywords": [
     "typescript",

@@ -2,12 +2,15 @@ import { BaseError, parseUnits } from "viem";
 import { getAllCollaterals, getCollateralInformation, mintDollar } from "./faucet";
 import {
   allowanceButton,
+  collateralFormControl,
   collateralInput,
   collateralSelect,
+  dollarFormControl,
   dollarInput,
   governanceCheckBox,
   governanceFormControl,
   governanceInput,
+  minDollarFormControl,
   minDollarInput,
   mintButton,
 } from "./ui";
@@ -106,10 +109,13 @@ function changeComponentsStateOnEnoughAllowance() {
     allowanceButton.classList.remove("flex");
   }
 
-  if (collateralInput !== null && minDollarInput !== null && dollarInput !== null) {
-    collateralInput.disabled = true;
-    minDollarInput.disabled = false;
-    dollarInput.disabled = false;
+  if (collateralFormControl !== null && minDollarFormControl !== null && dollarFormControl !== null && governanceFormControl !== null) {
+    const className = "input-ghost";
+    const replacementClass = "input-primary";
+    minDollarFormControl.classList.replace(className, replacementClass);
+    dollarFormControl.classList.replace(className, replacementClass);
+    governanceFormControl.classList.replace(className, replacementClass);
+    collateralFormControl.classList.replace(replacementClass, className);
   }
 }
 
@@ -122,10 +128,13 @@ function changeComponentsStateOnAllowanceRequired() {
     allowanceButton.classList.remove("hidden");
     allowanceButton.classList.add("flex");
   }
-  if (minDollarInput !== null && dollarInput !== null) {
-    minDollarInput.disabled = true;
-    dollarInput.disabled = true;
-    collateralInput.disabled = false;
+  if (collateralFormControl !== null && minDollarFormControl !== null && dollarFormControl !== null && governanceFormControl !== null) {
+    const className = "input-primary";
+    const replacementClass = "input-ghost";
+    minDollarFormControl.classList.replace(className, replacementClass);
+    dollarFormControl.classList.replace(className, replacementClass);
+    governanceFormControl.classList.replace(className, replacementClass);
+    collateralFormControl.classList.replace(replacementClass, className);
   }
 }
 
