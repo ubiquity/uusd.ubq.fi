@@ -14,3 +14,15 @@ body {
     url(./fonts/ubiquity-nova-standard.woff) format("woff"),
     url(./fonts/ubiquity-nova-standard.ttf) format("truetype");
 }
+
+#nav-selector {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+
+#nav-selector a {
+  color: #fff;
+  text-decoration: none;
+  font-size: 1rem;
+}
