@@ -194,6 +194,15 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
   // Track the button label state: "Approve [Collateral]", "Approve UBQ", or "Mint".
   let buttonAction: "APPROVE_COLLATERAL" | "APPROVE_GOVERNANCE" | "MINT" | "DISABLED" = "DISABLED";
 
+  const setButtonLoading = (isLoading: boolean, loadingText?: string) => {
+    if (isLoading) {
+      mintButton.disabled = true;
+      if (loadingText) mintButton.textContent = loadingText;
+    } else {
+      mintButton.disabled = false;
+    }
+  };
+
   const updateButtonState = async () => {
     // Default to disabled
     buttonAction = "DISABLED";
@@ -237,6 +246,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
     }
 
     try {
+      setButtonLoading(true, "Loading...");
       const userAddress = await userSigner.getAddress();
 
       // Collateral allowance check
@@ -269,6 +279,9 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      // Release the "loading" state in any case
+      setButtonLoading(false);
     }
   };
 
@@ -284,33 +297,30 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
 
     const dollarAmountRaw = dollarAmountInput.value;
     const dollarAmount = ethers.utils.parseUnits(dollarAmountRaw || "0", 18);
-
     const isForceCollateralOnlyChecked = forceCollateralOnly.checked;
 
     // use provided slippage values or default to min/max
     const dollarOutMin = dollarOutMinInput.value ? ethers.utils.parseUnits(dollarOutMinInput.value, 18) : ethers.BigNumber.from("0");
-
     const maxCollateralIn = maxCollateralInInput.value ? ethers.utils.parseUnits(maxCollateralInInput.value, 18) : ethers.constants.MaxUint256;
-
     const maxGovernanceIn = maxGovernanceInInput.value ? ethers.utils.parseUnits(maxGovernanceInInput.value, 18) : ethers.constants.MaxUint256;
 
     try {
       if (buttonAction === "APPROVE_COLLATERAL") {
-        // Approve Collateral
+        setButtonLoading(true, `Approving ${selectedCollateral.name}...`);
         const collateralContract = new ethers.Contract(selectedCollateral.address, erc20Abi, userSigner);
         const tx = await collateralContract.approve(diamondContract.address, ethers.constants.MaxUint256);
         await tx.wait();
-        // Re-check and update button state
+
         await updateButtonState();
       } else if (buttonAction === "APPROVE_GOVERNANCE") {
-        // Approve Governance
+        setButtonLoading(true, "Approving UBQ...");
         const governanceToken = governanceContract.connect(userSigner);
         const tx = await governanceToken.approve(diamondContract.address, ethers.constants.MaxUint256);
         await tx.wait();
-        // Re-check and update button state
+
         await updateButtonState();
       } else if (buttonAction === "MINT") {
-        // Proceed to Mint
+        setButtonLoading(true, "Minting...");
         const signerDiamondContract = diamondContract.connect(userSigner);
 
         console.log("Mint Input", {
@@ -336,6 +346,8 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
     } catch (error) {
       console.error("Transaction failed:", error);
       renderErrorInModal(error instanceof Error ? error : new Error(String(error)));
+    } finally {
+      setButtonLoading(false);
     }
   });
 
