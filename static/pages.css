@@ -108,6 +108,7 @@
 }
 
 #bottomBar button {
+  width: 192px;
   padding: 10px 20px;
   font-size: 16px;
   cursor: pointer;
