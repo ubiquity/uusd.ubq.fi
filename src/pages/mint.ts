@@ -1,9 +1,10 @@
 import { ethers } from "ethers";
-import { appState, diamondContract, dollarSpotPrice, governanceSpotPrice, lusdPrice, userSigner } from "../main";
+import { appState, diamondContract, dollarSpotPrice, governanceContract, governanceSpotPrice, lusdPrice, userSigner } from "../main";
 import { debounce } from "../utils";
 import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
 import { renderErrorInModal } from "../common/display-popup-modal";
+import { erc20Abi } from "../contracts";
 
 let currentOutput: {
   totalDollarMint: ethers.BigNumber;
@@ -36,9 +37,6 @@ export async function loadMintPage() {
 
       // handle slippage checks
       handleSlippageInput();
-
-      // link mint button
-      await linkMintButton();
     } catch (error) {
       console.error("Error loading mint page:", error);
     }
@@ -101,6 +99,9 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
     if (selectedCollateral) {
       currentOutput = await calculateMintOutput(selectedCollateral, dollarAmount, isForceCollateralOnlyChecked);
       displayMintOutput(currentOutput, selectedCollateral);
+
+      // link mint (or approve) button
+      await linkMintButton(collateralOptions);
     }
   }, 300); // 300ms debounce
 
@@ -180,7 +181,7 @@ function displayMintOutput(
   }
 }
 
-async function linkMintButton() {
+async function linkMintButton(collateralOptions: CollateralOption[]) {
   const mintButton = document.getElementById("mintButton") as HTMLButtonElement;
   const collateralSelect = document.getElementById("collateralSelect") as HTMLSelectElement;
   const dollarAmountInput = document.getElementById("dollarAmount") as HTMLInputElement;
@@ -190,12 +191,85 @@ async function linkMintButton() {
   const maxCollateralInInput = document.getElementById("maxCollateralIn") as HTMLInputElement;
   const maxGovernanceInInput = document.getElementById("maxGovernanceIn") as HTMLInputElement;
 
-  const updateButtonState = async () => {
-    const selectedCollateralIndex = collateralSelect.value;
-    const dollarAmountRaw = dollarAmountInput.value;
-    const dollarAmount = dollarAmountRaw ? ethers.utils.parseUnits(dollarAmountRaw, 18) : null;
+  // Track the button label state: "Approve [Collateral]", "Approve UBQ", or "Mint".
+  let buttonAction: "APPROVE_COLLATERAL" | "APPROVE_GOVERNANCE" | "MINT" | "DISABLED" = "DISABLED";
 
-    mintButton.disabled = !appState.getIsConnectedState() || !selectedCollateralIndex || !dollarAmount || dollarAmount.isZero();
+  const updateButtonState = async () => {
+    // Default to disabled
+    buttonAction = "DISABLED";
+    mintButton.disabled = true;
+    mintButton.textContent = "Mint";
+
+    // If not connected or no input yet, just disable.
+    if (!appState.getIsConnectedState()) {
+      return;
+    }
+
+    const selectedCollateralIndex = collateralSelect.value;
+    if (!selectedCollateralIndex) {
+      return;
+    }
+
+    const dollarAmountRaw = dollarAmountInput.value;
+    if (!dollarAmountRaw || dollarAmountRaw === "0") {
+      return;
+    }
+
+    // If we have no computed output yet, or it's zero, disable as well.
+    if (!currentOutput) {
+      return;
+    }
+
+    const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
+    if (!selectedCollateral) {
+      return;
+    }
+
+    // Now let's check allowances if the user wants to mint more than 0
+    const neededCollateral = currentOutput.collateralNeeded;
+    const neededGovernance = currentOutput.governanceNeeded;
+    if (neededCollateral.isZero() && neededGovernance.isZero()) {
+      // If no inputs are needed, just set to MINT
+      buttonAction = "MINT";
+      mintButton.disabled = false;
+      mintButton.textContent = "Mint";
+      return;
+    }
+
+    try {
+      const userAddress = await userSigner.getAddress();
+
+      // Collateral allowance check
+      let isCollateralAllowanceOk = true;
+      if (neededCollateral.gt(0)) {
+        const collateralContract = new ethers.Contract(selectedCollateral.address, erc20Abi, userSigner);
+        const allowanceCollateral: ethers.BigNumber = await collateralContract.allowance(userAddress, diamondContract.address);
+        isCollateralAllowanceOk = allowanceCollateral.gte(neededCollateral);
+      }
+      // Governance allowance check
+      let isGovernanceAllowanceOk = true;
+      if (neededGovernance.gt(0)) {
+        const allowanceGovernance: ethers.BigNumber = await governanceContract.connect(userSigner).allowance(userAddress, diamondContract.address);
+        isGovernanceAllowanceOk = allowanceGovernance.gte(neededGovernance);
+      }
+
+      // Decide button text/behavior
+      if (!isCollateralAllowanceOk) {
+        buttonAction = "APPROVE_COLLATERAL";
+        mintButton.disabled = false;
+        mintButton.textContent = `Approve ${selectedCollateral.name}`;
+      } else if (!isGovernanceAllowanceOk) {
+        buttonAction = "APPROVE_GOVERNANCE";
+        mintButton.disabled = false;
+        mintButton.textContent = "Approve UBQ";
+      } else {
+        buttonAction = "MINT";
+        mintButton.disabled = false;
+        mintButton.textContent = "Mint";
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Attach event listeners to update the button state whenever inputs change
@@ -205,8 +279,13 @@ async function linkMintButton() {
 
   mintButton.addEventListener("click", async () => {
     const selectedCollateralIndex = collateralSelect.value;
+    const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
+    if (!selectedCollateral) return;
+
     const dollarAmountRaw = dollarAmountInput.value;
     const dollarAmount = ethers.utils.parseUnits(dollarAmountRaw || "0", 18);
+
+    const isForceCollateralOnlyChecked = forceCollateralOnly.checked;
 
     // use provided slippage values or default to min/max
     const dollarOutMin = dollarOutMinInput.value ? ethers.utils.parseUnits(dollarOutMinInput.value, 18) : ethers.BigNumber.from("0");
@@ -215,32 +294,47 @@ async function linkMintButton() {
 
     const maxGovernanceIn = maxGovernanceInInput.value ? ethers.utils.parseUnits(maxGovernanceInInput.value, 18) : ethers.constants.MaxUint256;
 
-    const isForceCollateralOnlyChecked = forceCollateralOnly.checked;
-
     try {
-      const signerDiamondContract = diamondContract.connect(userSigner);
+      if (buttonAction === "APPROVE_COLLATERAL") {
+        // Approve Collateral
+        const collateralContract = new ethers.Contract(selectedCollateral.address, erc20Abi, userSigner);
+        const tx = await collateralContract.approve(diamondContract.address, ethers.constants.MaxUint256);
+        await tx.wait();
+        // Re-check and update button state
+        await updateButtonState();
+      } else if (buttonAction === "APPROVE_GOVERNANCE") {
+        // Approve Governance
+        const governanceToken = governanceContract.connect(userSigner);
+        const tx = await governanceToken.approve(diamondContract.address, ethers.constants.MaxUint256);
+        await tx.wait();
+        // Re-check and update button state
+        await updateButtonState();
+      } else if (buttonAction === "MINT") {
+        // Proceed to Mint
+        const signerDiamondContract = diamondContract.connect(userSigner);
 
-      console.log("Mint Input", {
-        selectedCollateralIndex: parseInt(selectedCollateralIndex),
-        dollarAmount: dollarAmount.toString(),
-        dollarOutMin: dollarOutMin.toString(),
-        maxCollateralIn: maxCollateralIn.toString(),
-        maxGovernanceIn: maxGovernanceIn.toString(),
-        isForceCollateralOnlyChecked,
-      });
+        console.log("Mint Input", {
+          selectedCollateralIndex: parseInt(selectedCollateralIndex),
+          dollarAmount: dollarAmount.toString(),
+          dollarOutMin: dollarOutMin.toString(),
+          maxCollateralIn: maxCollateralIn.toString(),
+          maxGovernanceIn: maxGovernanceIn.toString(),
+          isForceCollateralOnlyChecked,
+        });
 
-      await signerDiamondContract.mintDollar(
-        parseInt(selectedCollateralIndex),
-        dollarAmount,
-        dollarOutMin,
-        maxCollateralIn,
-        maxGovernanceIn,
-        isForceCollateralOnlyChecked
-      );
+        await signerDiamondContract.mintDollar(
+          parseInt(selectedCollateralIndex),
+          dollarAmount,
+          dollarOutMin,
+          maxCollateralIn,
+          maxGovernanceIn,
+          isForceCollateralOnlyChecked
+        );
 
-      alert("Minting transaction sent successfully!");
+        alert("Minting transaction sent successfully!");
+      }
     } catch (error) {
-      console.error("Minting transaction failed:", error);
+      console.error("Transaction failed:", error);
       renderErrorInModal(error instanceof Error ? error : new Error(String(error)));
     }
   });
