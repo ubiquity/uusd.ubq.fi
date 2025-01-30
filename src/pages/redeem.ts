@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { appState, diamondContract, governanceSpotPrice, lusdPrice, userSigner } from "../main";
+import { appState, diamondContract, governanceSpotPrice, lusdPrice, provider, userSigner } from "../main";
 import { debounce } from "../utils";
 import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
@@ -196,7 +196,25 @@ async function linkRedeemButton() {
 
       await signerDiamondContract.redeemDollar(parseInt(selectedCollateralIndex), dollarAmount, governanceOutMin, collateralOutMin);
 
-      // After redeemDollar succeeds, initiate the collection
+      // Wait for 2 blocks before initiating the collection
+      await new Promise((resolve) => {
+        const startBlock = provider.blockNumber;
+
+        const checkBlock = () => {
+          void (async () => {
+            const currentBlock = await provider.getBlockNumber();
+            if (currentBlock >= startBlock + 2) {
+              resolve(null);
+            } else {
+              setTimeout(checkBlock, 1000); // Check every sec
+            }
+          })();
+        };
+
+        checkBlock();
+      });
+
+      // After waiting for 2 blocks, initiate the collection
       await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
 
       alert("Redemption collected successfully!");
