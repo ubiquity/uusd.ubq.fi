@@ -88,20 +88,45 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
   const dollarAmountInput = document.getElementById("dollarAmount") as HTMLInputElement;
   const forceCollateralOnly = document.getElementById("forceCollateralOnly") as HTMLInputElement;
 
+  // We'll reference the mint button here as well so we can set it to "Loading..."
+  const mintButton = document.getElementById("mintButton") as HTMLButtonElement;
+
+  // Helper: show "Loading..." or re-enable the button
+  const setButtonLoading = (isLoading: boolean, loadingText = "Loading...") => {
+    if (!mintButton) return;
+    if (isLoading) {
+      mintButton.disabled = true;
+      mintButton.textContent = loadingText;
+    } else {
+      mintButton.disabled = false;
+    }
+  };
+
   const debouncedInputHandler = debounce(async () => {
     const selectedCollateralIndex = collateralSelect.value;
     const dollarAmountRaw = dollarAmountInput.value;
     const dollarAmount = ethers.utils.parseUnits(dollarAmountRaw || "0", 18);
     const isForceCollateralOnlyChecked = forceCollateralOnly.checked;
 
-    const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
+    // Immediately set button to loading while we compute output
+    setButtonLoading(true);
 
-    if (selectedCollateral) {
-      currentOutput = await calculateMintOutput(selectedCollateral, dollarAmount, isForceCollateralOnlyChecked);
-      displayMintOutput(currentOutput, selectedCollateral);
+    try {
+      const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
+      if (selectedCollateral) {
+        currentOutput = await calculateMintOutput(selectedCollateral, dollarAmount, isForceCollateralOnlyChecked);
+        displayMintOutput(currentOutput, selectedCollateral);
 
-      // link mint (or approve) button
-      await linkMintButton(collateralOptions);
+        // After we've computed everything, link the mint button
+        // which also checks allowances and updates the button text
+        await linkMintButton(collateralOptions);
+      }
+    } catch (err) {
+      console.error(err);
+      renderErrorInModal(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      // End the "loading" state. linkMintButton() will set final text.
+      setButtonLoading(false);
     }
   }, 300); // 300ms debounce
 
@@ -191,9 +216,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
   const maxCollateralInInput = document.getElementById("maxCollateralIn") as HTMLInputElement;
   const maxGovernanceInInput = document.getElementById("maxGovernanceIn") as HTMLInputElement;
 
-  // Track the button label state: "Approve [Collateral]", "Approve UBQ", or "Mint".
-  let buttonAction: "APPROVE_COLLATERAL" | "APPROVE_GOVERNANCE" | "MINT" | "DISABLED" = "DISABLED";
-
+  // Helper to set a quick loading state on the button
   const setButtonLoading = (isLoading: boolean, loadingText?: string) => {
     if (isLoading) {
       mintButton.disabled = true;
@@ -202,6 +225,9 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       mintButton.disabled = false;
     }
   };
+
+  // Track the button label state: "Approve [Collateral]", "Approve UBQ", or "Mint".
+  let buttonAction: "APPROVE_COLLATERAL" | "APPROVE_GOVERNANCE" | "MINT" | "DISABLED" = "DISABLED";
 
   const updateButtonState = async () => {
     // Default to disabled
@@ -234,11 +260,10 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       return;
     }
 
-    // Now let's check allowances if the user wants to mint more than 0
+    // If no inputs are needed, just set to MINT
     const neededCollateral = currentOutput.collateralNeeded;
     const neededGovernance = currentOutput.governanceNeeded;
     if (neededCollateral.isZero() && neededGovernance.isZero()) {
-      // If no inputs are needed, just set to MINT
       buttonAction = "MINT";
       mintButton.disabled = false;
       mintButton.textContent = "Mint";
@@ -246,7 +271,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
     }
 
     try {
-      setButtonLoading(true, "Loading...");
+      setButtonLoading(true, "Checking Allowances...");
       const userAddress = await userSigner.getAddress();
 
       // Collateral allowance check
