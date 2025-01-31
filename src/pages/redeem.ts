@@ -131,6 +131,7 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
       redeemButton.textContent = loadingText;
     } else {
       redeemButton.disabled = false;
+      redeemButton.textContent = "Redeem";
     }
   };
 
@@ -139,7 +140,11 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
     const dollarAmountRaw = dollarAmountInput.value;
     const dollarAmount = ethers.utils.parseUnits(dollarAmountRaw || "0", 18);
 
-    // Immediately set button to loading while we compute output
+    if (!selectedCollateralIndex || dollarAmount.isZero()) {
+      return;
+    }
+
+    // Set button to loading while we compute output
     setButtonLoading(true);
 
     try {
@@ -254,6 +259,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
       if (loadingText) redeemButton.textContent = loadingText;
     } else {
       redeemButton.disabled = false;
+      redeemButton.textContent = "Redeem";
     }
   };
 

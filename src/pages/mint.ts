@@ -259,6 +259,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       if (loadingText) mintButton.textContent = loadingText;
     } else {
       mintButton.disabled = false;
+      mintButton.textContent = "Mint";
     }
   };
 
@@ -300,7 +301,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
     const neededGovernance = currentOutput.governanceNeeded;
 
     try {
-      setButtonLoading(true, "Checking Balances & Allowances...");
+      setButtonLoading(true, "Checking allowances...");
       const userAddress = await userSigner.getAddress();
 
       // 1) Get user balances
