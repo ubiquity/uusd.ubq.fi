@@ -19,6 +19,9 @@
     "knip-ci": "knip --no-exit-code --reporter json --config .github/knip.ts",
     "prepare": "husky install",
     "test": "jest --setupFiles dotenv/config --coverage",
+    "test:anvil": "cypress/scripts/anvil.sh",
+    "test:fund": "cypress/scripts/fund.sh",
+    "test:increase-uusd-thresholds": "cypress/scripts/increase-uusd-thresholds.sh",
     "cy:open": "cypress open",
     "cy:run": "cypress run"
   },
