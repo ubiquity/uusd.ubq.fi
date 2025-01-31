@@ -6,8 +6,12 @@ export function renderErrorInModal(error: Error) {
   }
   const errorMessageElement = document.getElementById("error-message");
 
+  const errorStack = window.location.href.includes("localhost") ? "Check console for error stack." : "";
   if (errorMessageElement) {
-    errorMessageElement.textContent = `${error.message}\n\n${error.stack || ""}`;
+    errorMessageElement.textContent = `
+      ${error.message}\n\n
+      ${errorStack}
+    `;
   }
 
   if (modal) {
