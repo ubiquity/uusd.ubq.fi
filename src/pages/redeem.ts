@@ -352,8 +352,23 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
         alert("Redemption collected successfully!");
       }
     } catch (error) {
+      let displayMessage = "Transaction failed.";
       console.error("Transaction failed:", error);
-      renderErrorInModal(error instanceof Error ? error : new Error(String(error)));
+
+      if (error instanceof Error) {
+        const revertPrefix = "execution reverted: revert: ";
+        const message = error.message;
+    
+        if (message.includes(revertPrefix)) {
+          displayMessage = message.split(revertPrefix)[1] ?? displayMessage;
+        } else if (message.includes("UNPREDICTABLE_GAS_LIMIT")) {
+          displayMessage = "Cannot estimate gas costs, please check if redemption is ready.";
+        } else {
+          displayMessage = message;
+        }
+      }
+
+      renderErrorInModal(new Error(displayMessage));
     } finally {
       setButtonLoading(false);
     }
