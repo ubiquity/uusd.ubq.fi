@@ -319,12 +319,12 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
 
         // Wait for 2 blocks before initiating the collection
         await new Promise((resolve) => {
-          const startBlock = provider.blockNumber;
+          const startBlock = provider().blockNumber;
 
           const checkBlock = () => {
             void (async () => {
-              const currentBlock = await provider.getBlockNumber();
-              if (currentBlock >= startBlock + 2) {
+              const currentBlock = await provider().getBlockNumber();
+              if (currentBlock >= startBlock + 3) {
                 resolve(null);
               } else {
                 setTimeout(checkBlock, 1000); // Check every sec

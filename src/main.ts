@@ -1,7 +1,7 @@
 import "./router";
 import { createAppKit } from "@reown/appkit";
 import { Ethers5Adapter } from "@reown/appkit-adapter-ethers5";
-import { mainnet } from "@reown/appkit/networks";
+import { anvil, mainnet } from "@reown/appkit/networks";
 import { ethers } from "ethers";
 import { setupContracts } from "./contracts";
 import { handleRouting } from "./router";
@@ -25,16 +25,14 @@ const metadata = {
   icons: ["https://avatars.githubusercontent.com/u/76412717"],
 };
 
-// create provider & signer for Ethereum mainnet
-export const provider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
-export let userSigner: ethers.Signer;
-
-// setup contract instances
-export const { dollarContract, governanceContract, diamondContract, twapOracleContract, lusdFeedContract } = setupContracts(provider);
+const rpcPerChainId: { [key: string]: string } = {
+  "1": "https://eth.llamarpc.com",
+  "31337": "http://localhost:8545",
+}
 
 export const appState = createAppKit({
   adapters: [new Ethers5Adapter()],
-  networks: [mainnet],
+  networks: [mainnet, anvil],
   defaultNetwork: mainnet,
   metadata,
   projectId,
@@ -43,11 +41,26 @@ export const appState = createAppKit({
   },
 });
 
+export const getNetworkId = () => appState.getCaipNetworkId()?.toString();
+
+// create provider & signer for Ethereum mainnet
+export const provider = () => {
+  const networkId = getNetworkId();
+  if (!networkId) {
+    throw new Error("Network ID not found");
+  }
+  return new ethers.providers.JsonRpcProvider(rpcPerChainId[networkId]);
+};
+export let userSigner: ethers.Signer;
+
+// setup contract instances
+export const { dollarContract, governanceContract, diamondContract, twapOracleContract, lusdFeedContract } = setupContracts(provider());
+
 async function waitForConnection() {
   return new Promise<void>((resolve) => {
     const interval = setInterval(() => {
       if (appState.getIsConnectedState()) {
-        userSigner = provider.getSigner(appState.getAddress());
+        userSigner = provider().getSigner(appState.getAddress());
         console.log(`User connected: ${appState.getAddress()}`);
         clearInterval(interval);
         resolve();
@@ -80,7 +93,7 @@ async function updatePrices() {
 
 export async function mainModule() {
   try {
-    console.log("Provider:", provider);
+    console.log("Provider:", provider());
 
     console.log("Waiting for user connection...");
     void waitForConnection();
