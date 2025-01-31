@@ -57,7 +57,7 @@ async function calculateMintOutput(
   let governancePrice: ethers.BigNumber;
   const poolPricePrecision = ethers.BigNumber.from("1000000");
 
-  try{
+  try {
     collateralRatio = await diamondContract.collateralRatio();
   } catch (error) {
     console.error("Error fetching collateral ratio:", error);
@@ -77,7 +77,7 @@ async function calculateMintOutput(
   if (isForceCollateralOnlyChecked || collateralRatio.gte(poolPricePrecision)) {
     try {
       collateralNeeded = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAmount);
-      governanceNeeded = ethers.BigNumber.from(0);  
+      governanceNeeded = ethers.BigNumber.from(0);
     } catch (error) {
       console.error("Error fetching collateral needed:", error);
       throw new Error("Failed to fetch collateral needed, please try again later.");
@@ -91,7 +91,7 @@ async function calculateMintOutput(
 
     try {
       collateralNeeded = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarForCollateral);
-      governanceNeeded = dollarForGovernance.mul(poolPricePrecision).div(governancePrice);  
+      governanceNeeded = dollarForGovernance.mul(poolPricePrecision).div(governancePrice);
     } catch (error) {
       console.error("Error fetching collateral needed:", error);
       throw new Error("Failed to fetch collateral needed, please try again later.");
@@ -121,6 +121,13 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
   // We'll reference the mint button here as well so we can set it to "Loading..."
   const mintButton = document.getElementById("mintButton") as HTMLButtonElement;
 
+  // Helper: Set button to "Failed" and disable it
+  const setButtonFailed = () => {
+    if (!mintButton) return;
+    mintButton.disabled = true;
+    mintButton.textContent = "Failed";
+  };
+
   // Helper: show "Loading..." or re-enable the button
   const setButtonLoading = (isLoading: boolean, loadingText = "Loading...") => {
     if (!mintButton) return;
@@ -147,16 +154,12 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
         currentOutput = await calculateMintOutput(selectedCollateral, dollarAmount, isForceCollateralOnlyChecked);
         displayMintOutput(currentOutput, selectedCollateral);
 
-        // After we've computed everything, link the mint button
-        // which also checks allowances and updates the button text
         await linkMintButton(collateralOptions);
       }
     } catch (err) {
-      console.error(err);
-      renderErrorInModal(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      // End the "loading" state. linkMintButton() will set final text.
-      setButtonLoading(false);
+      console.error("Error computing mint output:", err);
+      renderErrorInModal(new Error("UUSD or UBQ prices are stale, please refresh the page."));
+      setButtonFailed();
     }
   }, 300); // 300ms debounce
 
@@ -259,7 +262,6 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       if (loadingText) mintButton.textContent = loadingText;
     } else {
       mintButton.disabled = false;
-      mintButton.textContent = "Mint";
     }
   };
 
@@ -467,17 +469,16 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
         );
 
         alert("Minting transaction sent successfully!");
+        await updateButtonState();
       }
     } catch (error) {
       let displayMessage = "Transaction failed.";
       console.error("Transaction failed:", error);
 
       if (error instanceof Error) {
-        const revertPrefix = "execution reverted: revert: ";
         const message = error.message;
-
-        if (message.includes(revertPrefix)) {
-          displayMessage = message.split(revertPrefix)[1] ?? displayMessage;
+        if (message.includes("Dollar price too low")) {
+          displayMessage = "Dollar price is too low to mint, please try again later.";
         } else if (message.includes("UNPREDICTABLE_GAS_LIMIT")) {
           displayMessage = "Cannot estimate gas costs, please try again later.";
         } else {
