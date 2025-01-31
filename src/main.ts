@@ -28,7 +28,7 @@ const metadata = {
 const rpcPerChainId: { [key: string]: string } = {
   "1": "https://eth.llamarpc.com",
   "31337": "http://localhost:8545",
-}
+};
 
 export const appState = createAppKit({
   adapters: [new Ethers5Adapter()],
