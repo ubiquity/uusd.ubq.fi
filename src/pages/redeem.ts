@@ -421,27 +421,33 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
           collateralOutMin: collateralOutMin.toString(),
         });
 
-        // 1) Redeem
-        await signerDiamondContract.redeemDollar(parseInt(selectedCollateralIndex), dollarAmount, governanceOutMin, collateralOutMin);
+        // 1) Redeem Transaction
+        const tx = await signerDiamondContract.redeemDollar(parseInt(selectedCollateralIndex), dollarAmount, governanceOutMin, collateralOutMin);
 
-        // 2) Wait for 2 blocks
-        const startBlock = provider().blockNumber;
+        // 2) Wait for confirmation
+        await tx.wait();
+
+        // 3) Set button to waiting mode
+        setButtonLoading(true, "Waiting for 2 blocks...");
+
+        // 4) Wait for 2 block confirmations dynamically
+        const startBlock = await provider().getBlockNumber();
         await new Promise<void>((resolve) => {
           const checkBlock = async () => {
             const currentBlock = await provider().getBlockNumber();
             if (currentBlock >= startBlock + 2) {
               resolve();
             } else {
-              setTimeout(checkBlock, 1000);
+              setTimeout(checkBlock, 5000); // Check every 5 seconds
             }
           };
           checkBlock();
         });
 
-        // Now user has something to collect
-        alert("Redemption submitted! You will be able to collect in two blocks (~30 secs). Please collect once it's ready.");
+        // 5) Alert user that redemption is ready
+        alert("Redemption confirmed, you may now collect your redemption.");
 
-        // Re-check so that "Collect Redemption" shows if the contract says it's pending
+        // 6) Refresh button state
         await updateButtonState();
       }
     } catch (error) {
