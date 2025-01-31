@@ -53,16 +53,35 @@ async function calculateMintOutput(
   governanceNeeded: ethers.BigNumber;
   mintingFeeInDollar: ethers.BigNumber;
 }> {
-  const collateralRatio = await diamondContract.collateralRatio();
-  const governancePrice = await diamondContract.getGovernancePriceUsd();
+  let collateralRatio: ethers.BigNumber;
+  let governancePrice: ethers.BigNumber;
   const poolPricePrecision = ethers.BigNumber.from("1000000");
+
+  try{
+    collateralRatio = await diamondContract.collateralRatio();
+  } catch (error) {
+    console.error("Error fetching collateral ratio:", error);
+    throw new Error("Failed to fetch collateral ratio, please try again later.");
+  }
+
+  try {
+    governancePrice = await diamondContract.getGovernancePriceUsd();
+  } catch (error) {
+    console.error("Error fetching governance price:", error);
+    throw new Error("Failed to fetch governance price, please try again later.");
+  }
 
   let collateralNeeded: ethers.BigNumber;
   let governanceNeeded: ethers.BigNumber;
 
   if (isForceCollateralOnlyChecked || collateralRatio.gte(poolPricePrecision)) {
-    collateralNeeded = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAmount);
-    governanceNeeded = ethers.BigNumber.from(0);
+    try {
+      collateralNeeded = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAmount);
+      governanceNeeded = ethers.BigNumber.from(0);  
+    } catch (error) {
+      console.error("Error fetching collateral needed:", error);
+      throw new Error("Failed to fetch collateral needed, please try again later.");
+    }
   } else if (collateralRatio.isZero()) {
     collateralNeeded = ethers.BigNumber.from(0);
     governanceNeeded = dollarAmount.mul(poolPricePrecision).div(governancePrice);
@@ -70,13 +89,24 @@ async function calculateMintOutput(
     const dollarForCollateral = dollarAmount.mul(collateralRatio).div(poolPricePrecision);
     const dollarForGovernance = dollarAmount.sub(dollarForCollateral);
 
-    collateralNeeded = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarForCollateral);
-    governanceNeeded = dollarForGovernance.mul(poolPricePrecision).div(governancePrice);
+    try {
+      collateralNeeded = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarForCollateral);
+      governanceNeeded = dollarForGovernance.mul(poolPricePrecision).div(governancePrice);  
+    } catch (error) {
+      console.error("Error fetching collateral needed:", error);
+      throw new Error("Failed to fetch collateral needed, please try again later.");
+    }
   }
 
   const mintingFee = ethers.utils.parseUnits(selectedCollateral.mintingFee.toString(), 6);
   // Calculate the dollar value of the minting fee
-  const mintingFeeInDollar = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAmount.mul(mintingFee).div(poolPricePrecision));
+  let mintingFeeInDollar: ethers.BigNumber;
+  try {
+    mintingFeeInDollar = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAmount.mul(mintingFee).div(poolPricePrecision));
+  } catch (error) {
+    console.error("Error fetching minting fee in dollar:", error);
+    throw new Error("Failed to fetch minting fee in dollar, please try again later.");
+  }
 
   const totalDollarMint = dollarAmount.mul(poolPricePrecision.sub(mintingFee)).div(poolPricePrecision);
 
