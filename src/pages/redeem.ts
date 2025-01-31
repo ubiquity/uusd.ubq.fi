@@ -123,6 +123,13 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
   const dollarAmountInput = document.getElementById("dollarAmount") as HTMLInputElement;
   const redeemButton = document.getElementById("redeemButton") as HTMLButtonElement;
 
+  // Helper: Set button to "Failed" and disable it
+  const setButtonFailed = () => {
+    if (!redeemButton) return;
+    redeemButton.disabled = true;
+    redeemButton.textContent = "Failed";
+  };
+
   // Helper: show "Loading..." or re-enable the button
   const setButtonLoading = (isLoading: boolean, loadingText = "Loading...") => {
     if (!redeemButton) return;
@@ -131,7 +138,6 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
       redeemButton.textContent = loadingText;
     } else {
       redeemButton.disabled = false;
-      redeemButton.textContent = "Redeem";
     }
   };
 
@@ -140,6 +146,7 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
     const dollarAmountRaw = dollarAmountInput.value;
     const dollarAmount = ethers.utils.parseUnits(dollarAmountRaw || "0", 18);
 
+    // Only proceed if user has selected a collateral and typed > 0
     if (!selectedCollateralIndex || dollarAmount.isZero()) {
       return;
     }
@@ -153,15 +160,13 @@ function handleCollateralInput(collateralOptions: CollateralOption[]) {
         currentOutput = await calculateRedeemOutput(selectedCollateral, dollarAmount);
         displayRedeemOutput(currentOutput, selectedCollateral);
 
-        // Once done, link the redeem button
-        // which will check allowances and set the final text
+        // Link the redeem button => checks allowances
         await linkRedeemButton(collateralOptions);
       }
     } catch (err) {
       console.error("Error computing redemption output:", err);
-      renderErrorInModal(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setButtonLoading(false);
+      renderErrorInModal(new Error("UUSD or UBQ prices are stale, please refresh the page."));
+      setButtonFailed();
     }
   }, 300); // 300ms debounce
 
@@ -249,17 +254,15 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
   const balanceToFill = document.querySelector("#balance") as HTMLElement;
 
   // We'll track the button label state: "Approve UUSD" or "Redeem".
-  type ButtonAction = "APPROVE_UUSD" | "REDEEM" | "DISABLED";
+  type ButtonAction = "COLLECT" | "APPROVE_UUSD" | "REDEEM" | "DISABLED";
   let buttonAction: ButtonAction = "DISABLED";
 
-  // Helper to set a quick loading state on the button
   const setButtonLoading = (isLoading: boolean, loadingText?: string) => {
     if (isLoading) {
       redeemButton.disabled = true;
       if (loadingText) redeemButton.textContent = loadingText;
     } else {
       redeemButton.disabled = false;
-      redeemButton.textContent = "Redeem";
     }
   };
 
@@ -289,13 +292,37 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
       return;
     }
 
-    // We only have one token to check here: UUSD
-    // If the user is redeeming X UUSD, we need to check if allowance >= X
+    const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
+    if (!selectedCollateral) {
+      return;
+    }
+
+    setButtonLoading(true, "Checking allowance...");
+
     try {
-      setButtonLoading(true, "Checking allowance...");
       const userAddress = await userSigner.getAddress();
 
-      // 1) Get user UUSD balance
+      // 1) Check if there's already a redemption to collect
+      let redeemCollateralBalance: ethers.BigNumber;
+      try {
+        redeemCollateralBalance = await diamondContract.getRedeemCollateralBalance(userAddress, parseInt(selectedCollateralIndex));
+      } catch (err) {
+        console.error("Failed to check redeemCollateralBalance:", err);
+        renderErrorInModal(new Error("Failed to check redeemable balance, please try again later."));
+        redeemButton.disabled = true;
+        redeemButton.textContent = "Failed";
+        return;
+      }
+
+      // If user has something to collect, skip allowance checks
+      if (redeemCollateralBalance.gt(0)) {
+        buttonAction = "COLLECT";
+        redeemButton.disabled = false;
+        redeemButton.textContent = "Collect Redemption";
+        return;
+      }
+
+      // 2) If nothing to collect, proceed to check user UUSD balance & allowance for new redemption
       let rawDollarBalance: ethers.BigNumber;
       try {
         rawDollarBalance = await dollarContract.balanceOf(userAddress);
@@ -344,7 +371,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
       }
     } catch (err) {
       console.error("Unexpected error in updateButtonState:", err);
-      renderErrorInModal(new Error("Failed to get balance or allowance, please try again later."));
+      renderErrorInModal(new Error("Failed to check redemption, please try again later."));
       redeemButton.disabled = true;
       redeemButton.textContent = "Failed";
     } finally {
@@ -368,18 +395,24 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
     const collateralOutMin = collateralOutMinInput.value ? ethers.utils.parseUnits(collateralOutMinInput.value, 18) : ethers.BigNumber.from("0");
     const governanceOutMin = governanceOutMinInput.value ? ethers.utils.parseUnits(governanceOutMinInput.value, 18) : ethers.BigNumber.from("0");
 
+    const signerDiamondContract = diamondContract.connect(userSigner);
+
     try {
-      if (buttonAction === "APPROVE_UUSD") {
+      if (buttonAction === "COLLECT") {
+        setButtonLoading(true, "Collecting...");
+        await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
+
+        alert("Collected redemption successfully!");
+        // Re-check the state (allow user to do new redemption if no pending)
+        await updateButtonState();
+      } else if (buttonAction === "APPROVE_UUSD") {
         setButtonLoading(true, "Approving UUSD...");
-        // Approve unlimited (user can change in wallet)
         const tx = await dollarContract.connect(userSigner).approve(diamondContract.address, ethers.constants.MaxUint256);
         await tx.wait();
 
-        // Re-check state
         await updateButtonState();
       } else if (buttonAction === "REDEEM") {
         setButtonLoading(true, "Redeeming...");
-        const signerDiamondContract = diamondContract.connect(userSigner);
 
         console.log("Redeem Input", {
           selectedCollateralIndex: parseInt(selectedCollateralIndex),
@@ -392,34 +425,35 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
         await signerDiamondContract.redeemDollar(parseInt(selectedCollateralIndex), dollarAmount, governanceOutMin, collateralOutMin);
 
         // 2) Wait for 2 blocks
+        const startBlock = provider().blockNumber;
         await new Promise<void>((resolve) => {
-          const startBlock = provider().blockNumber;
           const checkBlock = async () => {
             const currentBlock = await provider().getBlockNumber();
-            if (currentBlock >= startBlock + 3) {
+            if (currentBlock >= startBlock + 2) {
               resolve();
             } else {
-              setTimeout(checkBlock, 1000); // Check every sec
+              setTimeout(checkBlock, 1000);
             }
           };
           checkBlock();
         });
 
-        // 3) Collect
-        await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
+        // Now user has something to collect
+        alert("Redemption submitted! You will be able to collect in two blocks (~30 secs). Please collect once it's ready.");
 
-        alert("Redemption collected successfully!");
+        // Re-check so that "Collect Redemption" shows if the contract says it's pending
+        await updateButtonState();
       }
     } catch (error) {
       let displayMessage = "Transaction failed.";
       console.error("Transaction failed:", error);
 
       if (error instanceof Error) {
-        const revertPrefix = "execution reverted: revert: ";
+        const revertPrefix = "Too soon to collect redemption";
         const message = error.message;
 
         if (message.includes(revertPrefix)) {
-          displayMessage = message.split(revertPrefix)[1] ?? displayMessage;
+          displayMessage = "Your redemption is not yet ready to collect. Wait a minute and try again.";
         } else if (message.includes("UNPREDICTABLE_GAS_LIMIT")) {
           displayMessage = "Cannot estimate gas costs, please check if redemption is ready.";
         } else {
