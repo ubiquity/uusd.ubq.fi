@@ -6,6 +6,7 @@ import { ethers } from "ethers";
 import { setupContracts } from "./contracts";
 import { handleRouting } from "./router";
 import { renderErrorInModal } from "./common/display-popup-modal";
+import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "./common/collateral";
 
 // All unhandled errors are caught and displayed in a modal
 window.addEventListener("error", (event: ErrorEvent) => renderErrorInModal(event.error));
@@ -91,6 +92,8 @@ async function updatePrices() {
   }
 }
 
+export let collateralOptions: CollateralOption[] = [];
+
 export async function mainModule() {
   try {
     console.log("Provider:", provider());
@@ -98,6 +101,7 @@ export async function mainModule() {
     console.log("Waiting for user connection...");
     void waitForConnection();
     await updatePrices();
+    collateralOptions = await fetchCollateralOptions();
 
     await handleRouting();
   } catch (error) {

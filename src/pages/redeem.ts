@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { appState, diamondContract, dollarContract, governanceSpotPrice, lusdPrice, provider, userSigner } from "../main";
+import { appState, collateralOptions, diamondContract, dollarContract, governanceSpotPrice, lusdPrice, provider, userSigner } from "../main";
 import { debounce } from "../utils";
 import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
@@ -23,9 +23,6 @@ export async function loadRedeemPage() {
 
       // setup toggle for slippage settings
       toggleSlippageSettings();
-
-      // fetch collateral options
-      const collateralOptions = await fetchCollateralOptions();
 
       // add collateral options to dropdown
       await populateCollateralDropdown(collateralOptions);
