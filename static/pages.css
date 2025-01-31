@@ -75,6 +75,12 @@
   display: none;
 }
 
+#balance {
+  margin: 0;
+  font-size: 12px;
+  color: #808080;
+}
+
 #slippageSettings {
   margin-top: 10px;
   padding-top: 10px;

@@ -5,13 +5,15 @@
       <div id="redeemInput" class="column actionInput">
         <h2>Redeem Dollars</h2>
 
+        <label for="dollarAmount">UUSD Amount</label>
+        <input type="number" id="dollarAmount" placeholder="Enter dollar amount to redeem" />
+
+        <p id="balance"></p>
+
         <label for="collateralSelect">Select Collateral</label>
         <select id="collateralSelect">
           <option value="">Select a collateral</option>
         </select>
-
-        <label for="dollarAmount">UUSD Amount</label>
-        <input type="number" id="dollarAmount" placeholder="Enter dollar amount to redeem" />
 
         <button id="toggleSlippageSettings" type="button">Slippage Settings</button>
 

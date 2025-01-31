@@ -211,6 +211,8 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
   const collateralOutMinInput = document.getElementById("collateralOutMin") as HTMLInputElement;
   const governanceOutMinInput = document.getElementById("governanceOutMin") as HTMLInputElement;
 
+  const balanceToFill = document.querySelector("#balance") as HTMLElement;
+
   // We'll track the button label state: "Approve UUSD" or "Redeem".
   type ButtonAction = "APPROVE_UUSD" | "REDEEM" | "DISABLED";
   let buttonAction: ButtonAction = "DISABLED";
@@ -255,13 +257,22 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
     // If the user is redeeming X UUSD, we need to check if allowance >= X
     try {
       setButtonLoading(true, "Checking allowance...");
+      const userAddress = await userSigner.getAddress();
+      const rawDollarBalance: ethers.BigNumber = await dollarContract.balanceOf(userAddress);
+      const formattedDollarBalance = ethers.utils.formatUnits(rawDollarBalance, 18);
+
+      // Put the user balance in the page: "123.45 UUSD"
+      if (balanceToFill) {
+        balanceToFill.textContent = `Your balance: ${formattedDollarBalance} UUSD`;
+      }
+
       const neededUusd = ethers.utils.parseUnits(dollarAmountRaw, 18);
       if (neededUusd.isZero()) {
         return;
       }
 
-      const userAddress = await userSigner.getAddress();
       const allowance = await dollarContract.connect(userSigner).allowance(userAddress, diamondContract.address);
+      console.log("UUSD allowance is: ", allowance.toString());
 
       if (allowance.lt(neededUusd)) {
         buttonAction = "APPROVE_UUSD";

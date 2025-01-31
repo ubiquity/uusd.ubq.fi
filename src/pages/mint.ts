@@ -206,6 +206,10 @@ function displayMintOutput(
   }
 }
 
+/**
+ * Links the mint button logic, checks allowances, updates button text (Approve Collateral, Approve UBQ, or Mint).
+ * Also fetches & displays user balance for the selected collateral.
+ */
 async function linkMintButton(collateralOptions: CollateralOption[]) {
   const mintButton = document.getElementById("mintButton") as HTMLButtonElement;
   const collateralSelect = document.getElementById("collateralSelect") as HTMLSelectElement;
@@ -215,6 +219,8 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
   const dollarOutMinInput = document.getElementById("dollarOutMin") as HTMLInputElement;
   const maxCollateralInInput = document.getElementById("maxCollateralIn") as HTMLInputElement;
   const maxGovernanceInInput = document.getElementById("maxGovernanceIn") as HTMLInputElement;
+
+  const balanceToFill = document.querySelector("#balance") as HTMLElement;
 
   // Helper to set a quick loading state on the button
   const setButtonLoading = (isLoading: boolean, loadingText?: string) => {
@@ -273,18 +279,33 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
     try {
       setButtonLoading(true, "Checking Allowances...");
       const userAddress = await userSigner.getAddress();
+      const collateralContract = new ethers.Contract(selectedCollateral.address, erc20Abi, userSigner);
+      const rawCollateralBalance: ethers.BigNumber = await collateralContract.balanceOf(userAddress);
+      const formattedCollateralBalance = parseFloat(ethers.utils.formatUnits(rawCollateralBalance, 18 - selectedCollateral.missingDecimals)).toFixed(2);
+      const rawGovernanceBalance: ethers.BigNumber = await governanceContract.connect(userSigner).balanceOf(userAddress);
+      const formattedGovernanceBalance = parseFloat(ethers.utils.formatUnits(rawGovernanceBalance, 18)).toFixed(2);
+
+      // Put the user balance in the page: "123.45 LUSD | 678.90 UBQ"
+      if (balanceToFill) {
+        balanceToFill.textContent = `Your balance: ${formattedCollateralBalance} ${selectedCollateral.name} | ${formattedGovernanceBalance} UBQ`;
+      }
 
       // Collateral allowance check
       let isCollateralAllowanceOk = true;
       if (neededCollateral.gt(0)) {
-        const collateralContract = new ethers.Contract(selectedCollateral.address, erc20Abi, userSigner);
         const allowanceCollateral: ethers.BigNumber = await collateralContract.allowance(userAddress, diamondContract.address);
+
+        console.log("Collateral allowance is:", allowanceCollateral.toString());
+
         isCollateralAllowanceOk = allowanceCollateral.gte(neededCollateral);
       }
       // Governance allowance check
       let isGovernanceAllowanceOk = true;
       if (neededGovernance.gt(0)) {
         const allowanceGovernance: ethers.BigNumber = await governanceContract.connect(userSigner).allowance(userAddress, diamondContract.address);
+
+        console.log("Governance allowance is:", allowanceGovernance.toString());
+
         isGovernanceAllowanceOk = allowanceGovernance.gte(neededGovernance);
       }
 
