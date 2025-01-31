@@ -266,47 +266,91 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       return;
     }
 
-    // If no inputs are needed, just set to MINT
     const neededCollateral = currentOutput.collateralNeeded;
     const neededGovernance = currentOutput.governanceNeeded;
-    if (neededCollateral.isZero() && neededGovernance.isZero()) {
-      buttonAction = "MINT";
-      mintButton.disabled = false;
-      mintButton.textContent = "Mint";
-      return;
-    }
 
     try {
-      setButtonLoading(true, "Checking Allowances...");
+      setButtonLoading(true, "Checking Balances & Allowances...");
       const userAddress = await userSigner.getAddress();
-      const collateralContract = new ethers.Contract(selectedCollateral.address, erc20Abi, userSigner);
-      const rawCollateralBalance: ethers.BigNumber = await collateralContract.balanceOf(userAddress);
-      const formattedCollateralBalance = parseFloat(ethers.utils.formatUnits(rawCollateralBalance, 18 - selectedCollateral.missingDecimals)).toFixed(2);
-      const rawGovernanceBalance: ethers.BigNumber = await governanceContract.connect(userSigner).balanceOf(userAddress);
-      const formattedGovernanceBalance = parseFloat(ethers.utils.formatUnits(rawGovernanceBalance, 18)).toFixed(2);
 
-      // Put the user balance in the page: "123.45 LUSD | 678.90 UBQ"
+      // 1) Get user balances
+      let rawCollateralBalance: ethers.BigNumber;
+      let formattedCollateralBalance: string;
+      let rawGovernanceBalance: ethers.BigNumber;
+      let formattedGovernanceBalance: string;
+
+      try {
+        const collateralContract = new ethers.Contract(selectedCollateral.address, erc20Abi, userSigner);
+
+        rawCollateralBalance = await collateralContract.balanceOf(userAddress);
+        formattedCollateralBalance = parseFloat(ethers.utils.formatUnits(rawCollateralBalance, 18 - selectedCollateral.missingDecimals)).toFixed(2);
+      } catch (err) {
+        console.error("Collateral balance check failed:", err);
+        renderErrorInModal(new Error("Failed to get balance, please try again later."));
+        mintButton.disabled = true;
+        mintButton.textContent = "Failed";
+        return;
+      }
+
+      try {
+        rawGovernanceBalance = await governanceContract.connect(userSigner).balanceOf(userAddress);
+        formattedGovernanceBalance = parseFloat(ethers.utils.formatUnits(rawGovernanceBalance, 18)).toFixed(2);
+      } catch (err) {
+        console.error("Governance balance check failed:", err);
+        renderErrorInModal(new Error("Failed to get balance, please try again later."));
+        mintButton.disabled = true;
+        mintButton.textContent = "Failed";
+        return;
+      }
+
+      // Display user balance: "123.45 LUSD | 678.90 UBQ"
       if (balanceToFill) {
         balanceToFill.textContent = `Your balance: ${formattedCollateralBalance} ${selectedCollateral.name} | ${formattedGovernanceBalance} UBQ`;
       }
 
-      // Collateral allowance check
+      // 2) Check allowances
       let isCollateralAllowanceOk = true;
-      if (neededCollateral.gt(0)) {
-        const allowanceCollateral: ethers.BigNumber = await collateralContract.allowance(userAddress, diamondContract.address);
-
-        console.log("Collateral allowance is:", allowanceCollateral.toString());
-
-        isCollateralAllowanceOk = allowanceCollateral.gte(neededCollateral);
-      }
-      // Governance allowance check
       let isGovernanceAllowanceOk = true;
+
+      // Collateral allowance
+      if (neededCollateral.gt(0)) {
+        try {
+          const collateralContract = new ethers.Contract(selectedCollateral.address, erc20Abi, userSigner);
+          const allowanceCollateral: ethers.BigNumber = await collateralContract.allowance(userAddress, diamondContract.address);
+
+          console.log("Collateral allowance is:", allowanceCollateral.toString());
+          isCollateralAllowanceOk = allowanceCollateral.gte(neededCollateral);
+        } catch (err) {
+          console.error("Collateral allowance check failed:", err);
+          renderErrorInModal(new Error("Failed to get balance, please try again later."));
+          mintButton.disabled = true;
+          mintButton.textContent = "Failed";
+          return;
+        }
+      }
+
+      // Governance allowance
       if (neededGovernance.gt(0)) {
-        const allowanceGovernance: ethers.BigNumber = await governanceContract.connect(userSigner).allowance(userAddress, diamondContract.address);
+        try {
+          const allowanceGovernance: ethers.BigNumber = await governanceContract.connect(userSigner).allowance(userAddress, diamondContract.address);
 
-        console.log("Governance allowance is:", allowanceGovernance.toString());
+          console.log("Governance allowance is:", allowanceGovernance.toString());
+          isGovernanceAllowanceOk = allowanceGovernance.gte(neededGovernance);
+        } catch (err) {
+          console.error("Governance allowance check failed:", err);
+          renderErrorInModal(new Error("Failed to get balance, please try again later."));
+          mintButton.disabled = true;
+          mintButton.textContent = "Failed";
+          return;
+        }
+      }
 
-        isGovernanceAllowanceOk = allowanceGovernance.gte(neededGovernance);
+      // If no inputs are needed, just set to MINT
+      if (neededCollateral.isZero() && neededGovernance.isZero()) {
+        buttonAction = "MINT";
+        mintButton.disabled = false;
+        mintButton.textContent = "Mint";
+        return;
       }
 
       // Decide button text/behavior
@@ -325,6 +369,10 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       }
     } catch (err) {
       console.error(err);
+      // If something else fails unexpectedly:
+      renderErrorInModal(new Error("Failed to get balance or allowance, please try again later."));
+      mintButton.disabled = true;
+      mintButton.textContent = "Failed";
     } finally {
       // Release the "loading" state in any case
       setButtonLoading(false);
@@ -396,7 +444,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       if (error instanceof Error) {
         const revertPrefix = "execution reverted: revert: ";
         const message = error.message;
-    
+
         if (message.includes(revertPrefix)) {
           displayMessage = message.split(revertPrefix)[1] ?? displayMessage;
         } else if (message.includes("UNPREDICTABLE_GAS_LIMIT")) {

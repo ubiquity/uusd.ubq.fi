@@ -53,8 +53,24 @@ async function calculateRedeemOutput(
   governanceRedeemed: ethers.BigNumber;
   redemptionFeeInDollar: ethers.BigNumber;
 }> {
-  const collateralRatio = await diamondContract.collateralRatio();
-  const governancePrice = await diamondContract.getGovernancePriceUsd();
+  let collateralRatio: ethers.BigNumber;
+  let governancePrice: ethers.BigNumber;
+  let collateralOut: ethers.BigNumber | null = null;
+
+  try {
+    collateralRatio = await diamondContract.collateralRatio();
+  } catch (err) {
+    console.error("Failed to get collateral ratio:", err);
+    throw new Error("Failed to compute redemption output, please try again later.");
+  }
+
+  try {
+    governancePrice = await diamondContract.getGovernancePriceUsd();
+  } catch (err) {
+    console.error("Failed to get governance price:", err);
+    throw new Error("Failed to compute redemption output, please try again later.");
+  }
+
   const poolPricePrecision = ethers.BigNumber.from("1000000");
   const redemptionFee = ethers.utils.parseUnits(selectedCollateral.redemptionFee.toString(), 6);
 
@@ -65,18 +81,32 @@ async function calculateRedeemOutput(
   let collateralRedeemed: ethers.BigNumber;
   let governanceRedeemed: ethers.BigNumber;
 
+  // For partial or 100% collateral, we need getDollarInCollateral
+  const needsCollateralCall = collateralRatio.gte(poolPricePrecision) || !collateralRatio.isZero();
+
+  if (needsCollateralCall) {
+    try {
+      // We do a single getDollarInCollateral call for the "dollarAfterFee"
+      collateralOut = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAfterFee);
+    } catch (err) {
+      console.error("Failed to get collateral quote:", err);
+      throw new Error("Failed to compute redemption output, please try again later.");
+    }
+  }
+
+  // Now decide how to split between collateral & governance
   if (collateralRatio.gte(poolPricePrecision)) {
     // 100% collateral
-    collateralRedeemed = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAfterFee);
+    collateralRedeemed = collateralOut ?? ethers.BigNumber.from(0);
     governanceRedeemed = ethers.BigNumber.from(0);
   } else if (collateralRatio.isZero()) {
     // 0% collateral => all governance
     collateralRedeemed = ethers.BigNumber.from(0);
     governanceRedeemed = dollarAfterFee.mul(poolPricePrecision).div(governancePrice);
   } else {
-    // partial
-    const collateralOut = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAfterFee);
-    collateralRedeemed = collateralOut.mul(collateralRatio).div(poolPricePrecision);
+    // Partial
+    const out = collateralOut ?? ethers.BigNumber.from(0);
+    collateralRedeemed = out.mul(collateralRatio).div(poolPricePrecision);
     governanceRedeemed = dollarAfterFee.mul(poolPricePrecision.sub(collateralRatio)).div(governancePrice);
   }
 
@@ -258,7 +288,19 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
     try {
       setButtonLoading(true, "Checking allowance...");
       const userAddress = await userSigner.getAddress();
-      const rawDollarBalance: ethers.BigNumber = await dollarContract.balanceOf(userAddress);
+
+      // 1) Get user UUSD balance
+      let rawDollarBalance: ethers.BigNumber;
+      try {
+        rawDollarBalance = await dollarContract.balanceOf(userAddress);
+      } catch (err) {
+        console.error("Failed to get UUSD balance:", err);
+        renderErrorInModal(new Error("Failed to get balance, please try again later."));
+        redeemButton.disabled = true;
+        redeemButton.textContent = "Failed";
+        return;
+      }
+
       const formattedDollarBalance = ethers.utils.formatUnits(rawDollarBalance, 18);
 
       // Put the user balance in the page: "123.45 UUSD"
@@ -266,13 +308,24 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
         balanceToFill.textContent = `Your balance: ${formattedDollarBalance} UUSD`;
       }
 
+      // 2) Check allowance
       const neededUusd = ethers.utils.parseUnits(dollarAmountRaw, 18);
       if (neededUusd.isZero()) {
         return;
       }
 
-      const allowance = await dollarContract.connect(userSigner).allowance(userAddress, diamondContract.address);
-      console.log("UUSD allowance is: ", allowance.toString());
+      let allowance: ethers.BigNumber;
+      try {
+        allowance = await dollarContract.connect(userSigner).allowance(userAddress, diamondContract.address);
+      } catch (err) {
+        console.error("Failed to get UUSD allowance:", err);
+        renderErrorInModal(new Error("Failed to get allowance, please try again later."));
+        redeemButton.disabled = true;
+        redeemButton.textContent = "Failed";
+        return;
+      }
+
+      console.log("UUSD allowance is:", allowance.toString());
 
       if (allowance.lt(neededUusd)) {
         buttonAction = "APPROVE_UUSD";
@@ -284,7 +337,10 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
         redeemButton.textContent = "Redeem";
       }
     } catch (err) {
-      console.error(err);
+      console.error("Unexpected error in updateButtonState:", err);
+      renderErrorInModal(new Error("Failed to get balance or allowance, please try again later."));
+      redeemButton.disabled = true;
+      redeemButton.textContent = "Failed";
     } finally {
       setButtonLoading(false);
     }
@@ -309,6 +365,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
     try {
       if (buttonAction === "APPROVE_UUSD") {
         setButtonLoading(true, "Approving UUSD...");
+        // Approve unlimited (user can change in wallet)
         const tx = await dollarContract.connect(userSigner).approve(diamondContract.address, ethers.constants.MaxUint256);
         await tx.wait();
 
@@ -328,25 +385,21 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
         // 1) Redeem
         await signerDiamondContract.redeemDollar(parseInt(selectedCollateralIndex), dollarAmount, governanceOutMin, collateralOutMin);
 
-        // Wait for 2 blocks before initiating the collection
-        await new Promise((resolve) => {
+        // 2) Wait for 2 blocks
+        await new Promise<void>((resolve) => {
           const startBlock = provider().blockNumber;
-
-          const checkBlock = () => {
-            void (async () => {
-              const currentBlock = await provider().getBlockNumber();
-              if (currentBlock >= startBlock + 3) {
-                resolve(null);
-              } else {
-                setTimeout(checkBlock, 1000); // Check every sec
-              }
-            })();
+          const checkBlock = async () => {
+            const currentBlock = await provider().getBlockNumber();
+            if (currentBlock >= startBlock + 3) {
+              resolve();
+            } else {
+              setTimeout(checkBlock, 1000); // Check every sec
+            }
           };
-
           checkBlock();
         });
 
-        // After waiting for 2 blocks, initiate the collection
+        // 3) Collect
         await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
 
         alert("Redemption collected successfully!");
@@ -358,7 +411,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
       if (error instanceof Error) {
         const revertPrefix = "execution reverted: revert: ";
         const message = error.message;
-    
+
         if (message.includes(revertPrefix)) {
           displayMessage = message.split(revertPrefix)[1] ?? displayMessage;
         } else if (message.includes("UNPREDICTABLE_GAS_LIMIT")) {
