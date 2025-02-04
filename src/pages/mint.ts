@@ -414,7 +414,9 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
   dollarAmountInput.addEventListener("input", updateButtonState);
   forceCollateralOnly.addEventListener("change", updateButtonState);
 
-  mintButton.addEventListener("click", async () => {
+  const handleMintClick = async () => {
+    mintButton.disabled = true; // prevent double click
+
     const selectedCollateralIndex = collateralSelect.value;
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
     if (!selectedCollateral) return;
@@ -487,7 +489,12 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
     } finally {
       setButtonLoading(false);
     }
-  });
+  };
+
+  if(!mintButton.hasAttribute("data-listenerAdded")) {
+    mintButton.addEventListener("click", handleMintClick);
+    mintButton.setAttribute("data-listenerAdded", "true");
+  }
 
   // Initialize the button state on page load
   await updateButtonState();

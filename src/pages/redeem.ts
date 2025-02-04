@@ -380,7 +380,9 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
   collateralSelect.addEventListener("change", updateButtonState);
   dollarAmountInput.addEventListener("input", updateButtonState);
 
-  redeemButton.addEventListener("click", async () => {
+  const handleRedeemClick = async () => {
+    redeemButton.disabled = true; // prevent double click
+
     const selectedCollateralIndex = collateralSelect.value;
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
     if (!selectedCollateral) return;
@@ -397,6 +399,11 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
     try {
       if (buttonAction === "COLLECT") {
         setButtonLoading(true, "Collecting...");
+
+        console.log("Collect Redeem Input", {
+          selectedCollateralIndex: parseInt(selectedCollateralIndex),
+        });
+
         await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
 
         alert("Collected redemption successfully!");
@@ -468,7 +475,12 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
     } finally {
       setButtonLoading(false);
     }
-  });
+  };
+
+  if(!redeemButton.hasAttribute("data-listenerAdded")) {
+    redeemButton.addEventListener("click", handleRedeemClick);
+    redeemButton.setAttribute("data-listenerAdded", "true");
+  }
 
   // Initialize the button state on page load
   await updateButtonState();
