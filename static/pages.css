@@ -105,8 +105,8 @@
 #bottomBar {
   position: fixed;
   bottom: 30px;
-  left: 0;
-  width: 100%;
+  left: 50%;
+  transform: translateX(-50%);
   padding: 10px;
   display: flex;
   justify-content: center;
