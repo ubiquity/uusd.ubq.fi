@@ -1,12 +1,12 @@
 import "./router";
 import { createAppKit } from "@reown/appkit";
 import { Ethers5Adapter } from "@reown/appkit-adapter-ethers5";
-import { anvil, mainnet } from "@reown/appkit/networks";
+import { anvil, AppKitNetwork, mainnet } from "@reown/appkit/networks";
 import { ethers } from "ethers";
 import { setupContracts } from "./contracts";
 import { handleRouting } from "./router";
 import { renderErrorInModal } from "./common/display-popup-modal";
-import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "./common/collateral";
+import { CollateralOption, fetchCollateralOptions } from "./common/collateral";
 
 // All unhandled errors are caught and displayed in a modal
 window.addEventListener("error", (event: ErrorEvent) => renderErrorInModal(event.error));
@@ -20,20 +20,34 @@ window.addEventListener("unhandledrejection", (event: PromiseRejectionEvent) => 
 const projectId = "415760038f8e330de4868120be3205b8";
 
 const metadata = {
-  name: "UUSD Minting DApp",
-  description: "Mint UUSD on Gnosis with Reown AppKit",
+  name: "UUSD Pool DApp",
+  description: "Mint UUSD or redeem collateral on Gnosis with Reown AppKit",
   url: "https://uusd.ubq.fi",
   icons: ["https://avatars.githubusercontent.com/u/76412717"],
 };
 
-const rpcPerChainId: { [key: string]: string } = {
-  "1": "https://eth.llamarpc.com",
-  "31337": "http://localhost:8545",
+export const providersUrl: { [key: string]: string } = {
+  1: "https://eth.llamarpc.com",
+  31337: "http://127.0.0.1:8545",
 };
+
+export const explorersUrl: { [key: string]: string } = {
+  1: "https://etherscan.io",
+  31337: "http://127.0.0.1:8545",
+};
+
+let networks: [AppKitNetwork, ...AppKitNetwork[]];
+
+if (window.location.hostname === "localhost" || window.location.hostname === "0.0.0.0") {
+  console.log("enabling anvil");
+  networks = [anvil, mainnet];
+} else {
+  networks = [mainnet];
+}
 
 export const appState = createAppKit({
   adapters: [new Ethers5Adapter()],
-  networks: [mainnet, anvil],
+  networks: networks,
   defaultNetwork: mainnet,
   metadata,
   projectId,
@@ -50,9 +64,16 @@ export const provider = () => {
   if (!networkId) {
     throw new Error("Network ID not found");
   }
-  return new ethers.providers.JsonRpcProvider(rpcPerChainId[networkId]);
+  return new ethers.providers.JsonRpcProvider(providersUrl[networkId]);
 };
 export let userSigner: ethers.Signer;
+
+function getWeb3Provider() {
+  if (window.ethereum) {
+    return new ethers.providers.Web3Provider(window.ethereum);
+  }
+  throw new Error("No Ethereum provider found");
+}
 
 // setup contract instances
 export const { dollarContract, governanceContract, diamondContract, twapOracleContract, lusdFeedContract } = setupContracts(provider());
@@ -61,7 +82,7 @@ async function waitForConnection() {
   return new Promise<void>((resolve) => {
     const interval = setInterval(() => {
       if (appState.getIsConnectedState()) {
-        userSigner = provider().getSigner(appState.getAddress());
+        userSigner = getWeb3Provider().getSigner(appState.getAddress());
         console.log(`User connected: ${appState.getAddress()}`);
         clearInterval(interval);
         resolve();
