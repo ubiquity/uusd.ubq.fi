@@ -27,7 +27,7 @@ const metadata = {
 };
 
 export const providersUrl: { [key: string]: string } = {
-  1: "https://eth.llamarpc.com",
+  1: "https://eth.drpc.org",
   31337: "http://127.0.0.1:8545",
 };
 
@@ -93,6 +93,21 @@ async function waitForConnection() {
   });
 }
 
+function handleNetworkSwitch() {
+  // network change listener
+  appState.subscribeCaipNetworkChange(async (newState?: { id: string | number; name: string }) => {
+    if (newState) {
+      userSigner = getWeb3Provider().getSigner(appState.getAddress());
+      console.log(`Network switched to ${newState.name} (${newState.id})`);
+    }
+  });
+
+  // wallet connection listener
+  appState.subscribeWalletInfo(async () => {
+    userSigner = getWeb3Provider().getSigner(appState.getAddress());
+  });
+}
+
 // global dollar and governance prices
 export let dollarSpotPrice: string | null = null;
 export const dollarTwapPrice: string | null = null;
@@ -121,6 +136,7 @@ export async function mainModule() {
 
     console.log("Waiting for user connection...");
     void waitForConnection();
+    handleNetworkSwitch();
     await updatePrices();
     collateralOptions = await fetchCollateralOptions();
 
