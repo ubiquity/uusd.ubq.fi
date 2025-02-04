@@ -17,7 +17,7 @@ cast rpc --rpc-url $ANVIL_RPC anvil_autoImpersonateAccount true
 cast send --rpc-url $ANVIL_RPC $LUSD --unlocked --from $WHALE_WALLET_LUSD "transfer(address,uint256)(bool)" $BENEFICIARY_WALLET 10000000000000000000000
 
 # WHALE_WALLET_UBQ sends 500k UBQ to BENEFICIARY_WALLET
-cast send --rpc-url $ANVIL_RPC $UBQ --unlocked --from $WHALE_WALLET_UBQ "transfer(address,uint256)(bool)" $BENEFICIARY_WALLET 500000000000000000000000
+cast send --rpc-url $ANVIL_RPC $UBQ --unlocked --from $WHALE_WALLET_UBQ "transfer(address,uint256)(bool)" $BENEFICIARY_WALLET 50000000000000000000000
 
 # disable auto impersonating
 cast rpc --rpc-url $ANVIL_RPC anvil_autoImpersonateAccount false
