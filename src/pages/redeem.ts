@@ -475,6 +475,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
       renderErrorInModal(new Error(displayMessage));
     } finally {
       setButtonLoading(false);
+      await updateButtonState();
     }
   };
 
