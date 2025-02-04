@@ -480,6 +480,9 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
           displayMessage = "Dollar price is too low to mint, please try again later.";
         } else if (message.includes("UNPREDICTABLE_GAS_LIMIT")) {
           displayMessage = "Cannot estimate gas costs, please try again later.";
+        } else if (message.includes("User rejected the request.")){ 
+          displayMessage = "Transaction rejected by user.";
+        
         } else {
           displayMessage = message;
         }
