@@ -6,7 +6,7 @@ export function renderErrorInModal(error: Error) {
   }
   const errorMessageElement = document.getElementById("error-message");
 
-  const errorStack = window.location.href.includes("localhost") ? "Check console for error stack." : "";
+  const errorStack = window.location.href.includes("localhost") ? "(localhost) check console for error stack." : "";
   if (errorMessageElement) {
     errorMessageElement.textContent = `
       ${error.message}\n\n
