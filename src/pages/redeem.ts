@@ -346,7 +346,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
 
       let allowance: ethers.BigNumber;
       try {
-        allowance = await dollarContract.connect(userSigner).allowance(userAddress, diamondContract.address);
+        allowance = await dollarContract.allowance(userAddress, diamondContract.address);
       } catch (err) {
         console.error("Failed to get UUSD allowance:", err);
         renderErrorInModal(new Error("Failed to get allowance, please try again later."));
@@ -411,7 +411,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
         await updateButtonState();
       } else if (buttonAction === "APPROVE_UUSD") {
         setButtonLoading(true, "Approving UUSD...");
-        const tx = await dollarContract.connect(userSigner).approve(diamondContract.address, ethers.constants.MaxUint256);
+        const tx = await signerDiamondContract.approve(diamondContract.address, ethers.constants.MaxUint256);
         await tx.wait();
 
         await updateButtonState();

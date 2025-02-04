@@ -323,7 +323,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       }
 
       try {
-        rawGovernanceBalance = await governanceContract.connect(userSigner).balanceOf(userAddress);
+        rawGovernanceBalance = await governanceContract.balanceOf(userAddress);
         formattedGovernanceBalance = parseFloat(ethers.utils.formatUnits(rawGovernanceBalance, 18)).toFixed(2);
       } catch (err) {
         console.error("Governance balance check failed:", err);
@@ -362,7 +362,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
       // Governance allowance
       if (neededGovernance.gt(0)) {
         try {
-          const allowanceGovernance: ethers.BigNumber = await governanceContract.connect(userSigner).allowance(userAddress, diamondContract.address);
+          const allowanceGovernance: ethers.BigNumber = await governanceContract.allowance(userAddress, diamondContract.address);
 
           console.log("Governance allowance is:", allowanceGovernance.toString());
           isGovernanceAllowanceOk = allowanceGovernance.gte(neededGovernance);
