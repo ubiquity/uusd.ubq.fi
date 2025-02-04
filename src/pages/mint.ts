@@ -482,7 +482,6 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
           displayMessage = "Cannot estimate gas costs, please try again later.";
         } else if (message.includes("User rejected the request.")){ 
           displayMessage = "Transaction rejected by user.";
-        
         } else {
           displayMessage = message;
         }

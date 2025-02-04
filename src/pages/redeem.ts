@@ -459,13 +459,14 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
       console.error("Transaction failed:", error);
 
       if (error instanceof Error) {
-        const revertPrefix = "Too soon to collect redemption";
         const message = error.message;
 
-        if (message.includes(revertPrefix)) {
+        if (message.includes("Too soon to collect redemption")) {
           displayMessage = "Your redemption is not yet ready to collect. Wait a minute and try again.";
         } else if (message.includes("UNPREDICTABLE_GAS_LIMIT")) {
           displayMessage = "Cannot estimate gas costs, please check if redemption is ready.";
+        } else if (message.includes("User rejected the request.")){ 
+          displayMessage = "Transaction rejected by user.";
         } else {
           displayMessage = message;
         }
