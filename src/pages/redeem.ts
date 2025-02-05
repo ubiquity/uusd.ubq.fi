@@ -1,9 +1,10 @@
 import { ethers } from "ethers";
 import { appState, collateralOptions, diamondContract, dollarContract, governanceSpotPrice, lusdPrice, provider, userSigner } from "../main";
 import { debounce } from "../utils";
-import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
+import { CollateralOption, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
 import { renderErrorInModal } from "../common/display-popup-modal";
+import { erc20Abi } from "../contracts";
 
 let currentOutput: {
   collateralRedeemed: ethers.BigNumber;
@@ -411,7 +412,8 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
         await updateButtonState();
       } else if (buttonAction === "APPROVE_UUSD") {
         setButtonLoading(true, "Approving UUSD...");
-        const tx = await signerDiamondContract.approve(diamondContract.address, ethers.constants.MaxUint256);
+        const signerDollarContract = new ethers.Contract(dollarContract.address, erc20Abi, userSigner);
+        const tx = await signerDollarContract.approve(diamondContract.address, ethers.constants.MaxUint256);
         await tx.wait();
 
         await updateButtonState();
