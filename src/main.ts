@@ -98,6 +98,7 @@ function handleNetworkSwitch() {
   appState.subscribeCaipNetworkChange(async (newState?: { id: string | number; name: string }) => {
     if (newState) {
       userSigner = getWeb3Provider().getSigner(appState.getAddress());
+      window.location.reload();
       console.log(`Network switched to ${newState.name} (${newState.id})`);
     }
   });
