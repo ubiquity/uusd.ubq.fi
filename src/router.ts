@@ -4,6 +4,9 @@ import { loadRedeemPage } from "./pages/redeem";
 
 // URL Path based routing
 export async function handleRouting() {
+  // Run handleRouting on hashchange
+  window.addEventListener("hashchange", handleRouting);
+
   const contentArea = document.getElementById("content-area");
 
   if (!contentArea) return;
@@ -26,8 +29,5 @@ export async function handleRouting() {
       break;
   }
 }
-
-// Run handleRouting on hashchange
-window.addEventListener("hashchange", handleRouting);
 
 export {};
