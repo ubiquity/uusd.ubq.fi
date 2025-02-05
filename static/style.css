@@ -75,17 +75,19 @@ w3m-network-button {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.6);
   justify-content: center;
   align-items: center;
   z-index: 1000;
 }
 
 .error-modal-content {
-  background-color: white;
+  border: 1px solid #f22207;
+  background-color: #111010;
   padding: 20px;
+  padding-left: 30px;
   border-radius: 8px;
-  width: 90%;
+  width: 100%;
   max-width: 500px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
@@ -98,35 +100,111 @@ w3m-network-button {
 
 .error-title {
   font-size: 1.5rem;
+  font-weight: 400;
   margin: 0;
-  color: #d9534f;
+  color: #f22207;
 }
 
-.close-modal {
+.error-close-modal {
   background: none;
   border: none;
   cursor: pointer;
-  color: #333;
 }
 
-.close-modal svg {
-  width: 24px;
-  height: 24px;
+.error-close-modal svg {
+  width: 30px;
+  height: 30px;
 }
 
 .error-modal-body {
-  margin-top: 10px;
-  color: #333;
+  margin-top: 15px;
+  color: #ffffff;
   font-size: 1rem;
   line-height: 1.5;
 }
 
 .error-message {
-  max-height: 600px;
+  max-height: 400px;
   white-space: pre-wrap;
   text-overflow: ellipsis;
-  overflow: hidden;
+  overflow-y: scroll;
   word-break: break-word;
+}
+
+/* Success Modal */
+
+.success-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.success-modal-content {
+  border: 1px solid #5af55a;
+  background-color: #111010;
+  padding: 20px;
+  padding-left: 30px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.success-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.success-title {
+  font-size: 1.5rem;
+  font-weight: 400;
+  margin: 0;
+  color: #5af55a;
+}
+
+.success-close-modal {
+  position: relative;
+  top: 0;
+  right: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.success-close-modal svg {
+  width: 30px;
+  height: 30px;
+}
+
+.success-modal-body {
+  margin-top: 15px;
+  color: #ffffff;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.success-message {
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+  white-space: pre-wrap;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.tx-hash {
+  color: #fff;
+  text-decoration: underline;
+  padding-right: 30px;
 }
 
 /* Content Area Styles */

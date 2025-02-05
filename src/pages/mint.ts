@@ -3,7 +3,7 @@ import { appState, collateralOptions, diamondContract, dollarSpotPrice, governan
 import { debounce } from "../utils";
 import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
-import { renderErrorInModal } from "../common/display-popup-modal";
+import { renderErrorInModal, renderSuccessModal } from "../common/display-popup-modal";
 import { erc20Abi } from "../contracts";
 
 let currentOutput: {
@@ -467,7 +467,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
           isForceCollateralOnlyChecked
         );
 
-        alert("Minting transaction sent successfully!");
+        renderSuccessModal("Minting transaction sent successfully!");
         await updateButtonState();
       }
     } catch (error) {

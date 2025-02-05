@@ -126,6 +126,7 @@ async function updatePrices() {
     lusdPrice = ethers.utils.formatUnits(lusdPriceRaw, 8);
   } catch (error) {
     console.error("Error getting prices:", error);
+    renderErrorInModal(new Error("Our RPC is very busy, please try again later."));
   }
 }
 

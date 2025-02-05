@@ -10,16 +10,23 @@ export async function loadHomePage() {
       const html = await response.text();
       contentArea.innerHTML = html;
 
-      // write dollar spot price to page
-      const dollarSpotPriceElement = contentArea.querySelector("#DollarPrice p:first-of-type");
-      if (dollarSpotPriceElement) {
-        dollarSpotPriceElement.textContent = `$ ${dollarSpotPrice} (SPOT)`;
-      }
+      if (dollarSpotPrice && governanceSpotPrice) {
+        // write dollar spot price to page
+        const dollarSpotPriceElement = contentArea.querySelector("#DollarPrice p:first-of-type");
+        if (dollarSpotPriceElement) {
+          dollarSpotPriceElement.textContent = `$ ${dollarSpotPrice} (SPOT)`;
+        }
 
-      // write governance spot price to page
-      const governanceSpotPriceElement = contentArea.querySelector("#DollarPrice p:nth-of-type(2)");
-      if (governanceSpotPriceElement) {
-        governanceSpotPriceElement.textContent = `$ ${governanceSpotPrice} (SPOT)`;
+        // write governance spot price to page
+        const governanceSpotPriceElement = contentArea.querySelector("#DollarPrice p:nth-of-type(2)");
+        if (governanceSpotPriceElement) {
+          governanceSpotPriceElement.textContent = `$ ${governanceSpotPrice} (SPOT)`;
+        }
+      } else {
+        const container = contentArea.querySelector("#DollarPrice");
+        if(container){
+          container.innerHTML = "<h2>Our RPC is busy, please try again later.</h2>";
+        }
       }
 
       // // write TWAP price to page

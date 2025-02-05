@@ -3,7 +3,7 @@ import { appState, collateralOptions, diamondContract, dollarContract, governanc
 import { debounce } from "../utils";
 import { CollateralOption, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
-import { renderErrorInModal } from "../common/display-popup-modal";
+import { renderErrorInModal, renderSuccessModal } from "../common/display-popup-modal";
 import { erc20Abi } from "../contracts";
 
 let currentOutput: {
@@ -407,7 +407,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
 
         await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
 
-        alert("Collected redemption successfully!");
+        renderSuccessModal("Collected redemption successfully!");
         // Re-check the state (allow user to do new redemption if no pending)
         await updateButtonState();
       } else if (buttonAction === "APPROVE_UUSD") {
@@ -451,7 +451,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
         });
 
         // 5) Alert user that redemption is ready
-        alert("Redemption confirmed, you may now collect your redemption.");
+        renderSuccessModal("Redemption confirmed, you may now collect your redemption.");
 
         // 6) Refresh button state
         await updateButtonState();
