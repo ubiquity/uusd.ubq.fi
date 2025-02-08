@@ -11,10 +11,16 @@ export interface CollateralOption {
 }
 
 export async function fetchCollateralOptions(): Promise<CollateralOption[]> {
+  if(!diamondContract){
+    return [];
+  }
   const collateralAddresses: string[] = await diamondContract.allCollaterals();
   return (
     await Promise.all(
       collateralAddresses.map(async (address) => {
+        if (!diamondContract) {
+          throw new Error("Provider is disconnected, please try again later.");
+        }
         const info = await diamondContract.collateralInformation(address);
         return {
           index: info.index.toNumber(),

@@ -7,6 +7,8 @@ import { setupContracts } from "./contracts";
 import { handleRouting } from "./router";
 import { renderErrorInModal } from "./common/display-popup-modal";
 import { CollateralOption, fetchCollateralOptions } from "./common/collateral";
+import { providersUrl } from "./constants";
+import { useRpcHandler } from "./common/use-rpc-handler";
 
 // All unhandled errors are caught and displayed in a modal
 window.addEventListener("error", (event: ErrorEvent) => renderErrorInModal(event.error));
@@ -24,16 +26,6 @@ const metadata = {
   description: "Mint UUSD or redeem collateral on Gnosis with Reown AppKit",
   url: "https://uusd.ubq.fi",
   icons: ["https://avatars.githubusercontent.com/u/76412717"],
-};
-
-export const providersUrl: { [key: string]: string } = {
-  1: "https://eth.drpc.org",
-  31337: "http://127.0.0.1:8545",
-};
-
-export const explorersUrl: { [key: string]: string } = {
-  1: "https://etherscan.io",
-  31337: "http://127.0.0.1:8545",
 };
 
 let networks: [AppKitNetwork, ...AppKitNetwork[]];
@@ -58,46 +50,54 @@ export const appState = createAppKit({
 
 export const getNetworkId = () => appState.getCaipNetworkId()?.toString();
 
-// create provider & signer for Ethereum mainnet
-export const provider = () => {
-  const networkId = getNetworkId();
-  if (!networkId) {
-    throw new Error("Network ID not found");
-  }
-  return new ethers.providers.JsonRpcProvider(providersUrl[networkId]);
-};
-export let userSigner: ethers.Signer;
-
-function getWeb3Provider() {
-  if (window.ethereum) {
-    return new ethers.providers.Web3Provider(window.ethereum);
-  }
-  throw new Error("No Ethereum provider found");
-}
+// providers and signers
+export let provider: ethers.providers.JsonRpcProvider | undefined;
+export let userSigner: ethers.Signer | undefined;
+let web3Provider: ethers.providers.Web3Provider | undefined;
 
 // setup contract instances
-export const { dollarContract, governanceContract, diamondContract, twapOracleContract, lusdFeedContract } = setupContracts(provider());
+export let dollarContract: ethers.Contract | undefined;
+export let governanceContract: ethers.Contract | undefined;
+export let diamondContract: ethers.Contract | undefined;
+export let twapOracleContract: ethers.Contract | undefined;
+export let lusdFeedContract: ethers.Contract | undefined;
 
-async function waitForConnection() {
-  return new Promise<void>((resolve) => {
-    const interval = setInterval(() => {
-      if (appState.getIsConnectedState()) {
-        userSigner = getWeb3Provider().getSigner(appState.getAddress());
-        console.log(`User connected: ${appState.getAddress()}`);
-        clearInterval(interval);
-        resolve();
-      } else {
-        console.log("Waiting for user to connect...");
-      }
-    }, 1000);
-  });
+async function initializeProviderAndSigner() {
+  const networkId = Number(appState.getChainId());
+  if (networkId && providersUrl[networkId]) {
+    // read-only provider for fetching
+    provider = await useRpcHandler(networkId);
+  } else {
+    console.error("No provider URL found for the current network ID");
+    provider = undefined;
+  }
+
+  // if user is connected, set up the signer using the injected provider (window.ethereum)
+  if (appState.getIsConnectedState() && window.ethereum) {
+    const ethereum = window.ethereum as ethers.providers.ExternalProvider;
+    if (ethereum.request) {
+      await ethereum.request({ method: "eth_requestAccounts" });
+    }
+
+    // Create a Web3Provider from window.ethereum
+    web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+
+    // web3Provider signer will handle transaction signing
+    userSigner = web3Provider.getSigner(appState.getAddress());
+
+    console.log("User address:", await userSigner.getAddress());
+  } else {
+    userSigner = undefined;
+  }
+
+  ({ dollarContract, governanceContract, diamondContract, twapOracleContract, lusdFeedContract } = setupContracts(provider));
 }
 
 function handleNetworkSwitch() {
   // network change listener
   appState.subscribeCaipNetworkChange(async (newState?: { id: string | number; name: string }) => {
     if (newState) {
-      userSigner = getWeb3Provider().getSigner(appState.getAddress());
+      await initializeProviderAndSigner();
       window.location.reload();
       console.log(`Network switched to ${newState.name} (${newState.id})`);
     }
@@ -105,7 +105,7 @@ function handleNetworkSwitch() {
 
   // wallet connection listener
   appState.subscribeWalletInfo(async () => {
-    userSigner = getWeb3Provider().getSigner(appState.getAddress());
+    await initializeProviderAndSigner();
   });
 }
 
@@ -117,9 +117,9 @@ export let lusdPrice: string | null = null;
 
 async function updatePrices() {
   try {
-    const dollarSpotPriceRaw = await diamondContract.getDollarPriceUsd();
-    const governanceSpotPriceRaw = await diamondContract.getGovernancePriceUsd();
-    const lusdPriceRaw = await lusdFeedContract.latestAnswer();
+    const dollarSpotPriceRaw = await diamondContract?.getDollarPriceUsd();
+    const governanceSpotPriceRaw = await diamondContract?.getGovernancePriceUsd();
+    const lusdPriceRaw = await lusdFeedContract?.latestAnswer();
 
     dollarSpotPrice = ethers.utils.formatUnits(dollarSpotPriceRaw, 6);
     governanceSpotPrice = ethers.utils.formatUnits(governanceSpotPriceRaw, 6);
@@ -134,10 +134,9 @@ export let collateralOptions: CollateralOption[] = [];
 
 export async function mainModule() {
   try {
-    console.log("Provider:", provider());
+    await initializeProviderAndSigner();
+    console.log("Provider:", provider);
 
-    console.log("Waiting for user connection...");
-    void waitForConnection();
     handleNetworkSwitch();
     await updatePrices();
     collateralOptions = await fetchCollateralOptions();
