@@ -54,6 +54,10 @@ async function calculateMintOutput(
   let governancePrice: ethers.BigNumber;
   const poolPricePrecision = ethers.BigNumber.from("1000000");
 
+  if (!diamondContract || ! userSigner) {
+    throw new Error("Failed to compute redemption output, please try again later.");
+  };
+
   try {
     collateralRatio = await diamondContract.collateralRatio();
   } catch (error) {
@@ -271,6 +275,10 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
     mintButton.disabled = true;
     mintButton.textContent = "Mint";
 
+    if (!diamondContract || !governanceContract || !userSigner) {
+      return;
+    };
+  
     // If not connected or no input yet, just disable.
     if (!appState.getIsConnectedState()) {
       return;
@@ -417,6 +425,10 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
   const handleMintClick = async () => {
     mintButton.disabled = true; // prevent double click
 
+    if (!diamondContract || !governanceContract || !userSigner) {
+      return;
+    };
+
     const selectedCollateralIndex = collateralSelect.value;
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
     if (!selectedCollateral) return;
@@ -458,7 +470,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
           isForceCollateralOnlyChecked,
         });
 
-        await signerDiamondContract.mintDollar(
+        const tx = await signerDiamondContract.mintDollar(
           parseInt(selectedCollateralIndex),
           dollarAmount,
           dollarOutMin,
@@ -466,8 +478,9 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
           maxGovernanceIn,
           isForceCollateralOnlyChecked
         );
+        await tx.wait();
 
-        renderSuccessModal("Minting transaction sent successfully!");
+        renderSuccessModal("Minting transaction sent successfully!", tx.hash);
         await updateButtonState();
       }
     } catch (error) {

@@ -55,6 +55,10 @@ async function calculateRedeemOutput(
   let governancePrice: ethers.BigNumber;
   let collateralOut: ethers.BigNumber | null = null;
 
+  if (!diamondContract || !userSigner || !dollarContract) {
+    throw new Error("Failed to compute redemption output, please try again later.");
+  };
+
   try {
     collateralRatio = await diamondContract.collateralRatio();
   } catch (err) {
@@ -290,6 +294,10 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
       return;
     }
 
+    if (!diamondContract || !userSigner || !dollarContract) {
+      return;
+    };
+
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
     if (!selectedCollateral) {
       return;
@@ -384,6 +392,10 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
   const handleRedeemClick = async () => {
     redeemButton.disabled = true; // prevent double click
 
+    if (!diamondContract || !userSigner || !dollarContract || !provider) {
+      return;
+    };
+
     const selectedCollateralIndex = collateralSelect.value;
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
     if (!selectedCollateral) return;
@@ -405,9 +417,10 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
           selectedCollateralIndex: parseInt(selectedCollateralIndex),
         });
 
-        await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
+        const tx = await signerDiamondContract.collectRedemption(parseInt(selectedCollateralIndex));
+        await tx.wait();
 
-        renderSuccessModal("Collected redemption successfully!");
+        renderSuccessModal("Collected redemption successfully!", tx.hash);
         // Re-check the state (allow user to do new redemption if no pending)
         await updateButtonState();
       } else if (buttonAction === "APPROVE_UUSD") {
@@ -437,10 +450,13 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
         setButtonLoading(true, "Waiting for 2 blocks...");
 
         // 4) Wait for 2 block confirmations dynamically
-        const startBlock = await provider().getBlockNumber();
+        const startBlock = await provider.getBlockNumber();
         await new Promise<void>((resolve) => {
           const checkBlock = async () => {
-            const currentBlock = await provider().getBlockNumber();
+            if(!provider){
+              throw new Error("Provider disconnected");
+            };
+            const currentBlock = await provider.getBlockNumber();
             if (currentBlock >= startBlock + 2) {
               resolve();
             } else {

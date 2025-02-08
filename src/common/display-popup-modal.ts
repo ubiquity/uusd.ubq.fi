@@ -1,4 +1,5 @@
-import { appState, explorersUrl } from "../main";
+import { explorersUrl } from "../constants";
+import { appState } from "../main";
 
 export function renderErrorInModal(error: Error) {
   const modal = document.getElementById("error-modal");
@@ -24,7 +25,7 @@ export function closeErrorModal() {
   }
 }
 
-export function renderSuccessModal(transactionHash: string) {
+export function renderSuccessModal(message: string, transactionHash?: string) {
   const modal = document.getElementById("success-modal");
   const closeButton = document.getElementsByClassName("success-close-modal");
   if (closeButton) {
@@ -33,7 +34,7 @@ export function renderSuccessModal(transactionHash: string) {
   const successMessageElement = document.getElementById("success-message");
 
   if (successMessageElement) {
-    successMessageElement.innerHTML = `You've successfully signed the transaction. Your allowance balance should be updated in a few blocks.<br><br>transaction hash: <span class="tx-hash">${transactionHash}</span>`;
+    successMessageElement.innerHTML = `${message}<br><br>${transactionHash ? "transaction hash: " : ""}<span class="tx-hash">${transactionHash}</span>`;
     const chainId = appState.getChainId();
     const explorerUrl = chainId !== undefined ? explorersUrl[chainId] : "https://etherscan.io";
     const txLink = document.createElement("a");
@@ -41,7 +42,9 @@ export function renderSuccessModal(transactionHash: string) {
     txLink.target = "_blank";
     txLink.rel = "noopener noreferrer";
     txLink.style.color = "white";
-    txLink.textContent = transactionHash;
+    if(transactionHash){
+      txLink.textContent = transactionHash;
+    }
 
     const txHashElement = successMessageElement.querySelector(".tx-hash");
     if (txHashElement) {
