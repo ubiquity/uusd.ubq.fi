@@ -9,7 +9,7 @@ export function renderErrorInModal(error: Error) {
   const errorMessageElement = document.getElementById("error-message");
 
   if (errorMessageElement) {
-    errorMessageElement.textContent = `${error.message}\n\n${error.stack}`;
+    errorMessageElement.textContent = `${error.message}\n\n${window.location.hostname === "localhost" ? "localhost: check error.stack at console" : ""}`;
   }
 
   if (modal) {
@@ -35,7 +35,7 @@ export function renderSuccessModal(transactionHash: string) {
   if (successMessageElement) {
     successMessageElement.innerHTML = `You've successfully signed the transaction. Your allowance balance should be updated in a few blocks.<br><br>transaction hash: <span class="tx-hash">${transactionHash}</span>`;
     const chainId = appState.getChainId();
-    const explorerUrl = chainId !== undefined ? explorersUrl[chainId] : 'https://etherscan.io';
+    const explorerUrl = chainId !== undefined ? explorersUrl[chainId] : "https://etherscan.io";
     const txLink = document.createElement("a");
     txLink.href = `${explorerUrl}/tx/${transactionHash}`;
     txLink.target = "_blank";
@@ -45,7 +45,7 @@ export function renderSuccessModal(transactionHash: string) {
 
     const txHashElement = successMessageElement.querySelector(".tx-hash");
     if (txHashElement) {
-      txHashElement.innerHTML = '0x0';
+      txHashElement.innerHTML = "";
       txHashElement.appendChild(txLink);
     }
   }
