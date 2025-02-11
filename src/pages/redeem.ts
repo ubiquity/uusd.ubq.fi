@@ -55,22 +55,24 @@ async function calculateRedeemOutput(
   let governancePrice: ethers.BigNumber;
   let collateralOut: ethers.BigNumber | null = null;
 
+  const computeErrorMessage = "Failed to compute redemption output, please try again later.";
+
   if (!diamondContract || !userSigner || !dollarContract) {
-    throw new Error("Failed to compute redemption output, please try again later.");
-  };
+    throw new Error(computeErrorMessage);
+  }
 
   try {
     collateralRatio = await diamondContract.collateralRatio();
   } catch (err) {
     console.error("Failed to get collateral ratio:", err);
-    throw new Error("Failed to compute redemption output, please try again later.");
+    throw new Error(computeErrorMessage);
   }
 
   try {
     governancePrice = await diamondContract.getGovernancePriceUsd();
   } catch (err) {
     console.error("Failed to get governance price:", err);
-    throw new Error("Failed to compute redemption output, please try again later.");
+    throw new Error(computeErrorMessage);
   }
 
   const poolPricePrecision = ethers.BigNumber.from("1000000");
@@ -84,15 +86,15 @@ async function calculateRedeemOutput(
   let governanceRedeemed: ethers.BigNumber;
 
   // For partial or 100% collateral, we need getDollarInCollateral
-  const needsCollateralCall = collateralRatio.gte(poolPricePrecision) || !collateralRatio.isZero();
+  const doesNeedCollateralCall = collateralRatio.gte(poolPricePrecision) || !collateralRatio.isZero();
 
-  if (needsCollateralCall) {
+  if (doesNeedCollateralCall) {
     try {
       // We do a single getDollarInCollateral call for the "dollarAfterFee"
       collateralOut = await diamondContract.getDollarInCollateral(selectedCollateral.index, dollarAfterFee);
     } catch (err) {
       console.error("Failed to get collateral quote:", err);
-      throw new Error("Failed to compute redemption output, please try again later.");
+      throw new Error(computeErrorMessage);
     }
   }
 
@@ -296,7 +298,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
 
     if (!diamondContract || !userSigner || !dollarContract) {
       return;
-    };
+    }
 
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
     if (!selectedCollateral) {
@@ -394,7 +396,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
 
     if (!diamondContract || !userSigner || !dollarContract || !provider) {
       return;
-    };
+    }
 
     const selectedCollateralIndex = collateralSelect.value;
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
@@ -455,7 +457,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
           const checkBlock = async () => {
             if(!provider){
               throw new Error("Provider disconnected");
-            };
+            }
             const currentBlock = await provider.getBlockNumber();
             if (currentBlock >= startBlock + 2) {
               resolve();
@@ -463,7 +465,7 @@ async function linkRedeemButton(collateralOptions: CollateralOption[]) {
               setTimeout(checkBlock, 5000); // Check every 5 seconds
             }
           };
-          checkBlock();
+          void checkBlock();
         });
 
         // 5) Alert user that redemption is ready

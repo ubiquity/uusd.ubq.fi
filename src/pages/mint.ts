@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { appState, collateralOptions, diamondContract, dollarSpotPrice, governanceContract, governanceSpotPrice, lusdPrice, userSigner } from "../main";
 import { debounce } from "../utils";
-import { CollateralOption, fetchCollateralOptions, populateCollateralDropdown } from "../common/collateral";
+import { CollateralOption, populateCollateralDropdown } from "../common/collateral";
 import { toggleSlippageSettings } from "../common/render-slippage-toggle";
 import { renderErrorInModal, renderSuccessModal } from "../common/display-popup-modal";
 import { erc20Abi } from "../contracts";
@@ -56,7 +56,7 @@ async function calculateMintOutput(
 
   if (!diamondContract || ! userSigner) {
     throw new Error("Failed to compute redemption output, please try again later.");
-  };
+  }
 
   try {
     collateralRatio = await diamondContract.collateralRatio();
@@ -277,7 +277,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
 
     if (!diamondContract || !governanceContract || !userSigner) {
       return;
-    };
+    }
   
     // If not connected or no input yet, just disable.
     if (!appState.getIsConnectedState()) {
@@ -360,7 +360,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
           isCollateralAllowanceOk = allowanceCollateral.gte(neededCollateral);
         } catch (err) {
           console.error("Collateral allowance check failed:", err);
-          renderErrorInModal(new Error("Failed to get balance, please try again later."));
+          renderErrorInModal(new Error("Failed to get allowance, please try again later."));
           mintButton.disabled = true;
           mintButton.textContent = "Failed";
           return;
@@ -376,7 +376,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
           isGovernanceAllowanceOk = allowanceGovernance.gte(neededGovernance);
         } catch (err) {
           console.error("Governance allowance check failed:", err);
-          renderErrorInModal(new Error("Failed to get balance, please try again later."));
+          renderErrorInModal(new Error("Failed to get allowance, please try again later."));
           mintButton.disabled = true;
           mintButton.textContent = "Failed";
           return;
@@ -427,7 +427,7 @@ async function linkMintButton(collateralOptions: CollateralOption[]) {
 
     if (!diamondContract || !governanceContract || !userSigner) {
       return;
-    };
+    }
 
     const selectedCollateralIndex = collateralSelect.value;
     const selectedCollateral = collateralOptions.find((option) => option.index.toString() === selectedCollateralIndex);
