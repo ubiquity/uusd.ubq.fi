@@ -33,7 +33,6 @@
     "open-source"
   ],
   "dependencies": {
-    "@coinbase/wallet-sdk": "^4.2.0",
     "@ethersproject/providers": "^5.7.2",
     "@reown/appkit": "^1.2.1",
     "@reown/appkit-adapter-ethers5": "^1.2.1",
