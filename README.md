@@ -4,12 +4,12 @@
 
 ```bash
 # terminal 1
-yarn test:anvil
+bun run test:anvil
 ```
 
 ```bash
 # terminal 2
-yarn test:fund
-yarn test:increase-uusd-thresholds
-yarn start
+bun run test:fund
+bun run test:increase-uusd-thresholds
+bun run start
 ```

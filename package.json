@@ -74,7 +74,7 @@
   },
   "lint-staged": {
     "*.ts": [
-      "yarn prettier --write",
+      "prettier --write",
       "eslint --fix"
     ],
     "src/**.{ts,json}": [
