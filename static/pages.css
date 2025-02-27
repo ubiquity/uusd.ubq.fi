@@ -71,6 +71,20 @@
   box-sizing: border-box;
 }
 
+.force-collateral-line {
+  display: flex;
+  width: 100%;
+  margin-bottom: 15px;
+}
+.force-collateral-line label {
+  flex: 1;
+}
+.force-collateral-line input {
+  width: unset;
+  margin-bottom: 0;
+  padding: 8px;
+}
+
 .hidden {
   display: none;
 }
