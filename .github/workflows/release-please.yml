@@ -18,9 +18,7 @@ jobs:
         with:
           release-type: node
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20.10.0"
-          registry-url: https://registry.npmjs.org/
+      - name: Set up bun
+        uses: oven-sh/setup-bun@v2
       - run: |
-          yarn install --immutable --immutable-cache --check-cache
+          bun install --immutable --immutable-cache --check-cache

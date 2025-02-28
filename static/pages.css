@@ -1,0 +1,167 @@
+/* Style for each page wrapper to take full space of content-area */
+.page-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* Home */
+#DollarPrice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(#00000080, #101010);
+  color: #fff;
+  text-align: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+#DollarPrice h2 {
+  margin: 0;
+  font-size: 1.5em;
+  font-weight: normal;
+}
+
+#DollarPrice p {
+  margin: 5px 0;
+  font-size: 1.2em;
+}
+
+/* Mint and redeem */
+#actionContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 40px;
+}
+
+#columnsWrapper {
+  display: flex;
+  flex: 1;
+  width: 100%;
+}
+
+.column {
+  flex: 1;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.actionInput label {
+  display: inline-block;
+  margin: 10px 0 5px;
+  text-align: left;
+  width: 100%;
+}
+
+.actionInput input,
+.actionInput select {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+}
+
+.force-collateral-line {
+  display: flex;
+  width: 100%;
+  margin-bottom: 15px;
+}
+.force-collateral-line label {
+  flex: 1;
+}
+.force-collateral-line input {
+  width: unset;
+  margin-bottom: 0;
+  padding: 8px;
+}
+
+.hidden {
+  display: none;
+}
+
+#balance {
+  margin: 0;
+  font-size: 12px;
+  color: #808080;
+}
+
+#slippageSettings {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #ccc;
+}
+
+#toggleSlippageSettings {
+  background-color: #f3f3f3;
+  border: none;
+  padding: 8px;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+#toggleSlippageSettings:hover {
+  background-color: #e0e0e0;
+}
+
+#bottomBar {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#bottomBar button {
+  width: 256px;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  background-color: #0066cc;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+}
+
+#bottomBar button:hover {
+  background-color: #004999;
+}
+
+#bottomBar button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  color: #666666;
+}
+
+#bottomBar button:disabled:hover {
+  background-color: #bbbbbb;
+  cursor: not-allowed;
+  color: #666666;
+}
+
+/* Remove arrows from number input */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  /* display: none; <- Crashes Chrome on hover */
+  -webkit-appearance: none;
+  margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+}
+
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
+}

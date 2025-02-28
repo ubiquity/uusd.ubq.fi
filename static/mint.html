@@ -1,0 +1,59 @@
+<div class="page-wrapper">
+  <div id="actionContainer">
+    <div id="columnsWrapper">
+      <!-- Mint Input Column -->
+      <div id="mintInput" class="column actionInput">
+        <h2>Mint Dollars</h2>
+
+        <label for="collateralSelect">Select Collateral</label>
+        <select id="collateralSelect">
+          <option value="">Select a collateral</option>
+        </select>
+
+        <p id="balance"></p>
+
+        <label for="dollarAmount">UUSD Amount</label>
+        <input type="number" id="dollarAmount" placeholder="Enter dollar amount" />
+
+        <div class="force-collateral-line">
+          <label for="forceCollateralOnly">Force Collateral Only</label>
+          <input type="checkbox" id="forceCollateralOnly" />  
+        </div>
+
+        <button id="toggleSlippageSettings" type="button">Show Slippage Settings</button>
+
+        <div id="slippageSettings" class="hidden">
+          <label for="dollarOutMin">Dollar Out Min</label>
+          <input type="number" id="dollarOutMin" placeholder="Minimum dollar output (slippage)" />
+
+          <label for="maxCollateralIn">Max Collateral In</label>
+          <input type="number" id="maxCollateralIn" placeholder="Max collateral input (slippage)" />
+
+          <label for="maxGovernanceIn">Max Governance In</label>
+          <input type="number" id="maxGovernanceIn" placeholder="Max governance input (slippage)" />
+        </div>
+      </div>
+
+      <!-- Fees Column -->
+      <div id="centerColumn" class="column">
+        <h2>Fees</h2>
+        <p>Minting Fee: <span id="mintingFee">-</span></p>
+      </div>
+
+      <!-- Results Column -->
+      <div id="rightColumn" class="column">
+        <div id="mintOutput">
+          <h3>Results</h3>
+          <p>Total Dollars Minted: <span id="totalDollarMinted">-</span></p>
+          <p>Collateral Needed: <span id="collateralNeeded">-</span></p>
+          <p>Governance Needed: <span id="governanceNeeded">-</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar with Mint Button -->
+    <div id="bottomBar">
+      <button id="mintButton" disabled>Mint</button>
+    </div>
+  </div>
+</div>
