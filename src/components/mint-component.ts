@@ -3,8 +3,7 @@ import type { WalletService } from '../services/wallet-service.ts';
 import type { ContractService } from '../services/contract-service.ts';
 import type { PriceService } from '../services/price-service.ts';
 import type { TransactionService, TransactionOperation } from '../services/transaction-service.ts';
-import type { CollateralOption } from '../services/contract-service.ts';
-import { isEmptyFormState } from '../utils/validation-utils.ts';
+import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import type { NotificationManager } from './notification-manager.ts';
 
 interface MintServices {
@@ -32,30 +31,10 @@ export class MintComponent {
      */
     private setupEventListeners(): void {
         const mintAmount = document.getElementById('mintAmount') as HTMLInputElement;
-        const collateralSelect = document.getElementById('collateralSelect') as HTMLSelectElement;
         const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
 
         mintAmount?.addEventListener('input', () => this.updateOutput());
-        collateralSelect?.addEventListener('change', () => this.updateOutput());
         forceCollateralOnly?.addEventListener('change', () => this.updateOutput());
-    }
-
-    /**
-     * Populate the collateral dropdown with available options
-     */
-    populateCollateralDropdown(): void {
-        const select = document.getElementById('collateralSelect') as HTMLSelectElement;
-        if (!select) return;
-
-        const collaterals = this.services.priceService.getCollateralOptions();
-        select.innerHTML = '<option value="">Select a collateral</option>';
-
-        collaterals.forEach(option => {
-            const opt = document.createElement('option');
-            opt.value = option.index.toString();
-            opt.textContent = option.name;
-            select.appendChild(opt);
-        });
     }
 
     /**
@@ -64,43 +43,57 @@ export class MintComponent {
     async updateOutput(): Promise<void> {
         try {
             const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
-            const collateralSelect = document.getElementById('collateralSelect') as HTMLSelectElement;
             const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
 
-            const amount = amountInput.value;
-            const collateralIndex = collateralSelect.value;
-
-            if (isEmptyFormState(amount, collateralIndex)) {
-                document.getElementById('mintOutput')!.style.display = 'none';
-                document.getElementById('mintButton')!.textContent = 'Enter amount to continue';
+            if (!amountInput || !forceCollateralOnly) {
                 return;
             }
 
-            document.getElementById('mintOutput')!.style.display = 'block';
+            const amount = amountInput.value;
+
+            if (!amount || amount === '0') {
+                const mintOutput = document.getElementById('mintOutput');
+                const mintButton = document.getElementById('mintButton');
+                if (mintOutput) mintOutput.style.display = 'none';
+                if (mintButton) mintButton.textContent = 'Enter amount to continue';
+                return;
+            }
+
+            const mintOutput = document.getElementById('mintOutput');
+            if (mintOutput) mintOutput.style.display = 'block';
 
             const dollarAmount = parseEther(amount);
             const isForceCollateralOnly = forceCollateralOnly.checked;
 
-            // Calculate mint output using price service
+            // Calculate mint output using price service with hardcoded LUSD
             const result = await this.services.priceService.calculateMintOutput({
                 dollarAmount,
-                collateralIndex: parseInt(collateralIndex),
+                collateralIndex: LUSD_COLLATERAL.index,
                 isForceCollateralOnly
             });
 
-            // Update UI
-            document.getElementById('collateralNeeded')!.textContent =
-                `${formatUnits(result.collateralNeeded, 18 - result.collateral.missingDecimals)} ${result.collateral.name}`;
-            document.getElementById('ubqNeeded')!.textContent =
-                `${formatEther(result.governanceNeeded)} UBQ`;
-            document.getElementById('mintingFee')!.textContent =
-                `${result.collateral.mintingFee}%`;
-            document.getElementById('totalMinted')!.textContent =
-                `${formatEther(result.totalDollarMint)} UUSD`;
+            // Update UI with LUSD hardcoded values
+            const collateralNeeded = document.getElementById('collateralNeeded');
+            const ubqNeeded = document.getElementById('ubqNeeded');
+            const mintingFee = document.getElementById('mintingFee');
+            const totalMinted = document.getElementById('totalMinted');
+
+            if (collateralNeeded) {
+                collateralNeeded.textContent = `${formatUnits(result.collateralNeeded, 18 - LUSD_COLLATERAL.missingDecimals)} ${LUSD_COLLATERAL.name}`;
+            }
+            if (ubqNeeded) {
+                ubqNeeded.textContent = `${formatEther(result.governanceNeeded)} UBQ`;
+            }
+            if (mintingFee) {
+                mintingFee.textContent = `${LUSD_COLLATERAL.mintingFee}%`;
+            }
+            if (totalMinted) {
+                totalMinted.textContent = `${formatEther(result.totalDollarMint)} UUSD`;
+            }
 
             // Update button text based on approval status
             if (this.services.walletService.isConnected()) {
-                await this.updateButton(result.collateral, result);
+                await this.updateButton(LUSD_COLLATERAL, result);
             }
         } catch (error) {
             console.error('Error updating mint output:', error);
@@ -110,7 +103,7 @@ export class MintComponent {
     /**
      * Update mint button text based on approval status
      */
-    private async updateButton(collateral: CollateralOption, result: any): Promise<void> {
+    private async updateButton(collateral: typeof LUSD_COLLATERAL, result: any): Promise<void> {
         const button = document.getElementById('mintButton') as HTMLButtonElement;
         const account = this.services.walletService.getAccount();
 
@@ -148,14 +141,12 @@ export class MintComponent {
 
         try {
             const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
-            const collateralSelect = document.getElementById('collateralSelect') as HTMLSelectElement;
             const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
 
             const amount = parseEther(amountInput.value);
-            const collateralIndex = parseInt(collateralSelect.value);
 
             await this.services.transactionService.executeMint({
-                collateralIndex,
+                collateralIndex: LUSD_COLLATERAL.index,
                 dollarAmount: amount,
                 isForceCollateralOnly: forceCollateralOnly.checked
             });
@@ -228,14 +219,14 @@ export class MintComponent {
      */
     resetForm(): void {
         const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
-        const collateralSelect = document.getElementById('collateralSelect') as HTMLSelectElement;
         const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
 
         if (amountInput) amountInput.value = '';
-        if (collateralSelect) collateralSelect.value = '';
         if (forceCollateralOnly) forceCollateralOnly.checked = false;
 
-        document.getElementById('mintOutput')!.style.display = 'none';
+        const mintOutput = document.getElementById('mintOutput');
+        if (mintOutput) mintOutput.style.display = 'none';
+
         this.services.notificationManager.clearNotifications('mint');
     }
 

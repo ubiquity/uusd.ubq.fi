@@ -4,10 +4,20 @@ import type { ContractAddresses } from '../types/contracts.ts';
 // Contract addresses
 export const ADDRESSES: ContractAddresses = {
     DIAMOND: '0xED3084c98148e2528DaDCB53C56352e549C488fA' as Address,
-    DOLLAR: '0xb6919ef2ee4afc163bc954c5678e2bb570c2d103' as Address,
+    DOLLAR: '0xb6919ef2ee4fc163bc954c5678e2bb570c2d103' as Address,
     GOVERNANCE: '0x4e38d89362f7e5db0096ce44ebd021c3962aa9a0' as Address,
     PERMIT2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address
 };
+
+// Hardcoded LUSD collateral configuration
+export const LUSD_COLLATERAL = {
+    index: 0,
+    name: "LUSD",
+    address: "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0" as Address,
+    mintingFee: 0,
+    redemptionFee: 0,
+    missingDecimals: 0
+} as const;
 
 // Minimal ABIs - only functions we need
 export const DIAMOND_ABI = [

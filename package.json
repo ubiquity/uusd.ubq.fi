@@ -3,10 +3,11 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun run build:watch & bun run serve",
-    "build": "bun run esbuild src/app.ts --bundle --outfile=app.js --minify --format=esm --platform=browser",
-    "build:watch": "bun run esbuild src/app.ts --bundle --outfile=app.js --format=esm --platform=browser --watch",
-    "serve": "bun run serve.js"
+    "dev": "bun run build:watch & bun run serve:dev",
+    "build": "bun run esbuild src/app.ts --bundle --outfile=app.js --minify --format=esm --platform=browser --sourcemap",
+    "build:watch": "bun run esbuild src/app.ts --bundle --outfile=app.js --format=esm --platform=browser --sourcemap=inline --watch=forever",
+    "serve": "bun run serve.js",
+    "serve:dev": "bun run serve-dev.js"
   },
   "devDependencies": {
     "@types/bun": "latest",

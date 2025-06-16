@@ -77,8 +77,6 @@ class UUSDApp {
 
         // Initialize components
         this.tabManager.initialize((tab) => this.handleTabChange(tab));
-        this.mintComponent.populateCollateralDropdown();
-        this.redeemComponent.populateCollateralDropdown();
     }
 
     private setupServiceEventHandlers() {

@@ -4,6 +4,7 @@ import type { ContractService } from '../services/contract-service.ts';
 import type { PriceService } from '../services/price-service.ts';
 import type { TransactionService } from '../services/transaction-service.ts';
 import { TransactionOperation } from '../services/transaction-service.ts';
+import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import type { NotificationManager } from './notification-manager.ts';
 
 interface RedeemServices {
@@ -31,29 +32,10 @@ export class RedeemComponent {
      */
     private setupEventListeners(): void {
         const redeemAmount = document.getElementById('redeemAmount') as HTMLInputElement;
-        const redeemCollateralSelect = document.getElementById('redeemCollateralSelect') as HTMLSelectElement;
 
         redeemAmount?.addEventListener('input', () => this.updateOutput());
-        redeemCollateralSelect?.addEventListener('change', () => this.updateOutput());
     }
 
-    /**
-     * Populate the collateral dropdown with available options
-     */
-    populateCollateralDropdown(): void {
-        const select = document.getElementById('redeemCollateralSelect') as HTMLSelectElement;
-        if (!select) return;
-
-        const collaterals = this.services.priceService.getCollateralOptions();
-        select.innerHTML = '<option value="">Select a collateral</option>';
-
-        collaterals.forEach(option => {
-            const opt = document.createElement('option');
-            opt.value = option.index.toString();
-            opt.textContent = option.name;
-            select.appendChild(opt);
-        });
-    }
 
     /**
      * Update redeem output based on current form values
@@ -61,38 +43,50 @@ export class RedeemComponent {
     async updateOutput(): Promise<void> {
         try {
             const amountInput = document.getElementById('redeemAmount') as HTMLInputElement;
-            const collateralSelect = document.getElementById('redeemCollateralSelect') as HTMLSelectElement;
 
-            const amount = amountInput.value;
-            const collateralIndex = collateralSelect.value;
-
-            if (!amount || !collateralIndex) {
-                document.getElementById('redeemOutput')!.style.display = 'none';
-                document.getElementById('redeemButton')!.textContent = 'Enter amount to continue';
+            if (!amountInput) {
                 return;
             }
 
-            document.getElementById('redeemOutput')!.style.display = 'block';
+            const amount = amountInput.value;
+
+            if (!amount || amount === '0') {
+                const redeemOutput = document.getElementById('redeemOutput');
+                const redeemButton = document.getElementById('redeemButton');
+                if (redeemOutput) redeemOutput.style.display = 'none';
+                if (redeemButton) redeemButton.textContent = 'Enter amount to continue';
+                return;
+            }
+
+            const redeemOutput = document.getElementById('redeemOutput');
+            if (redeemOutput) redeemOutput.style.display = 'block';
 
             const dollarAmount = parseEther(amount);
 
-            // Calculate redeem output using price service
+            // Calculate redeem output using price service with hardcoded LUSD
             const result = await this.services.priceService.calculateRedeemOutput({
                 dollarAmount,
-                collateralIndex: parseInt(collateralIndex)
+                collateralIndex: LUSD_COLLATERAL.index
             });
 
-            // Update UI
-            document.getElementById('collateralRedeemed')!.textContent =
-                `${formatUnits(result.collateralRedeemed, 18 - result.collateral.missingDecimals)} ${result.collateral.name}`;
-            document.getElementById('ubqRedeemed')!.textContent =
-                `${formatEther(result.governanceRedeemed)} UBQ`;
-            document.getElementById('redemptionFee')!.textContent =
-                `${result.collateral.redemptionFee * 100}%`;
+            // Update UI with LUSD hardcoded values
+            const collateralRedeemed = document.getElementById('collateralRedeemed');
+            const ubqRedeemed = document.getElementById('ubqRedeemed');
+            const redemptionFee = document.getElementById('redemptionFee');
+
+            if (collateralRedeemed) {
+                collateralRedeemed.textContent = `${formatUnits(result.collateralRedeemed, 18 - LUSD_COLLATERAL.missingDecimals)} ${LUSD_COLLATERAL.name}`;
+            }
+            if (ubqRedeemed) {
+                ubqRedeemed.textContent = `${formatEther(result.governanceRedeemed)} UBQ`;
+            }
+            if (redemptionFee) {
+                redemptionFee.textContent = `${LUSD_COLLATERAL.redemptionFee}%`;
+            }
 
             // Update button text
             if (this.services.walletService.isConnected()) {
-                await this.updateButton(parseInt(collateralIndex), dollarAmount);
+                await this.updateButton(LUSD_COLLATERAL.index, dollarAmount);
             }
         } catch (error) {
             console.error('Error updating redeem output:', error);
@@ -145,13 +139,11 @@ export class RedeemComponent {
 
         try {
             const amountInput = document.getElementById('redeemAmount') as HTMLInputElement;
-            const collateralSelect = document.getElementById('redeemCollateralSelect') as HTMLSelectElement;
 
             const amount = parseEther(amountInput.value);
-            const collateralIndex = parseInt(collateralSelect.value);
 
             await this.services.transactionService.executeRedeem({
-                collateralIndex,
+                collateralIndex: LUSD_COLLATERAL.index,
                 dollarAmount: amount
             });
 
@@ -237,12 +229,12 @@ export class RedeemComponent {
      */
     resetForm(): void {
         const amountInput = document.getElementById('redeemAmount') as HTMLInputElement;
-        const collateralSelect = document.getElementById('redeemCollateralSelect') as HTMLSelectElement;
 
         if (amountInput) amountInput.value = '';
-        if (collateralSelect) collateralSelect.value = '';
 
-        document.getElementById('redeemOutput')!.style.display = 'none';
+        const redeemOutput = document.getElementById('redeemOutput');
+        if (redeemOutput) redeemOutput.style.display = 'none';
+
         this.services.notificationManager.clearNotifications('redeem');
     }
 
