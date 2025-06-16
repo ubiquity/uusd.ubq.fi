@@ -1,33 +1,35 @@
-import { createServer } from 'node:http';
+import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const mimeTypes = {
+const mimeTypes: { [key: string]: string } = {
   '.html': 'text/html',
   '.js': 'text/javascript',
   '.css': 'text/css',
   '.json': 'application/json',
 };
 
-const server = createServer((req, res) => {
-  let filePath;
+const server = createServer((req: IncomingMessage, res: ServerResponse) => {
+  let filePath: string;
+
+  const url = req.url || '/';
 
   // Route handling for the refactored structure
-  if (req.url === '/') {
+  if (url === '/') {
     // Serve public/index.html for root requests
     filePath = join(__dirname, 'public', 'index.html');
-  } else if (req.url.startsWith('/src/')) {
+  } else if (url.startsWith('/src/')) {
     // Serve files from src/ directory
-    filePath = join(__dirname, req.url);
-  } else if (req.url.startsWith('/public/')) {
+    filePath = join(__dirname, url);
+  } else if (url.startsWith('/public/')) {
     // Serve files from public/ directory
-    filePath = join(__dirname, req.url);
+    filePath = join(__dirname, url);
   } else {
     // Serve files from root directory (like app.js)
-    filePath = join(__dirname, req.url);
+    filePath = join(__dirname, url);
   }
 
   try {

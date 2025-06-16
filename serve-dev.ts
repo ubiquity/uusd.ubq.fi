@@ -1,11 +1,12 @@
-import { createServer } from 'node:http';
-import { readFileSync, watchFile } from 'node:fs';
+import { createServer, IncomingMessage, ServerResponse } from 'node:http';
+import { readFileSync, watchFile, Stats } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Buffer } from 'node:buffer';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const mimeTypes = {
+const mimeTypes: { [key: string]: string } = {
   '.html': 'text/html',
   '.js': 'text/javascript',
   '.css': 'text/css',
@@ -14,7 +15,7 @@ const mimeTypes = {
 };
 
 // Store connected clients for hot reload
-const clients = new Set();
+const clients = new Set<ServerResponse>();
 
 // Hot reload script to inject into HTML
 const hotReloadScript = `
@@ -36,14 +37,16 @@ const hotReloadScript = `
 </script>
 `;
 
-const server = createServer((req, res) => {
+const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   // Add CORS headers for development
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  const url = req.url || '/';
+
   // Handle hot reload endpoint
-  if (req.url === '/hot-reload') {
+  if (url === '/hot-reload') {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -60,25 +63,25 @@ const server = createServer((req, res) => {
     return;
   }
 
-  let filePath;
+  let filePath: string;
 
   // Route handling for the refactored structure
-  if (req.url === '/') {
+  if (url === '/') {
     // Serve public/index.html for root requests
     filePath = join(__dirname, 'public', 'index.html');
-  } else if (req.url.startsWith('/src/')) {
+  } else if (url.startsWith('/src/')) {
     // Serve files from src/ directory
-    filePath = join(__dirname, req.url);
-  } else if (req.url.startsWith('/public/')) {
+    filePath = join(__dirname, url);
+  } else if (url.startsWith('/public/')) {
     // Serve files from public/ directory
-    filePath = join(__dirname, req.url);
+    filePath = join(__dirname, url);
   } else {
     // Serve files from root directory (like app.js)
-    filePath = join(__dirname, req.url);
+    filePath = join(__dirname, url);
   }
 
   try {
-    let content = readFileSync(filePath);
+    let content: string | Buffer = readFileSync(filePath);
     const ext = filePath.substring(filePath.lastIndexOf('.'));
 
     // Inject hot reload script into HTML files
