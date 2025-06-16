@@ -1,14 +1,13 @@
-import "./router";
+import "./router.ts";
 import { createAppKit } from "@reown/appkit";
 import { Ethers5Adapter } from "@reown/appkit-adapter-ethers5";
-import { anvil, AppKitNetwork, mainnet } from "@reown/appkit/networks";
+import { AppKitNetwork, mainnet } from "@reown/appkit/networks";
 import { ethers } from "ethers";
-import { setupContracts } from "./contracts";
-import { handleRouting } from "./router";
-import { renderErrorInModal } from "./common/display-popup-modal";
-import { CollateralOption, fetchCollateralOptions } from "./common/collateral";
-import { providersUrl } from "./constants";
-import { useRpcHandler } from "./common/use-rpc-handler";
+import { setupContracts } from "./contracts.ts";
+import { handleRouting } from "./router.ts";
+import { renderErrorInModal } from "./common/display-popup-modal.ts";
+import { CollateralOption, fetchCollateralOptions } from "./common/collateral.ts";
+import { useRpcHandler } from "./common/use-rpc-handler.ts";
 
 // All unhandled errors are caught and displayed in a modal
 window.addEventListener("error", (event: ErrorEvent) => renderErrorInModal(event.error));
@@ -28,14 +27,8 @@ const metadata = {
   icons: ["https://avatars.githubusercontent.com/u/76412717"],
 };
 
-let networks: [AppKitNetwork, ...AppKitNetwork[]];
-
-if (window.location.hostname === "localhost" || window.location.hostname === "0.0.0.0") {
-  console.log("enabling anvil");
-  networks = [anvil, mainnet];
-} else {
-  networks = [mainnet];
-}
+// Initialize with mainnet only - production-ready default
+const networks: [AppKitNetwork, ...AppKitNetwork[]] = [mainnet];
 
 export const appState = createAppKit({
   adapters: [new Ethers5Adapter()],
@@ -63,14 +56,14 @@ export let twapOracleContract: ethers.Contract | undefined;
 export let lusdFeedContract: ethers.Contract | undefined;
 
 async function initializeProviderAndSigner() {
-  const networkId = Number(appState.getChainId());
-  if (networkId && providersUrl[networkId]) {
-    // read-only provider for fetching
-    provider = await useRpcHandler(networkId);
-  } else {
-    console.error("No provider URL found for the current network ID");
-    provider = undefined;
-  }
+  const detectedNetworkId = Number(appState.getChainId());
+  console.log("Detected network ID:", detectedNetworkId);
+
+  // Production-ready: Always use mainnet (1) for provider and contracts
+  // This DApp is configured for mainnet-only operation
+  const mainnetId = 1;
+  console.log("Using mainnet provider for contracts and data fetching");
+  provider = await useRpcHandler(mainnetId);
 
   // if user is connected, set up the signer using the injected provider (window.ethereum)
   if (appState.getIsConnectedState() && window.ethereum) {
