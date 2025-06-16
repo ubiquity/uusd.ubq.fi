@@ -110,16 +110,80 @@ export let lusdPrice: string | null = null;
 
 async function updatePrices() {
   try {
-    const dollarSpotPriceRaw = await diamondContract?.getDollarPriceUsd();
-    const governanceSpotPriceRaw = await diamondContract?.getGovernancePriceUsd();
-    const lusdPriceRaw = await lusdFeedContract?.latestAnswer();
+    // Try to get dollar price with fallback options
+    dollarSpotPrice = await fetchDollarPrice();
 
-    dollarSpotPrice = ethers.utils.formatUnits(dollarSpotPriceRaw, 6);
-    governanceSpotPrice = ethers.utils.formatUnits(governanceSpotPriceRaw, 6);
-    lusdPrice = ethers.utils.formatUnits(lusdPriceRaw, 8);
+    // Try to get governance price with fallback options
+    governanceSpotPrice = await fetchGovernancePrice();
+
+    // Try to get LUSD price with fallback options
+    lusdPrice = await fetchLusdPrice();
+
+    console.log("Successfully fetched prices:", { dollarSpotPrice, governanceSpotPrice, lusdPrice });
   } catch (error) {
     console.error("Error getting prices:", error);
-    renderErrorInModal(new Error("Our RPC is very busy, please try again later."));
+    renderErrorInModal(new Error("Price data temporarily unavailable. The oracle may need updating."));
+  }
+}
+
+async function fetchDollarPrice(): Promise<string> {
+  try {
+    // Primary: Try the main contract method
+    const dollarSpotPriceRaw = await diamondContract?.getDollarPriceUsd();
+    return ethers.utils.formatUnits(dollarSpotPriceRaw, 6);
+  } catch (error) {
+    console.warn("Primary dollar price fetch failed, trying TWAP oracle:", error);
+
+    try {
+      // Fallback: Try TWAP oracle
+      const twapPrice = await twapOracleContract?.price0Average();
+      if (twapPrice && !twapPrice.isZero()) {
+        console.log("Using TWAP oracle for dollar price");
+        return ethers.utils.formatUnits(twapPrice, 18); // TWAP typically uses 18 decimals
+      }
+    } catch (twapError) {
+      console.warn("TWAP oracle also failed:", twapError);
+    }
+
+    // No fake data - throw error when all legitimate sources fail
+    throw new Error("All dollar price sources failed - price data unavailable");
+  }
+}
+
+async function fetchGovernancePrice(): Promise<string> {
+  try {
+    // Primary: Try the main contract method
+    const governanceSpotPriceRaw = await diamondContract?.getGovernancePriceUsd();
+    return ethers.utils.formatUnits(governanceSpotPriceRaw, 6);
+  } catch (error) {
+    console.warn("Primary governance price fetch failed, trying TWAP oracle:", error);
+
+    try {
+      // Fallback: Try TWAP oracle for governance token
+      const twapPrice = await twapOracleContract?.price1Average();
+      if (twapPrice && !twapPrice.isZero()) {
+        console.log("Using TWAP oracle for governance price");
+        return ethers.utils.formatUnits(twapPrice, 18);
+      }
+    } catch (twapError) {
+      console.warn("TWAP oracle also failed:", twapError);
+    }
+
+    // No fake data - throw error when all legitimate sources fail
+    throw new Error("All governance price sources failed - price data unavailable");
+  }
+}
+
+async function fetchLusdPrice(): Promise<string> {
+  try {
+    // Primary: Try direct Chainlink feed
+    const lusdPriceRaw = await lusdFeedContract?.latestAnswer();
+    return ethers.utils.formatUnits(lusdPriceRaw, 8);
+  } catch (error) {
+    console.warn("LUSD price fetch failed:", error);
+
+    // No fake data - throw error when legitimate source fails
+    throw new Error("LUSD price source failed - price data unavailable");
   }
 }
 
