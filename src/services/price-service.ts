@@ -10,6 +10,7 @@ import {
     type RedeemCalculationOutput
 } from '../utils/calculation-utils.ts';
 import type { ContractService, CollateralOption } from './contract-service.ts';
+import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 
 /**
  * Interface for price calculation parameters
@@ -76,9 +77,16 @@ export class PriceService {
     async calculateMintOutput(params: PriceCalculationParams): Promise<MintPriceResult> {
         const { dollarAmount, collateralIndex, isForceCollateralOnly = false } = params;
 
-        const collateral = this.getCollateralByIndex(collateralIndex);
-        if (!collateral) {
-            throw new Error(`Collateral with index ${collateralIndex} not found`);
+        // Use hardcoded LUSD for index 0 to avoid race condition
+        let collateral: CollateralOption;
+        if (collateralIndex === 0) {
+            collateral = LUSD_COLLATERAL;
+        } else {
+            const dynamicCollateral = this.getCollateralByIndex(collateralIndex);
+            if (!dynamicCollateral) {
+                throw new Error(`Collateral with index ${collateralIndex} not found`);
+            }
+            collateral = dynamicCollateral;
         }
 
         // Get current blockchain prices
@@ -121,9 +129,16 @@ export class PriceService {
     async calculateRedeemOutput(params: PriceCalculationParams): Promise<RedeemPriceResult> {
         const { dollarAmount, collateralIndex } = params;
 
-        const collateral = this.getCollateralByIndex(collateralIndex);
-        if (!collateral) {
-            throw new Error(`Collateral with index ${collateralIndex} not found`);
+        // Use hardcoded LUSD for index 0 to avoid race condition
+        let collateral: CollateralOption;
+        if (collateralIndex === 0) {
+            collateral = LUSD_COLLATERAL;
+        } else {
+            const dynamicCollateral = this.getCollateralByIndex(collateralIndex);
+            if (!dynamicCollateral) {
+                throw new Error(`Collateral with index ${collateralIndex} not found`);
+            }
+            collateral = dynamicCollateral;
         }
 
         // Get current blockchain prices

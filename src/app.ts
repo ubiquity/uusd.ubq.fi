@@ -73,10 +73,13 @@ class UUSDApp {
     }
 
     private async init() {
-        await this.priceService.initialize();
-
-        // Initialize components
+        // Initialize components immediately for fast UX
         this.tabManager.initialize((tab) => this.handleTabChange(tab));
+
+        // Load collateral options in background (not blocking UI)
+        this.priceService.initialize().catch(error => {
+            console.warn('Failed to load dynamic collateral options:', error);
+        });
     }
 
     private setupServiceEventHandlers() {
