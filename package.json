@@ -7,7 +7,8 @@
     "build": "bun run esbuild src/app.ts --bundle --outfile=app.js --minify --format=esm --platform=browser --sourcemap",
     "build:watch": "bun run esbuild src/app.ts --bundle --outfile=app.js --format=esm --platform=browser --sourcemap=inline --watch=forever",
     "serve": "bun run serve.ts",
-    "serve:dev": "bun run serve-dev.ts"
+    "serve:dev": "bun run serve-dev.ts",
+    "browser:open": "/Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser --remote-debugging-port=9222"
   },
   "devDependencies": {
     "@types/bun": "latest",
