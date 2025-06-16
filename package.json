@@ -1,0 +1,22 @@
+{
+  "name": "minimal-uusd-app",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run build:watch & bun run serve",
+    "build": "bun run esbuild app.ts --bundle --outfile=app.js --minify --format=esm --platform=browser",
+    "build:watch": "bun run esbuild app.ts --bundle --outfile=app.js --format=esm --platform=browser --watch",
+    "serve": "bun run serve.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "esbuild": "^0.19.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@ubiquity-dao/permit2-rpc-client": "^0.1.2",
+    "viem": "^2.31.2"
+  }
+}
