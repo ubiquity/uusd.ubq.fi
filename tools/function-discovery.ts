@@ -91,51 +91,55 @@ export async function discoverFacets(client: PublicClient, diamondAddress: Addre
  */
 export function parseSolidityFunctions(facetSourcesPath: string): Map<string, DiscoveredFunction> {
     const functionMap = new Map<string, DiscoveredFunction>();
+    const abiPath = join(process.cwd(), 'contracts/packages/contracts/out');
 
     try {
-        const facetFiles = readdirSync(facetSourcesPath).filter(file => file.endsWith('.sol'));
+        const contractFiles = readdirSync(abiPath);
 
-        for (const file of facetFiles) {
-            const filePath = join(facetSourcesPath, file);
-            const content = readFileSync(filePath, 'utf-8');
-            const facetName = file.replace('.sol', '');
+        for (const contractFile of contractFiles) {
+            const contractPath = join(abiPath, contractFile);
+            const files = readdirSync(contractPath);
 
-            // Extract function signatures using regex
-            const functionRegex = /function\s+(\w+)\s*\((.*?)\)\s*(external|public|internal|private)?\s*(view|pure|nonpayable|payable)?\s*(returns\s*\((.*?)\))?\s*[{;]/g;
+            for (const file of files) {
+                if (!file.endsWith('.json')) continue;
 
-            let match;
-            while ((match = functionRegex.exec(content)) !== null) {
-                const [, functionName, inputsStr, visibility, stateMutability, , outputsStr] = match;
+                const filePath = join(contractPath, file);
+                const content = readFileSync(filePath, 'utf-8');
+                const json = JSON.parse(content);
+                const abi = json.abi;
+                const facetName = file.replace('.json', '');
 
-                // Skip internal/private functions
-                if (visibility === 'internal' || visibility === 'private') continue;
+                if (!abi || !Array.isArray(abi)) continue;
 
-                // Parse inputs
-                const inputs = parseParameters(inputsStr || '');
+                for (const item of abi) {
+                    if (item.type !== 'function') continue;
 
-                // Parse outputs
-                const outputs = parseParameters(outputsStr || '');
+                    const functionName = item.name;
+                    const inputs = item.inputs || [];
+                    const outputs = item.outputs || [];
+                    const stateMutability = item.stateMutability || 'nonpayable';
 
-                // Generate function signature for selector calculation
-                const signature = `${functionName}(${inputs.map(i => i.type).join(',')})`;
+                    // Generate function signature for selector calculation
+                    const signature = `${functionName}(${inputs.map((i: any) => i.type).join(',')})`;
 
-                // Generate selector (first 4 bytes of keccak256 hash)
-                const selector = generateSelector(signature);
+                    // Generate selector (first 4 bytes of keccak256 hash)
+                    const selector = generateSelector(signature);
 
-                const discoveredFunction: DiscoveredFunction = {
-                    selector,
-                    signature,
-                    name: functionName,
-                    inputs,
-                    outputs,
-                    stateMutability: (stateMutability as any) || 'nonpayable',
-                    facetAddress: '0x0000000000000000000000000000000000000000' as Address, // Will be set later
-                    facetName,
-                    isCallable: stateMutability === 'view' || stateMutability === 'pure',
-                    hasParameters: inputs.length > 0
-                };
+                    const discoveredFunction: DiscoveredFunction = {
+                        selector,
+                        signature,
+                        name: functionName,
+                        inputs,
+                        outputs,
+                        stateMutability,
+                        facetAddress: '0x0000000000000000000000000000000000000000' as Address, // Will be set later
+                        facetName,
+                        isCallable: stateMutability === 'view' || stateMutability === 'pure',
+                        hasParameters: inputs.length > 0
+                    };
 
-                functionMap.set(selector, discoveredFunction);
+                    functionMap.set(selector, discoveredFunction);
+                }
             }
         }
     } catch (error) {

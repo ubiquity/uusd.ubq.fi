@@ -1,173 +1,53 @@
-/**
- * Configuration for Diamond Reader CLI
- */
-
-import type { Address } from 'viem';
+import { createPublicClient, http, type Address } from 'viem';
 import { mainnet } from 'viem/chains';
 
-/**
- * Network and RPC configuration
- */
-export const RPC_CONFIG = {
-    endpoint: 'https://rpc.ubq.fi/1',
-    chain: mainnet
-} as const;
-
-/**
- * Contract addresses
- */
+// Network and contract configuration
+export const RPC_URL = 'https://rpc.ubq.fi/1';
 export const CONTRACT_ADDRESSES = {
     DIAMOND: '0xED3084c98148e2528DaDCB53C56352e549C488fA' as Address,
-    DOLLAR: '0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103' as Address,
-    GOVERNANCE: '0x4e38d89362f7e5db0096ce44ebd021c3962aa9a0' as Address
-} as const;
+};
 
-/**
- * Comprehensive Diamond ABI for reading all contract settings
- * Includes all functions needed for complete contract analysis
- */
-export const DIAMOND_READ_ABI = [
-    // Collateral information
-    {
-        name: 'allCollaterals',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'address[]' }]
-    },
-    {
-        name: 'collateralInformation',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'collateralAddress', type: 'address' }],
-        outputs: [{
-            type: 'tuple',
-            components: [
-                { name: 'index', type: 'uint256' },
-                { name: 'symbol', type: 'string' },
-                { name: 'collateralAddress', type: 'address' },
-                { name: 'collateralPriceFeedAddress', type: 'address' },
-                { name: 'collateralPriceFeedStalenessThreshold', type: 'uint256' },
-                { name: 'isEnabled', type: 'bool' },
-                { name: 'missingDecimals', type: 'uint256' },
-                { name: 'price', type: 'uint256' },
-                { name: 'poolCeiling', type: 'uint256' },
-                { name: 'isMintPaused', type: 'bool' },
-                { name: 'isRedeemPaused', type: 'bool' },
-                { name: 'isBorrowPaused', type: 'bool' },
-                { name: 'mintingFee', type: 'uint256' },
-                { name: 'redemptionFee', type: 'uint256' }
-            ]
-        }]
-    },
-    // System ratios and prices
-    {
-        name: 'collateralRatio',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'uint256' }]
-    },
-    {
-        name: 'getGovernancePriceUsd',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'uint256' }]
-    },
-    // Helper functions for calculations
-    {
-        name: 'getDollarInCollateral',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [
-            { name: 'collateralIndex', type: 'uint256' },
-            { name: 'dollarAmount', type: 'uint256' }
-        ],
-        outputs: [{ type: 'uint256' }]
-    },
-    {
-        name: 'getRedeemCollateralBalance',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [
-            { name: 'userAddress', type: 'address' },
-            { name: 'collateralIndex', type: 'uint256' }
-        ],
-        outputs: [{ type: 'uint256' }]
-    },
-    // Additional system information functions
-    {
-        name: 'mintingCalculatorAddress',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'address' }]
-    },
-    {
-        name: 'redemptionCalculatorAddress',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'address' }]
-    },
-    {
-        name: 'targetPrice',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'uint256' }]
-    },
-    {
-        name: 'totalDollarSupply',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'uint256' }]
-    },
-    {
-        name: 'dollarToken',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'address' }]
-    },
-    {
-        name: 'governanceToken',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'address' }]
-    }
-] as const;
+// Viem client for interacting with the Ethereum mainnet
+export const viemClient = createPublicClient({
+    chain: mainnet,
+    transport: http(RPC_URL),
+});
 
-/**
- * CLI command configuration
- */
+// CLI commands enum
 export const CLI_COMMANDS = {
+    DEFAULT: 'default',
+    DISCOVER_ONLY: 'discover-only',
+    CLEAR_CACHE: 'clear-cache',
+    CACHE_INFO: 'cache-info',
     HELP: 'help',
-    DEFAULT: 'default',        // Auto-discover and call functions (new default)
-    DISCOVER_ONLY: '--discover-only',  // Just discover, don't call
-    CLEAR_CACHE: '--clear-cache',      // Clear cache and exit
-    CACHE_INFO: '--cache-info'         // Show cache status
 } as const;
 
-/**
- * Display formatting constants
- */
+export type Command = typeof CLI_COMMANDS[keyof typeof CLI_COMMANDS];
+
+export const DIAMOND_READ_ABI = [] as const;
+
+export const RPC_CONFIG = {
+    url: RPC_URL,
+    endpoint: RPC_URL,
+    chain: mainnet,
+};
+
 export const DISPLAY_CONFIG = {
-    DECIMALS: {
-        PRICE: 6,
-        RATIO: 6,
-        PERCENTAGE: 2
-    },
+    showVerbose: false,
+    showParameters: true,
+    showResults: true,
     SYMBOLS: {
+        ERROR: '❌',
+        SUCCESS: '✅',
         USD: '$',
         PERCENTAGE: '%',
-        SUCCESS: '✅',
-        ERROR: '❌',
-        INFO: '📍',
         LOADING: '🔄',
-        DATA: '📊'
+        INFO: 'ℹ️',
+        WARNING: '⚠️'
+    },
+    DECIMALS: {
+        PRICE: 18,
+        RATIO: 18,
+        PERCENTAGE: 2
     }
-} as const;
+};

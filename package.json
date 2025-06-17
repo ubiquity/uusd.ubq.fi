@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "@ubiquity-dao/permit2-rpc-client": "^0.1.2",
+    "commander": "^14.0.0",
+    "dotenv": "^16.5.0",
     "viem": "^2.31.2"
   }
 }

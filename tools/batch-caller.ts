@@ -7,7 +7,6 @@ import type { Address } from 'viem';
 import { encodeFunctionData, decodeFunctionResult } from 'viem';
 import type { DiscoveredFunction } from './function-discovery.ts';
 import type { FunctionCallResult } from './function-caller.ts';
-import { generateParameters } from './function-caller.ts';
 import { RPC_CONFIG } from './config.ts';
 
 /**
@@ -90,14 +89,11 @@ async function executeSingleBatch(
         const batchRequests: JsonRpcRequest[] = [];
         const functionDetails: Array<{
             func: DiscoveredFunction;
-            parameters: any[];
             abi: any;
         }> = [];
 
         for (const [index, func] of functions.entries()) {
             try {
-                const parameters = func.hasParameters ? generateParameters(func) : [];
-
                 // Create minimal ABI for this function
                 const functionAbi = {
                     name: func.name,
@@ -113,11 +109,14 @@ async function executeSingleBatch(
                     }))
                 };
 
+                // Use args from the function if they exist (for parameterized calls)
+                const args = (func as any).args || [];
+
                 // Encode function call data
                 const callData = encodeFunctionData({
                     abi: [functionAbi],
                     functionName: func.name,
-                    args: parameters
+                    args
                 });
 
                 // Add to batch request
@@ -136,21 +135,19 @@ async function executeSingleBatch(
 
                 functionDetails.push({
                     func,
-                    parameters,
                     abi: functionAbi
                 });
             } catch (error) {
                 // If we can't prepare the call, add a failed result
                 functionDetails.push({
                     func,
-                    parameters: [],
                     abi: null
                 });
             }
         }
 
         // Execute batch request
-        const response = await fetch(RPC_CONFIG.endpoint, {
+        const response = await fetch(RPC_CONFIG.url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -179,17 +176,17 @@ async function executeSingleBatch(
         const results: FunctionCallResult[] = [];
 
         for (const [index, detail] of functionDetails.entries()) {
-            const { func, parameters, abi } = detail;
+            const { func, abi } = detail;
             const rpcResponse = batchResponses.find(r => r.id === index);
+            const args = (func as any).args || [];
 
             if (!abi) {
                 // Function preparation failed
                 results.push({
                     functionName: func.name,
-                    signature: func.signature,
                     success: false,
                     error: 'Failed to prepare function call',
-                    parameters: parameters.length > 0 ? parameters : undefined
+                    parameters: args.length > 0 ? args : undefined
                 });
                 continue;
             }
@@ -198,10 +195,9 @@ async function executeSingleBatch(
                 // No response for this request
                 results.push({
                     functionName: func.name,
-                    signature: func.signature,
                     success: false,
                     error: 'No response received',
-                    parameters: parameters.length > 0 ? parameters : undefined
+                    parameters: args.length > 0 ? args : undefined
                 });
                 continue;
             }
@@ -210,10 +206,9 @@ async function executeSingleBatch(
                 // RPC error
                 results.push({
                     functionName: func.name,
-                    signature: func.signature,
                     success: false,
                     error: rpcResponse.error.message,
-                    parameters: parameters.length > 0 ? parameters : undefined
+                    parameters: args.length > 0 ? args : undefined
                 });
                 continue;
             }
@@ -222,10 +217,9 @@ async function executeSingleBatch(
                 // No result data
                 results.push({
                     functionName: func.name,
-                    signature: func.signature,
                     success: false,
                     error: 'Empty result',
-                    parameters: parameters.length > 0 ? parameters : undefined
+                    parameters: args.length > 0 ? args : undefined
                 });
                 continue;
             }
@@ -240,19 +234,17 @@ async function executeSingleBatch(
 
                 results.push({
                     functionName: func.name,
-                    signature: func.signature,
                     success: true,
                     result: decodedResult,
-                    parameters: parameters.length > 0 ? parameters : undefined
+                    parameters: args.length > 0 ? args : undefined
                 });
             } catch (decodeError) {
                 // Decoding failed
                 results.push({
                     functionName: func.name,
-                    signature: func.signature,
                     success: false,
                     error: `Decode error: ${decodeError instanceof Error ? decodeError.message : String(decodeError)}`,
-                    parameters: parameters.length > 0 ? parameters : undefined
+                    parameters: args.length > 0 ? args : undefined
                 });
             }
         }
@@ -260,13 +252,15 @@ async function executeSingleBatch(
         return results;
     } catch (error) {
         // Batch execution failed completely
-        return functions.map(func => ({
-            functionName: func.name,
-            signature: func.signature,
-            success: false,
-            error: `Batch execution failed: ${error instanceof Error ? error.message : String(error)}`,
-            parameters: func.hasParameters ? generateParameters(func) : undefined
-        }));
+        return functions.map(func => {
+            const args = (func as any).args || [];
+            return {
+                functionName: func.name,
+                success: false,
+                error: `Batch execution failed: ${error instanceof Error ? error.message : String(error)}`,
+                parameters: args.length > 0 ? args : undefined
+            };
+        });
     }
 }
 

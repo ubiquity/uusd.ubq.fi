@@ -32,9 +32,17 @@ import {
 } from './function-discovery.ts';
 import {
     filterCallableFunctions,
+    filterEnhancedCallableFunctions,
+    callParameterizedFunctionsBatch,
     formatResultsByFacet,
     type FunctionCallResult
 } from './function-caller.ts';
+import {
+    buildParameterContext,
+    displayParameterSpecsSummary,
+    getParameterizedFunctions,
+    hasParameterSpec
+} from './parameter-provider.ts';
 import {
     executeFunctionsBatch,
     testBatchExecution,
@@ -113,7 +121,7 @@ async function main(): Promise<void> {
 
         // Test connection and get proper network info
         const connectionInfo = await testConnection(client);
-        showConnectionInfo(connectionInfo.blockNumber, connectionInfo.chainId);
+        showConnectionInfo(Number(connectionInfo.blockNumber), connectionInfo.chainId);
 
         await executeCommand(args.command, client, args.verbose);
     } catch (err) {
@@ -152,12 +160,29 @@ async function executeDefaultBehavior(client: any, verbose: boolean): Promise<vo
             showSuccess(`Loaded ${functions.length} functions from cache`);
         }
 
-        // Filter to safe callable functions
-        const callableFunctions = filterCallableFunctions(functions);
+        // Enhanced filtering to categorize functions by parameter handling
+        const { zeroParamFunctions, smartParamFunctions, basicParamFunctions } =
+            filterEnhancedCallableFunctions(functions);
 
-        if (callableFunctions.length === 0) {
+        // Debug: Check which functions have parameter specs
+        if (verbose) {
+            console.log('\n🔍 Debug: Parameter matching results:');
+            for (const func of functions.filter(f => f.name.startsWith('unknown_0x'))) {
+                const hasSpec = hasParameterSpec(func);
+                console.log(`   ${func.name} (${func.selector}) - Has spec: ${hasSpec}, Has params: ${func.hasParameters}, Is callable: ${func.isCallable}, State: ${func.stateMutability}`);
+            }
+        }
+
+        const totalCallableFunctions = zeroParamFunctions.length + smartParamFunctions.length + basicParamFunctions.length;
+
+        if (totalCallableFunctions === 0) {
             showError('No safe functions found to call automatically');
             return;
+        }
+
+        // Show parameter specs summary if there are smart parameter functions and verbose mode
+        if (smartParamFunctions.length > 0 && verbose) {
+            displayParameterSpecsSummary();
         }
 
         // Try to load cached results
@@ -165,23 +190,66 @@ async function executeDefaultBehavior(client: any, verbose: boolean): Promise<vo
         let resultsFromCache = true;
 
         if (!results || !fromCache) {
-            showLoading(`Calling ${callableFunctions.length} safe view/pure functions using batch RPC...`);
+            console.log(`\n🎯 Function Execution Plan:`);
+            console.log(`   📋 Zero-parameter functions: ${zeroParamFunctions.length}`);
+            console.log(`   🧠 Smart-parameter functions: ${smartParamFunctions.length}`);
+            console.log(`   ⚙️  Basic-parameter functions: ${basicParamFunctions.length}`);
+            console.log(`   📊 Total executable functions: ${totalCallableFunctions}`);
 
-            // Execute batch calls efficiently
+            // Start with zero-parameter functions using batch RPC
+            showLoading(`Executing ${zeroParamFunctions.length} zero-parameter functions...`);
+
             const batchResult = await executeFunctionsBatch(
                 CONTRACT_ADDRESSES.DIAMOND,
-                callableFunctions,
+                zeroParamFunctions,
                 50 // Optimal batch size for efficiency
             );
 
-            results = batchResult.results;
+            results = [...batchResult.results];
+
+            // Build parameter context for smart parameter functions
+            if (smartParamFunctions.length > 0) {
+                showLoading('Building parameter context...');
+                const parameterContext = await buildParameterContext(
+                    client,
+                    CONTRACT_ADDRESSES.DIAMOND,
+                    functions
+                );
+
+                showLoading(`Executing ${smartParamFunctions.length} smart-parameter functions...`);
+                const smartResults = await callParameterizedFunctionsBatch(
+                    client,
+                    CONTRACT_ADDRESSES.DIAMOND,
+                    smartParamFunctions,
+                    parameterContext,
+                    5 // Smaller batch size for parameterized functions
+                );
+
+                results.push(...smartResults);
+            }
+
+            // Handle basic parameter functions if any
+            if (basicParamFunctions.length > 0) {
+                showLoading(`Executing ${basicParamFunctions.length} basic-parameter functions...`);
+                const basicResult = await executeFunctionsBatch(
+                    CONTRACT_ADDRESSES.DIAMOND,
+                    basicParamFunctions,
+                    20 // Medium batch size for basic parameter functions
+                );
+
+                results.push(...basicResult.results);
+            }
+
             resultsFromCache = false;
 
             // Cache the results
             saveResultsCache(results);
 
-            showSuccess(`Completed ${results.length} function calls in ${batchResult.executionTimeMs}ms`);
-            console.log(`📊 Success rate: ${batchResult.successfulRequests}/${batchResult.totalRequests} (${((batchResult.successfulRequests / batchResult.totalRequests) * 100).toFixed(1)}%)`);
+            const totalExecutionTime = batchResult.executionTimeMs; // Could aggregate if we track all times
+            showSuccess(`Completed ${results.length} function calls in ${totalExecutionTime}ms`);
+
+            const successfulCalls = results.filter(r => r.success).length;
+            console.log(`📊 Success rate: ${successfulCalls}/${results.length} (${((successfulCalls / results.length) * 100).toFixed(1)}%)`);
         } else {
             showSuccess(`Loaded ${results.length} function call results from cache`);
         }

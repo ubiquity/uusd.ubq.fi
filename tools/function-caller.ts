@@ -1,323 +1,207 @@
-/**
- * Dynamic function caller for Diamond contracts
- * Executes discovered view/pure functions and handles parameter patterns
- */
-
 import type { PublicClient, Address } from 'viem';
+import { formatEther, isAddress } from 'viem';
 import type { DiscoveredFunction } from './function-discovery.ts';
+import { getParameterSpec, generateParameters, type ParameterContext } from './parameter-provider.ts';
+import { executeFunctionsBatch } from './batch-caller.ts';
+import { formatParameterForDisplay } from './cli-utils.ts';
 
 /**
- * Result of a function call
+ * Result of a single function call
  */
 export interface FunctionCallResult {
     functionName: string;
-    signature: string;
     success: boolean;
     result?: any;
     error?: string;
-    gasUsed?: bigint;
     parameters?: any[];
 }
 
 /**
- * Common parameter patterns for functions that require parameters
- */
-export const PARAMETER_PATTERNS = {
-    address: '0x0000000000000000000000000000000000000000' as Address,
-    uint256: 0n,
-    uint32: 0,
-    uint8: 0,
-    bool: false,
-    bytes: '0x',
-    bytes4: '0x00000000',
-    bytes32: '0x0000000000000000000000000000000000000000000000000000000000000000',
-    string: '',
-    // Array types
-    'address[]': [],
-    'uint256[]': [],
-    'bytes[]': [],
-    'string[]': []
-} as const;
-
-/**
- * Generate parameters for a function based on its input types
- */
-export function generateParameters(func: DiscoveredFunction): any[] {
-    return func.inputs.map(input => {
-        const baseType = input.type.replace(/\[\d*\]$/, ''); // Remove array notation
-        const isArray = input.type.includes('[]');
-
-        if (isArray) {
-            return PARAMETER_PATTERNS[`${baseType}[]` as keyof typeof PARAMETER_PATTERNS] || [];
-        }
-
-        return PARAMETER_PATTERNS[baseType as keyof typeof PARAMETER_PATTERNS] || null;
-    });
-}
-
-/**
- * Check if a function can be called with default parameters
- */
-export function canCallWithDefaults(func: DiscoveredFunction): boolean {
-    if (!func.hasParameters) return true;
-
-    // Check if all parameter types have default patterns
-    return func.inputs.every(input => {
-        const baseType = input.type.replace(/\[\d*\]$/, '');
-        const isArray = input.type.includes('[]');
-
-        if (isArray) {
-            return Object.hasOwnProperty.call(PARAMETER_PATTERNS, `${baseType}[]`);
-        }
-
-        return Object.hasOwnProperty.call(PARAMETER_PATTERNS, baseType);
-    });
-}
-
-/**
- * Execute a single function call
- */
-export async function callFunction(
-    client: PublicClient,
-    diamondAddress: Address,
-    func: DiscoveredFunction,
-    customParameters?: any[]
-): Promise<FunctionCallResult> {
-    try {
-        const parameters = customParameters || (func.hasParameters ? generateParameters(func) : []);
-
-        // Create minimal ABI for this function
-        const functionAbi = {
-            name: func.name,
-            type: 'function',
-            stateMutability: func.stateMutability,
-            inputs: func.inputs.map(input => ({
-                name: input.name,
-                type: input.type
-            })),
-            outputs: func.outputs.map(output => ({
-                name: output.name,
-                type: output.type
-            }))
-        };
-
-        const result = await client.readContract({
-            address: diamondAddress,
-            abi: [functionAbi],
-            functionName: func.name,
-            args: parameters
-        });
-
-        return {
-            functionName: func.name,
-            signature: func.signature,
-            success: true,
-            result,
-            parameters: parameters.length > 0 ? parameters : undefined
-        };
-    } catch (error) {
-        return {
-            functionName: func.name,
-            signature: func.signature,
-            success: false,
-            error: error instanceof Error ? error.message : String(error),
-            parameters: func.hasParameters ? (customParameters || generateParameters(func)) : undefined
-        };
-    }
-}
-
-/**
- * Execute multiple functions in parallel with rate limiting
- */
-export async function callFunctionsBatch(
-    client: PublicClient,
-    diamondAddress: Address,
-    functions: DiscoveredFunction[],
-    batchSize: number = 5
-): Promise<FunctionCallResult[]> {
-    const results: FunctionCallResult[] = [];
-
-    // Process functions in batches to avoid overwhelming the RPC
-    for (let i = 0; i < functions.length; i += batchSize) {
-        const batch = functions.slice(i, i + batchSize);
-
-        const batchPromises = batch.map(func =>
-            callFunction(client, diamondAddress, func)
-        );
-
-        const batchResults = await Promise.allSettled(batchPromises);
-
-        // Convert settled promises to results
-        for (const [index, settled] of batchResults.entries()) {
-            if (settled.status === 'fulfilled') {
-                results.push(settled.value);
-            } else {
-                // Handle promise rejection
-                const func = batch[index];
-                results.push({
-                    functionName: func.name,
-                    signature: func.signature,
-                    success: false,
-                    error: `Promise rejected: ${settled.reason}`,
-                    parameters: func.hasParameters ? generateParameters(func) : undefined
-                });
-            }
-        }
-
-        // Add small delay between batches to be respectful to RPC
-        if (i + batchSize < functions.length) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-    }
-
-    return results;
-}
-
-/**
- * Filter functions that are safe to call automatically
+ * Filter functions that are safe and feasible to call automatically
  */
 export function filterCallableFunctions(functions: DiscoveredFunction[]): DiscoveredFunction[] {
-    return functions.filter(func => {
-        // Must be view or pure
-        if (!func.isCallable) return false;
-
-        // Skip functions that are obviously dangerous or require specific setup
-        const dangerousFunctions = [
-            'supportsInterface', // ERC165, might return false for random inputs
-            'facetAddress', // DiamondLoupe, requires specific selector
-        ];
-
-        if (dangerousFunctions.includes(func.name)) return false;
-
-        // If function has parameters, check if we can provide defaults
-        if (func.hasParameters) {
-            return canCallWithDefaults(func);
-        }
-
-        return true;
-    });
+    return functions.filter(func =>
+        func.isCallable && !func.hasParameters
+    );
 }
 
 /**
- * Format function call result for display with rich metadata
+ * Enhanced filtering to categorize functions by parameter handling strategy
  */
-export function formatFunctionResult(result: FunctionCallResult, func?: DiscoveredFunction): string {
-    const lines: string[] = [];
+export function filterEnhancedCallableFunctions(functions: DiscoveredFunction[]): {
+    zeroParamFunctions: DiscoveredFunction[];
+    smartParamFunctions: DiscoveredFunction[];
+    basicParamFunctions: DiscoveredFunction[];
+} {
+    const zeroParamFunctions: DiscoveredFunction[] = [];
+    const smartParamFunctions: DiscoveredFunction[] = [];
+    const basicParamFunctions: DiscoveredFunction[] = [];
 
-    if (result.success) {
-        // Function header with selector
-        const selector = func?.selector ? ` (${func.selector})` : '';
-        lines.push(`✅ ${result.functionName}${selector}`);
+    for (const func of functions) {
+        if (!func.isCallable) continue;
 
-        // Function signature with types
-        if (func) {
-            const inputTypes = func.inputs.map(input =>
-                input.name ? `${input.type} ${input.name}` : input.type
-            ).join(', ');
-            const outputTypes = func.outputs.map(output =>
-                output.name ? `${output.type} ${output.name}` : output.type
-            ).join(', ');
-
-            lines.push(`   Signature: ${result.functionName}(${inputTypes}) → (${outputTypes})`);
-
-            if (func.stateMutability) {
-                lines.push(`   State Mutability: ${func.stateMutability}`);
+        if (!func.hasParameters) {
+            zeroParamFunctions.push(func);
+        } else {
+            const spec = getParameterSpec(func);
+            if (spec) {
+                smartParamFunctions.push(func);
+            } else if (func.inputs.length === 1 && func.inputs[0].type === 'bytes32') {
+                // Basic parameter handling for simple cases like getRoleAdmin
+                basicParamFunctions.push(func);
             }
         }
-
-        // Parameters used
-        if (result.parameters && result.parameters.length > 0) {
-            lines.push(`   Parameters Used: ${JSON.stringify(result.parameters)}`);
-        }
-
-        // Result with type information
-        if (result.result !== undefined) {
-            let formattedResult: string;
-
-            if (typeof result.result === 'bigint') {
-                formattedResult = result.result.toString();
-            } else if (Array.isArray(result.result) || (typeof result.result === 'object' && result.result !== null)) {
-                // Show full JSON for arrays and objects
-                formattedResult = JSON.stringify(result.result, (key, value) =>
-                    typeof value === 'bigint' ? value.toString() : value, 2
-                );
-            } else {
-                formattedResult = String(result.result);
-            }
-
-            // Add return type info if available
-            const returnTypeInfo = func?.outputs.length ?
-                ` (${func.outputs.map(o => o.type).join(', ')})` : '';
-
-            lines.push(`   Result${returnTypeInfo}: ${formattedResult}`);
-        }
-    } else {
-        // Error formatting with metadata
-        const selector = func?.selector ? ` (${func.selector})` : '';
-        lines.push(`❌ ${result.functionName}${selector} - FAILED`);
-
-        if (func) {
-            const inputTypes = func.inputs.map(input =>
-                input.name ? `${input.type} ${input.name}` : input.type
-            ).join(', ');
-            lines.push(`   Signature: ${result.functionName}(${inputTypes})`);
-        }
-
-        if (result.parameters && result.parameters.length > 0) {
-            lines.push(`   Parameters Used: ${JSON.stringify(result.parameters)}`);
-        }
-        lines.push(`   Error: ${result.error}`);
     }
 
-    return lines.join('\n');
+    return { zeroParamFunctions, smartParamFunctions, basicParamFunctions };
 }
 
 /**
- * Group and format results by facet
+ * Call functions with generated parameters in batches
+ */
+export async function callParameterizedFunctionsBatch(
+    client: PublicClient,
+    contractAddress: Address,
+    functions: DiscoveredFunction[],
+    context: ParameterContext,
+    batchSize: number
+): Promise<FunctionCallResult[]> {
+    const allResults: FunctionCallResult[] = [];
+
+    for (const func of functions) {
+        const parameters = await generateParameters(func, context);
+        if (parameters.length === 0) continue;
+
+        const batchCalls = parameters.map((params: any) => ({
+            ...func,
+            args: params
+        }));
+
+        const batchResult = await executeFunctionsBatch(
+            contractAddress,
+            batchCalls,
+            batchSize
+        );
+
+        allResults.push(...batchResult.results);
+    }
+
+    return allResults;
+}
+
+/**
+ * Format function call results for display, organized by facet
  */
 export function formatResultsByFacet(
     results: FunctionCallResult[],
     functions: DiscoveredFunction[]
 ): string {
-    const lines: string[] = [];
+    const groupedByFacet = new Map<string, {
+        facetAddress: Address;
+        results: FunctionCallResult[];
+    }>();
 
-    // Create a map of function name to complete function info
-    const functionToInfo = new Map<string, DiscoveredFunction>();
-    for (const func of functions) {
-        functionToInfo.set(func.name, func);
-    }
+    const functionMap = new Map(functions.map(f => [f.name, f]));
 
-    // Group results by facet
-    const facetGroups = new Map<string, FunctionCallResult[]>();
     for (const result of results) {
-        const func = functionToInfo.get(result.functionName);
-        const facetKey = func
-            ? `${func.facetName} (${func.facetAddress})`
-            : 'Unknown Facet';
+        const func = functionMap.get(result.functionName);
+        if (!func) continue;
 
-        if (!facetGroups.has(facetKey)) {
-            facetGroups.set(facetKey, []);
+        const key = `${func.facetName} (${func.facetAddress})`;
+        if (!groupedByFacet.has(key)) {
+            groupedByFacet.set(key, {
+                facetAddress: func.facetAddress,
+                results: []
+            });
         }
-        facetGroups.get(facetKey)!.push(result);
+        groupedByFacet.get(key)!.results.push(result);
     }
 
-    // Format each facet group
-    for (const [facetName, facetResults] of facetGroups) {
-        lines.push(`\n📋 ${facetName}`);
-        lines.push(''.padEnd(facetName.length + 3, '─'));
+    let output = '';
+    for (const [facetKey, { results }] of groupedByFacet.entries()) {
+        const successfulCount = results.filter(r => r.success).length;
+        output += `\n📋 ${facetKey}\n`;
+        output += `──────────────────────────────────────────────────────────────────\n`;
+        output += `   Functions called: ${successfulCount}/${results.length} successful\n\n`;
 
-        const successCount = facetResults.filter(r => r.success).length;
-        const totalCount = facetResults.length;
-        lines.push(`   Functions called: ${successCount}/${totalCount} successful\n`);
+        for (const result of results) {
+            const func = functionMap.get(result.functionName);
+            if (!func) continue;
 
-        for (const result of facetResults) {
-            // Pass the function metadata for rich formatting
-            const func = functionToInfo.get(result.functionName);
-            const formatted = formatFunctionResult(result, func);
-            lines.push('   ' + formatted.replace(/\n/g, '\n   '));
-            lines.push('');
+            if (result.success) {
+                output += `   ✅ ${result.functionName} (${func.selector})\n`;
+                output += `      Signature: ${func.signature}\n`;
+                output += `      State Mutability: ${func.stateMutability}\n`;
+
+                if (result.parameters && result.parameters.length > 0) {
+                    const formattedParams = result.parameters.map(formatParameterForDisplay).join(', ');
+                    output += `      Parameters Used: [${formattedParams}]\n`;
+                }
+
+                const formattedResult = formatResultForDisplay(result.result);
+                output += `      Result: ${formattedResult}\n\n`;
+            } else {
+                output += `   ❌ ${result.functionName} (${func.selector}) - FAILED\n`;
+                output += `      Signature: ${func.signature}\n`;
+                output += `      Error: ${result.error}\n\n`;
+            }
         }
     }
 
-    return lines.join('\n');
+    return output;
+}
+
+/**
+ * Format a single result value for display
+ */
+function formatResultForDisplay(result: any): string {
+    if (result === null || result === undefined) return 'N/A';
+
+    // Custom replacer for BigInt
+    const replacer = (key: string, value: any) =>
+        typeof value === 'bigint' ? value.toString() : value;
+
+    if (Array.isArray(result)) {
+        const formattedArray = result.map(item => {
+            if (typeof item === 'bigint') {
+                return formatBigInt(item);
+            }
+            if (isAddress(item)) {
+                return item;
+            }
+            return JSON.stringify(item, replacer);
+        });
+        return `[\n     ${formattedArray.join(',\n     ')}\n   ]`;
+    }
+
+    if (typeof result === 'bigint') {
+        return formatBigInt(result);
+    }
+
+    if (isAddress(result)) {
+        return result;
+    }
+
+    if (typeof result === 'object') {
+        return JSON.stringify(result, replacer, 2);
+    }
+
+    return String(result);
+}
+
+/**
+ * Format a BigInt value with extra context
+ */
+function formatBigInt(value: bigint): string {
+    try {
+        // Attempt to format as Ether for readability
+        const etherValue = formatEther(value);
+        if (etherValue.includes('.') && etherValue.split('.')[1].length > 4) {
+            // Likely a currency value
+            return `$${parseFloat(etherValue).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} (raw: ${value})`;
+        }
+        return `${etherValue} (raw: ${value})`;
+    } catch {
+        return value.toString();
+    }
 }
