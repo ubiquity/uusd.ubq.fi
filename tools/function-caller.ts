@@ -199,39 +199,72 @@ export function filterCallableFunctions(functions: DiscoveredFunction[]): Discov
 }
 
 /**
- * Format function call result for display
+ * Format function call result for display with rich metadata
  */
-export function formatFunctionResult(result: FunctionCallResult): string {
+export function formatFunctionResult(result: FunctionCallResult, func?: DiscoveredFunction): string {
     const lines: string[] = [];
 
     if (result.success) {
-        lines.push(`✅ ${result.functionName}()`);
-        if (result.parameters && result.parameters.length > 0) {
-            lines.push(`   Parameters: ${JSON.stringify(result.parameters)}`);
+        // Function header with selector
+        const selector = func?.selector ? ` (${func.selector})` : '';
+        lines.push(`✅ ${result.functionName}${selector}`);
+
+        // Function signature with types
+        if (func) {
+            const inputTypes = func.inputs.map(input =>
+                input.name ? `${input.type} ${input.name}` : input.type
+            ).join(', ');
+            const outputTypes = func.outputs.map(output =>
+                output.name ? `${output.type} ${output.name}` : output.type
+            ).join(', ');
+
+            lines.push(`   Signature: ${result.functionName}(${inputTypes}) → (${outputTypes})`);
+
+            if (func.stateMutability) {
+                lines.push(`   State Mutability: ${func.stateMutability}`);
+            }
         }
 
+        // Parameters used
+        if (result.parameters && result.parameters.length > 0) {
+            lines.push(`   Parameters Used: ${JSON.stringify(result.parameters)}`);
+        }
+
+        // Result with type information
         if (result.result !== undefined) {
-            // Format result based on type
             let formattedResult: string;
 
             if (typeof result.result === 'bigint') {
                 formattedResult = result.result.toString();
-            } else if (Array.isArray(result.result)) {
-                formattedResult = `[${result.result.length} items]`;
-            } else if (typeof result.result === 'object' && result.result !== null) {
+            } else if (Array.isArray(result.result) || (typeof result.result === 'object' && result.result !== null)) {
+                // Show full JSON for arrays and objects
                 formattedResult = JSON.stringify(result.result, (key, value) =>
-                    typeof value === 'bigint' ? value.toString() : value
+                    typeof value === 'bigint' ? value.toString() : value, 2
                 );
             } else {
                 formattedResult = String(result.result);
             }
 
-            lines.push(`   Result: ${formattedResult}`);
+            // Add return type info if available
+            const returnTypeInfo = func?.outputs.length ?
+                ` (${func.outputs.map(o => o.type).join(', ')})` : '';
+
+            lines.push(`   Result${returnTypeInfo}: ${formattedResult}`);
         }
     } else {
-        lines.push(`❌ ${result.functionName}() - FAILED`);
+        // Error formatting with metadata
+        const selector = func?.selector ? ` (${func.selector})` : '';
+        lines.push(`❌ ${result.functionName}${selector} - FAILED`);
+
+        if (func) {
+            const inputTypes = func.inputs.map(input =>
+                input.name ? `${input.type} ${input.name}` : input.type
+            ).join(', ');
+            lines.push(`   Signature: ${result.functionName}(${inputTypes})`);
+        }
+
         if (result.parameters && result.parameters.length > 0) {
-            lines.push(`   Parameters: ${JSON.stringify(result.parameters)}`);
+            lines.push(`   Parameters Used: ${JSON.stringify(result.parameters)}`);
         }
         lines.push(`   Error: ${result.error}`);
     }
@@ -248,21 +281,18 @@ export function formatResultsByFacet(
 ): string {
     const lines: string[] = [];
 
-    // Create a map of function name to facet info
-    const functionToFacet = new Map<string, { facetName: string; facetAddress: Address }>();
+    // Create a map of function name to complete function info
+    const functionToInfo = new Map<string, DiscoveredFunction>();
     for (const func of functions) {
-        functionToFacet.set(func.name, {
-            facetName: func.facetName,
-            facetAddress: func.facetAddress
-        });
+        functionToInfo.set(func.name, func);
     }
 
     // Group results by facet
     const facetGroups = new Map<string, FunctionCallResult[]>();
     for (const result of results) {
-        const facetInfo = functionToFacet.get(result.functionName);
-        const facetKey = facetInfo
-            ? `${facetInfo.facetName} (${facetInfo.facetAddress})`
+        const func = functionToInfo.get(result.functionName);
+        const facetKey = func
+            ? `${func.facetName} (${func.facetAddress})`
             : 'Unknown Facet';
 
         if (!facetGroups.has(facetKey)) {
@@ -281,7 +311,9 @@ export function formatResultsByFacet(
         lines.push(`   Functions called: ${successCount}/${totalCount} successful\n`);
 
         for (const result of facetResults) {
-            const formatted = formatFunctionResult(result);
+            // Pass the function metadata for rich formatting
+            const func = functionToInfo.get(result.functionName);
+            const formatted = formatFunctionResult(result, func);
             lines.push('   ' + formatted.replace(/\n/g, '\n   '));
             lines.push('');
         }
