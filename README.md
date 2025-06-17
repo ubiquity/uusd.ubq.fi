@@ -1,15 +1,15 @@
-# `uusd.ubq.fi`
+# minimal-uusd-app
 
-## Running with Anvil
-
-```bash
-# terminal 1
-bun run test:anvil
-```
+To install dependencies:
 
 ```bash
-# terminal 2
-bun run test:fund
-bun run test:increase-uusd-thresholds
-bun run start
+bun install
 ```
+
+To run:
+
+```bash
+bun run index.ts
+```
+
+This project was created using `bun init` in bun v1.2.2. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.

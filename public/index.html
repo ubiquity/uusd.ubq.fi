@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UUSD Mint & Redeem</title>
+    <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <h1>UUSD Mint & Redeem</h1>
+        
+        <div class="price-section">
+            <p class="uusd-price">Current UUSD Price: <span id="uusdPrice">Loading...</span></p>
+        </div>
+
+        <div class="wallet-section">
+            <button id="connectWallet" onclick="window.app.connectWallet()">Connect Wallet</button>
+            <div id="walletInfo" style="display: none;">
+                <p>Connected: <span class="wallet-address" id="walletAddress"></span></p>
+                <p class="info-text">Network: <span id="networkName">Ethereum Mainnet</span></p>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="window.app.switchTab('mint')">Mint UUSD</button>
+            <button class="tab" onclick="window.app.switchTab('redeem')">Redeem UUSD</button>
+        </div>
+
+        <div id="mintTab" class="tab-content active">
+            <form id="mintForm" onsubmit="window.app.handleMint(event)">
+                <div class="form-group">
+                    <label for="mintAmount">UUSD Amount to Mint</label>
+                    <input type="number" id="mintAmount" step="0.01" placeholder="0.00" required>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="forceCollateralOnly">
+                        Use collateral only (no UBQ required)
+                    </label>
+                </div>
+
+                <div id="mintOutput" class="output-section" style="display: none;">
+                    <h3>Required Inputs</h3>
+                    <div class="output-row">
+                        <span class="output-label">Collateral Needed:</span>
+                        <span class="output-value" id="collateralNeeded">-</span>
+                    </div>
+                    <div class="output-row">
+                        <span class="output-label">UBQ Needed:</span>
+                        <span class="output-value" id="ubqNeeded">-</span>
+                    </div>
+                    <div class="output-row">
+                        <span class="output-label">Minting Fee:</span>
+                        <span class="output-value" id="mintingFee">-</span>
+                    </div>
+                    <div class="output-row">
+                        <span class="output-label">Total UUSD Minted:</span>
+                        <span class="output-value" id="totalMinted">-</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="action-button" id="mintButton" disabled>
+                    Enter amount to continue
+                </button>
+
+                <div class="error" id="mintError"></div>
+                <div class="success" id="mintSuccess"></div>
+            </form>
+        </div>
+
+        <div id="redeemTab" class="tab-content">
+            <form id="redeemForm" onsubmit="window.app.handleRedeem(event)">
+                <div class="form-group">
+                    <label for="redeemAmount">UUSD Amount to Redeem</label>
+                    <input type="number" id="redeemAmount" step="0.01" placeholder="0.00" required>
+                </div>
+
+                <div id="redeemOutput" class="output-section" style="display: none;">
+                    <h3>You Will Receive</h3>
+                    <div class="output-row">
+                        <span class="output-label">Collateral:</span>
+                        <span class="output-value" id="collateralRedeemed">-</span>
+                    </div>
+                    <div class="output-row">
+                        <span class="output-label">UBQ:</span>
+                        <span class="output-value" id="ubqRedeemed">-</span>
+                    </div>
+                    <div class="output-row">
+                        <span class="output-label">Redemption Fee:</span>
+                        <span class="output-value" id="redemptionFee">-</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="action-button" id="redeemButton" disabled>
+                    Enter amount to continue
+                </button>
+
+                <div class="error" id="redeemError"></div>
+                <div class="success" id="redeemSuccess"></div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+</body>
+</html>
