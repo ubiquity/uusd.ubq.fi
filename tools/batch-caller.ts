@@ -78,6 +78,28 @@ export async function executeFunctionsBatch(
 }
 
 /**
+ * Recursively map ABI parameters to preserve components for complex types
+ */
+function mapAbiParameter(param: any): any {
+    const result: any = {
+        name: param.name,
+        type: param.type
+    };
+
+    // Preserve internalType if present
+    if (param.internalType) {
+        result.internalType = param.internalType;
+    }
+
+    // Recursively preserve components for tuple types
+    if (param.components && Array.isArray(param.components)) {
+        result.components = param.components.map(mapAbiParameter);
+    }
+
+    return result;
+}
+
+/**
  * Execute a single batch of function calls
  */
 async function executeSingleBatch(
@@ -94,19 +116,13 @@ async function executeSingleBatch(
 
         for (const [index, func] of functions.entries()) {
             try {
-                // Create minimal ABI for this function
+                // Create complete ABI for this function, preserving components for complex types
                 const functionAbi = {
                     name: func.name,
                     type: 'function',
                     stateMutability: func.stateMutability,
-                    inputs: func.inputs.map(input => ({
-                        name: input.name,
-                        type: input.type
-                    })),
-                    outputs: func.outputs.map(output => ({
-                        name: output.name,
-                        type: output.type
-                    }))
+                    inputs: func.inputs.map(mapAbiParameter),
+                    outputs: func.outputs.map(mapAbiParameter)
                 };
 
                 // Use args from the function if they exist (for parameterized calls)

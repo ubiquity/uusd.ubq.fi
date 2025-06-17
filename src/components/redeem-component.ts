@@ -140,7 +140,17 @@ export class RedeemComponent {
         try {
             const amountInput = document.getElementById('redeemAmount') as HTMLInputElement;
 
+            if (!amountInput?.value) {
+                this.services.notificationManager.showError('redeem', 'Please enter a valid amount');
+                return;
+            }
+
             const amount = parseEther(amountInput.value);
+
+            console.log('Starting redeem transaction:', {
+                amount: amountInput.value,
+                collateralIndex: LUSD_COLLATERAL.index
+            });
 
             await this.services.transactionService.executeRedeem({
                 collateralIndex: LUSD_COLLATERAL.index,
@@ -148,7 +158,19 @@ export class RedeemComponent {
             });
 
         } catch (error: any) {
-            // Error handling is done by service event handlers
+            console.error('Redeem transaction failed:', error);
+
+            // Re-enable the button and show error
+            const button = document.getElementById('redeemButton') as HTMLButtonElement;
+            if (button) {
+                button.disabled = false;
+                // Reset button text based on current state
+                this.updateOutput();
+            }
+
+            // Show error message to user
+            const errorMessage = error.message || 'Transaction failed. Please try again.';
+            this.services.notificationManager.showError('redeem', errorMessage);
         }
     }
 

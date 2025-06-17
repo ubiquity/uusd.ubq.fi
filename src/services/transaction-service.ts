@@ -210,47 +210,99 @@ export class TransactionService {
     async executeRedeem(params: RedeemTransactionParams): Promise<string> {
         const { collateralIndex, dollarAmount } = params;
 
+        console.log('ExecuteRedeem called with params:', {
+            collateralIndex,
+            dollarAmount: dollarAmount.toString()
+        });
+
         // Validate wallet connection
-        this.walletService.validateConnection();
+        try {
+            this.walletService.validateConnection();
+            console.log('✅ Wallet connection validated');
+        } catch (error) {
+            console.error('❌ Wallet validation failed:', error);
+            throw error;
+        }
+
         const account = this.walletService.getAccount()!;
+        console.log('✅ Account retrieved:', account);
 
         // Validate transaction parameters
         const validation = validateTransactionParams(dollarAmount, collateralIndex, account);
         if (!validation.isValid) {
+            console.error('❌ Parameter validation failed:', validation.error);
             throw new Error(validation.error);
         }
+        console.log('✅ Parameters validated');
 
         try {
             this.events.onTransactionStart?.(TransactionOperation.REDEEM);
+            console.log('✅ Transaction start event fired');
 
             // Check if there's a pending redemption to collect first
+            console.log('🔄 Checking for pending redemptions...');
             const redeemBalance = await this.contractService.getRedeemCollateralBalance(
                 account,
                 collateralIndex
             );
 
             if (redeemBalance > 0n) {
+                console.log('🔄 Found pending redemption, collecting first...');
                 // Collect existing redemption first
                 return this.executeCollectRedemption(collateralIndex);
             }
+            console.log('✅ No pending redemptions');
+
+            // Calculate redeem output for slippage protection
+            console.log('🔄 Calculating redeem output...');
+            const redeemResult = await this.priceService.calculateRedeemOutput({
+                dollarAmount,
+                collateralIndex
+            });
+            console.log('✅ Redeem calculation result:', {
+                collateralRedeemed: redeemResult.collateralRedeemed.toString(),
+                governanceRedeemed: redeemResult.governanceRedeemed.toString()
+            });
 
             // Handle UUSD approval if needed
+            console.log('🔄 Checking and handling approvals...');
             await this.handleRedeemApproval(account, dollarAmount);
+            console.log('✅ Approvals handled');
 
-            // Execute redeem transaction
+            // Execute redeem transaction with slippage tolerance
+            // Add 0.5% slippage tolerance
+            const slippageBasisPoints = 50n; // 0.5%
+            const basisPointsDivisor = 10000n;
+
+            // Reduce minimum outputs by slippage amount
+            const governanceOutMin = redeemResult.governanceRedeemed * (basisPointsDivisor - slippageBasisPoints) / basisPointsDivisor;
+            const collateralOutMin = redeemResult.collateralRedeemed * (basisPointsDivisor - slippageBasisPoints) / basisPointsDivisor;
+
+            console.log('🔄 Executing redeem transaction with params:', {
+                collateralIndex,
+                dollarAmount: dollarAmount.toString(),
+                governanceOutMin: governanceOutMin.toString(),
+                collateralOutMin: collateralOutMin.toString()
+            });
+
             const hash = await this.contractService.redeemDollar(
                 collateralIndex,
                 dollarAmount,
-                0n, // governanceOutMin
-                0n  // collateralOutMin
+                governanceOutMin, // Minimum governance tokens expected (with slippage)
+                collateralOutMin  // Minimum collateral expected (with slippage)
             );
 
+            console.log('✅ Redeem transaction successful, hash:', hash);
             this.events.onTransactionSuccess?.(TransactionOperation.REDEEM, hash);
             return hash;
 
         } catch (error) {
-            this.events.onTransactionError?.(TransactionOperation.REDEEM, error as Error);
-            throw error;
+            console.error('❌ General redeem error:', error);
+            
+            // Enhanced error handling with specific messages for redeem errors
+            const enhancedError = this.enhanceErrorMessage(error as Error, 'redeem');
+            this.events.onTransactionError?.(TransactionOperation.REDEEM, enhancedError);
+            throw enhancedError;
         }
     }
 

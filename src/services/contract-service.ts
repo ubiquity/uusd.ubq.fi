@@ -313,20 +313,71 @@ export class ContractService implements ContractReads, ContractWrites {
         const publicClient = this.walletService.getPublicClient();
         const account = this.walletService.getAccount()!;
 
+        const args = [
+            BigInt(collateralIndex),
+            dollarAmount,
+            governanceOutMin,
+            collateralOutMin
+        ];
+
+        console.log('🔄 Estimating gas for redeem transaction...');
+
+        // Estimate gas with oracle error detection
+        let gasEstimate: bigint;
+        try {
+            gasEstimate = await publicClient.estimateContractGas({
+                address: ADDRESSES.DIAMOND,
+                abi: DIAMOND_ABI,
+                functionName: 'redeemDollar',
+                args,
+                account
+            });
+            console.log('✅ Redeem gas estimated:', gasEstimate.toString());
+        } catch (estimationError: any) {
+            console.log('⚠️ Redeem gas estimation failed:', estimationError);
+
+            // Analyze oracle error with enhanced messaging
+            const errorMessage = estimationError.message || estimationError.toString();
+            const oracleAnalysis = analyzeOracleError(errorMessage);
+
+            if (oracleAnalysis.isOracleIssue) {
+                console.log('❌ Oracle data is stale, aborting redeem transaction');
+                const refreshEstimate = getOracleRefreshEstimate();
+                const alternatives = getAlternativeActions();
+
+                const enhancedMessage = [
+                    oracleAnalysis.userMessage,
+                    ...oracleAnalysis.suggestions,
+                    '',
+                    `🕒 ${refreshEstimate}`,
+                    '',
+                    'Alternative actions:',
+                    ...alternatives
+                ].join('\n');
+
+                throw new Error(enhancedMessage);
+            }
+
+            // For other gas estimation failures, use fallback
+            console.log('🔄 Using fallback gas limit for non-oracle redeem error');
+            gasEstimate = 400000n;
+        }
+
+        // Add 20% buffer to gas estimate
+        const gasLimit = gasEstimate + (gasEstimate * 20n / 100n);
+        console.log('🔄 Using redeem gas limit with buffer:', gasLimit.toString());
+
         const hash = await walletClient.writeContract({
             address: ADDRESSES.DIAMOND,
             abi: DIAMOND_ABI,
             functionName: 'redeemDollar',
-            args: [
-                BigInt(collateralIndex),
-                dollarAmount,
-                governanceOutMin,
-                collateralOutMin
-            ],
+            args,
             account,
-            chain: walletClient.chain
+            chain: walletClient.chain,
+            gas: gasLimit
         });
 
+        console.log('✅ Redeem transaction submitted:', hash);
         await publicClient.waitForTransactionReceipt({ hash });
         return hash;
     }
