@@ -173,15 +173,25 @@ export class TransactionService {
             } catch (contractError: any) {
                 console.error('❌ Mint transaction failed:', contractError);
 
-                // Check if this is a stale oracle data error
-                if (contractError.message?.toLowerCase().includes('stale stable/usd data')) {
-                    console.log('🔄 Oracle data is stale, suggesting retry...');
+                // Check if this is already an enhanced oracle error from ContractService
+                if (contractError.message?.includes('💡 Oracle Price Feed Issue Detected') ||
+                    contractError.message?.includes('Oracle keepers will update') ||
+                    contractError.message?.includes('Alternative actions:')) {
+                    console.log('🔄 Oracle error already enhanced by ContractService, passing through');
+                    this.events.onTransactionError?.(TransactionOperation.MINT, contractError);
+                    throw contractError;
+                }
+
+                // Check if this is a raw stale oracle data error
+                if (contractError.message?.toLowerCase().includes('stale stable/usd data') ||
+                    contractError.message?.toLowerCase().includes('stale') && contractError.message?.toLowerCase().includes('data')) {
+                    console.log('🔄 Raw oracle data is stale, creating enhanced error...');
                     const oracleError = new Error(`Price oracle data is outdated. The LUSD price feed needs to be updated by oracle keepers. This usually resolves within a few minutes. Please try again later, or consider using a different collateral type if available.`);
                     this.events.onTransactionError?.(TransactionOperation.MINT, oracleError);
                     throw oracleError;
                 }
 
-                // Enhanced error handling with specific messages
+                // Enhanced error handling with specific messages for non-oracle errors
                 const enhancedError = this.enhanceErrorMessage(contractError, 'mint');
                 this.events.onTransactionError?.(TransactionOperation.MINT, enhancedError);
                 throw enhancedError;

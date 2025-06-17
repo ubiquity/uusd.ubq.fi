@@ -8,6 +8,7 @@ import {
 import { ADDRESSES, DIAMOND_ABI, ERC20_ABI } from '../contracts/constants.ts';
 import type { CollateralInfo } from '../utils/calculation-utils.ts';
 import type { WalletService } from './wallet-service.ts';
+import { analyzeOracleError, getAlternativeActions, getOracleRefreshEstimate } from '../utils/oracle-utils.ts';
 
 /**
  * Extended collateral information with blockchain state
@@ -252,12 +253,26 @@ export class ContractService implements ContractReads, ContractWrites {
         } catch (estimationError: any) {
             console.log('⚠️ Gas estimation failed:', estimationError);
 
-            // Check if this is an oracle staleness error
+            // Analyze oracle error with enhanced messaging
             const errorMessage = estimationError.message || estimationError.toString();
-            if (errorMessage.toLowerCase().includes('stale stable/usd data') ||
-                errorMessage.toLowerCase().includes('stale') && errorMessage.toLowerCase().includes('data')) {
+            const oracleAnalysis = analyzeOracleError(errorMessage);
+
+            if (oracleAnalysis.isOracleIssue) {
                 console.log('❌ Oracle data is stale, aborting transaction');
-                throw new Error('Price oracle data is outdated. The LUSD price feed needs to be updated by oracle keepers. This usually resolves within a few minutes. Please try again later, or consider using a different collateral type if available.');
+                const refreshEstimate = getOracleRefreshEstimate();
+                const alternatives = getAlternativeActions();
+
+                const enhancedMessage = [
+                    oracleAnalysis.userMessage,
+                    ...oracleAnalysis.suggestions,
+                    '',
+                    `🕒 ${refreshEstimate}`,
+                    '',
+                    'Alternative actions:',
+                    ...alternatives
+                ].join('\n');
+
+                throw new Error(enhancedMessage);
             }
 
             // For other gas estimation failures, use fallback

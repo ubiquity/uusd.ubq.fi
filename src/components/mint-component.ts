@@ -5,6 +5,8 @@ import type { PriceService } from '../services/price-service.ts';
 import type { TransactionService, TransactionOperation } from '../services/transaction-service.ts';
 import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import type { NotificationManager } from './notification-manager.ts';
+import { OracleStatusComponent } from './oracle-status-component.ts';
+import { analyzeOracleError } from '../utils/oracle-utils.ts';
 
 interface MintServices {
     walletService: WalletService;
@@ -173,9 +175,17 @@ export class MintComponent {
                 this.updateOutput();
             }
 
-            // Show user-friendly error message
+            // Analyze error for oracle issues and provide enhanced messaging
             const errorMessage = error.message || 'Transaction failed. Please try again.';
-            this.services.notificationManager.showError('mint', errorMessage);
+            const oracleAnalysis = analyzeOracleError(errorMessage);
+
+            if (oracleAnalysis.isOracleIssue) {
+                // Show oracle-specific error with help button
+                this.services.notificationManager.showError('mint', oracleAnalysis.userMessage);
+                this.showOracleHelpButton();
+            } else {
+                this.services.notificationManager.showError('mint', errorMessage);
+            }
         }
     }
 
@@ -266,5 +276,27 @@ export class MintComponent {
                 this.updateOutput();
             }
         }
+    }
+
+    /**
+     * Show oracle help button when oracle issues are detected
+     */
+    private showOracleHelpButton(): void {
+        // Find the notification container for mint
+        const notificationContainer = document.querySelector('.notification-container[data-type="mint"]');
+        if (!notificationContainer) return;
+
+        // Check if help button already exists
+        if (notificationContainer.querySelector('.oracle-help-btn')) return;
+
+        // Create and append oracle help button
+        const helpButton = OracleStatusComponent.createHelpButton('app');
+        helpButton.style.cssText += `
+            display: block;
+            margin: 10px auto 0 auto;
+            width: fit-content;
+        `;
+
+        notificationContainer.appendChild(helpButton);
     }
 }
