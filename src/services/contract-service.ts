@@ -171,15 +171,42 @@ export class ContractService implements ContractReads, ContractWrites {
         const publicClient = this.walletService.getPublicClient();
         const account = this.walletService.getAccount()!;
 
+        const args = [spender, amount];
+
+        console.log('🔄 Estimating gas for approval transaction...');
+
+        // Estimate gas with fallback handling
+        let gasEstimate: bigint;
+        try {
+            gasEstimate = await publicClient.estimateContractGas({
+                address: tokenAddress,
+                abi: ERC20_ABI,
+                functionName: 'approve',
+                args,
+                account
+            });
+            console.log('✅ Approval gas estimated:', gasEstimate.toString());
+        } catch (estimationError) {
+            console.log('⚠️ Approval gas estimation failed, using fallback:', estimationError);
+            // Fallback gas limit for approval operations
+            gasEstimate = 100000n;
+        }
+
+        // Add 20% buffer to gas estimate
+        const gasLimit = gasEstimate + (gasEstimate * 20n / 100n);
+        console.log('🔄 Using approval gas limit with buffer:', gasLimit.toString());
+
         const hash = await walletClient.writeContract({
             address: tokenAddress,
             abi: ERC20_ABI,
             functionName: 'approve',
-            args: [spender, amount],
+            args,
             account,
-            chain: walletClient.chain
+            chain: walletClient.chain,
+            gas: gasLimit
         });
 
+        console.log('✅ Approval transaction submitted:', hash);
         await publicClient.waitForTransactionReceipt({ hash });
         return hash;
     }
@@ -200,22 +227,59 @@ export class ContractService implements ContractReads, ContractWrites {
         const publicClient = this.walletService.getPublicClient();
         const account = this.walletService.getAccount()!;
 
+        const args = [
+            BigInt(collateralIndex),
+            dollarAmount,
+            dollarOutMin,
+            maxCollateralIn,
+            maxGovernanceIn,
+            isOneToOne
+        ];
+
+        console.log('🔄 Estimating gas for mint transaction...');
+
+        // Estimate gas with oracle error detection
+        let gasEstimate: bigint;
+        try {
+            gasEstimate = await publicClient.estimateContractGas({
+                address: ADDRESSES.DIAMOND,
+                abi: DIAMOND_ABI,
+                functionName: 'mintDollar',
+                args,
+                account
+            });
+            console.log('✅ Gas estimated:', gasEstimate.toString());
+        } catch (estimationError: any) {
+            console.log('⚠️ Gas estimation failed:', estimationError);
+
+            // Check if this is an oracle staleness error
+            const errorMessage = estimationError.message || estimationError.toString();
+            if (errorMessage.toLowerCase().includes('stale stable/usd data') ||
+                errorMessage.toLowerCase().includes('stale') && errorMessage.toLowerCase().includes('data')) {
+                console.log('❌ Oracle data is stale, aborting transaction');
+                throw new Error('Price oracle data is outdated. The LUSD price feed needs to be updated by oracle keepers. This usually resolves within a few minutes. Please try again later, or consider using a different collateral type if available.');
+            }
+
+            // For other gas estimation failures, use fallback
+            console.log('🔄 Using fallback gas limit for non-oracle error');
+            gasEstimate = 500000n;
+        }
+
+        // Add 20% buffer to gas estimate
+        const gasLimit = gasEstimate + (gasEstimate * 20n / 100n);
+        console.log('🔄 Using gas limit with buffer:', gasLimit.toString());
+
         const hash = await walletClient.writeContract({
             address: ADDRESSES.DIAMOND,
             abi: DIAMOND_ABI,
             functionName: 'mintDollar',
-            args: [
-                BigInt(collateralIndex),
-                dollarAmount,
-                dollarOutMin,
-                maxCollateralIn,
-                maxGovernanceIn,
-                isOneToOne
-            ],
+            args,
             account,
-            chain: walletClient.chain
+            chain: walletClient.chain,
+            gas: gasLimit
         });
 
+        console.log('✅ Mint transaction submitted:', hash);
         await publicClient.waitForTransactionReceipt({ hash });
         return hash;
     }

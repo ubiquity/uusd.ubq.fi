@@ -143,7 +143,18 @@ export class MintComponent {
             const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
             const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
 
+            if (!amountInput?.value) {
+                this.services.notificationManager.showError('mint', 'Please enter a valid amount');
+                return;
+            }
+
             const amount = parseEther(amountInput.value);
+
+            console.log('Starting mint transaction:', {
+                amount: amountInput.value,
+                collateralIndex: LUSD_COLLATERAL.index,
+                isForceCollateralOnly: forceCollateralOnly.checked
+            });
 
             await this.services.transactionService.executeMint({
                 collateralIndex: LUSD_COLLATERAL.index,
@@ -152,7 +163,19 @@ export class MintComponent {
             });
 
         } catch (error: any) {
-            // Error handling is done by service event handlers
+            console.error('Mint transaction failed:', error);
+
+            // Re-enable the button and show error
+            const button = document.getElementById('mintButton') as HTMLButtonElement;
+            if (button) {
+                button.disabled = false;
+                // Reset button text based on current state
+                this.updateOutput();
+            }
+
+            // Show user-friendly error message
+            const errorMessage = error.message || 'Transaction failed. Please try again.';
+            this.services.notificationManager.showError('mint', errorMessage);
         }
     }
 

@@ -1,0 +1,134 @@
+# UUSD Project Rules & Intelligence
+
+## Critical Git Commands
+
+### ⚠️ NEVER use `git --no-pager diff` without exclusions
+**Problem**: The compiled files `app.js` and `app.js.map` in the project root are massive and will exceed context window limits, causing tool failures.
+
+**Solutions**:
+```bash
+# ✅ SAFE: Exclude problematic compiled files
+git --no-pager diff -- . ':!app.js' ':!app.js.map'
+
+# ✅ SAFE: Check only source files
+git --no-pager diff src/
+
+# ✅ SAFE: Check specific file patterns
+git --no-pager diff --name-only
+
+# ❌ NEVER: This will crash due to massive compiled files
+git --no-pager diff
+```
+
+**Background**: The `app.js` and `app.js.map` files are esbuild compilation outputs that contain the entire bundled application and can be hundreds of thousands of lines long.
+
+## Port In Use
+
+Assume that we already have the local server running on the default port (3000). If you encounter an error like "Port 3000 is already in use", it means the server is already running. You can access the application at `http://localhost:3000` in your browser.
+
+## Project Structure Intelligence
+
+### Modular Architecture Status
+- **Current State**: Successfully refactored from 807-line monolith to clean modular architecture
+- **Key Achievement**: LUSD minting functionality fully working with proper error handling and slippage protection
+- **Architecture**: Services layer (business logic) + Components layer (UI) + Utils layer (pure functions)
+
+### Critical Business Logic
+- **Slippage Protection**: 0.5% tolerance implemented for mint transactions
+- **Multi-step Approval Flow**: Collateral → UBQ → Mint transaction workflow
+- **Error Handling**: Comprehensive try/catch with user-friendly error messages and button state management
+
+### File Organization Patterns
+- **Naming Convention**: Always use `kebab-case.ts` for new files
+- **Service Pattern**: Dependency injection via constructor
+- **Component Pattern**: Services injected as interface, event-driven updates
+- **Utils Pattern**: Pure functions only, no side effects
+
+### Transaction Flow Intelligence
+- **LUSD Hardcoded**: Currently using LUSD (index 0) as primary collateral
+- **Gas Estimation Fix**: Slippage tolerance prevents "transaction likely to fail" warnings
+- **Button State Management**: Always re-enable buttons and update state in error handlers
+
+### Development Workflow
+- **Runtime**: Always use `bun` for TypeScript execution, never compile first
+- **Package Management**: Use `bun install` for dependencies
+- **Environment**: Bun auto-loads .env files, no dotenv needed
+- **Build**: esbuild handles compilation, outputs to app.js
+
+## Known Working Patterns
+
+### Service Communication
+```typescript
+// Event-driven service pattern that works well
+this.transactionService.setEventHandlers({
+    onTransactionStart: (operation) => component.handleTransactionStart(),
+    onTransactionSuccess: (operation, hash) => component.handleTransactionSuccess(),
+    onTransactionError: (operation, error) => component.handleTransactionError(error)
+});
+```
+
+### Error Handling Pattern
+```typescript
+// Proven error handling pattern
+catch (error: any) {
+    console.error('Operation failed:', error);
+
+    // Always re-enable UI elements
+    const button = document.getElementById('actionButton') as HTMLButtonElement;
+    if (button) {
+        button.disabled = false;
+        this.updateOutput(); // Reset button text
+    }
+
+    // Show user-friendly error
+    this.services.notificationManager.showError('operation', error.message || 'Transaction failed. Please try again.');
+}
+```
+
+### Transaction Parameters with Slippage
+```typescript
+// Working slippage protection pattern
+const slippageBasisPoints = 50n; // 0.5%
+const basisPointsDivisor = 10000n;
+
+const dollarOutMin = mintResult.totalDollarMint * (basisPointsDivisor - slippageBasisPoints) / basisPointsDivisor;
+const maxCollateralIn = mintResult.collateralNeeded * (basisPointsDivisor + slippageBasisPoints) / basisPointsDivisor;
+```
+
+## Testing & Quality Patterns
+
+### File Size Guidelines
+- **Target**: Keep individual files under 200 lines
+- **Current Status**: Successfully achieved modular architecture
+- **Components**: ~100-150 lines each (UI logic only)
+- **Services**: ~150-250 lines each (business logic)
+- **Utils**: ~50-100 lines each (pure functions)
+
+### Cleanup Patterns
+1. **Before Task Completion**: Always review and clean up changed files
+2. **Remove Unused Files**: Check for orphaned files after refactoring
+3. **Remove Backwards Compatibility**: Clean up legacy support code unless explicitly needed
+4. **Remove Fallbacks**: Eliminate defensive coding for invalid data (fail explicitly instead)
+5. **Consolidate Duplicates**: Identify and merge redundant code
+
+## Performance Intelligence
+
+### Build Performance
+- **Current**: ~2 seconds for development build
+- **Target**: Maintain under 5 seconds
+- **Bundle Size**: Keep optimized through tree-shaking
+
+### User Experience Patterns
+- **Real-time Updates**: All calculations respond to user input within 100ms
+- **Loading States**: Always show progress during multi-step transactions
+- **Error Recovery**: Users can retry failed transactions without page reload
+
+## Future Enhancement Patterns
+
+### Proven Extension Points
+- **New Collateral Types**: Extend CollateralOption interface
+- **New Transaction Types**: Add to TransactionOperation enum
+- **New Components**: Follow dependency injection pattern
+- **New Services**: Implement clear interfaces and event emissions
+
+This intelligence document grows as we work on the project and discover new patterns and preferences.
