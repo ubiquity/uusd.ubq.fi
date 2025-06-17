@@ -86,6 +86,13 @@ export const DIAMOND_ABI = [
         outputs: [{ type: 'uint256' }]
     },
     {
+        name: 'getDollarPriceUsd',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'uint256' }]
+    },
+    {
         name: 'allCollaterals',
         type: 'function',
         stateMutability: 'view',
