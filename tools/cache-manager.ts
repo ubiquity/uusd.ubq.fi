@@ -5,7 +5,6 @@ import type { FunctionCallResult } from './function-caller.ts';
 
 const CACHE_DIR = join(process.cwd(), '.cache');
 const FUNCTIONS_CACHE = join(CACHE_DIR, 'functions.json');
-const RESULTS_CACHE = join(CACHE_DIR, 'results.json');
 const METADATA_CACHE = join(CACHE_DIR, 'metadata.json');
 
 /**
@@ -14,11 +13,9 @@ const METADATA_CACHE = join(CACHE_DIR, 'metadata.json');
 export interface CacheMetadata {
     contractAddress: string;
     lastDiscovery: string;
-    lastFunctionCall: string;
     blockNumber: bigint;
     chainId: number;
     totalFunctions: number;
-    successfulCalls: number;
 }
 
 /**
@@ -54,50 +51,6 @@ export function loadCachedFunctions(): DiscoveredFunction[] | null {
     }
 }
 
-/**
- * Check if results cache exists
- */
-export function hasResultsCache(): boolean {
-    return existsSync(RESULTS_CACHE);
-}
-
-/**
- * Save function call results to cache
- */
-export function saveResultsCache(results: FunctionCallResult[]): void {
-    ensureCacheDir();
-    // Custom replacer to handle BigInt
-    const replacer = (key: string, value: any) => {
-        if (typeof value === 'bigint') {
-            return value.toString();
-        }
-        return value;
-    };
-    const data = JSON.stringify(results, replacer, 2);
-    writeFileSync(RESULTS_CACHE, data, 'utf-8');
-}
-
-/**
- * Load function call results from cache
- */
-export function loadCachedResults(): FunctionCallResult[] | null {
-    try {
-        if (!hasResultsCache()) return null;
-
-        const data = readFileSync(RESULTS_CACHE, 'utf-8');
-        // Parse with BigInt support
-        return JSON.parse(data, (key, value) => {
-            // Heuristic to detect BigInt strings
-            if (typeof value === 'string' && /^\d+n$/.test(value)) {
-                return BigInt(value.slice(0, -1));
-            }
-            return value;
-        });
-    } catch (error) {
-        console.error('Failed to load cached results:', error);
-        return null;
-    }
-}
 
 /**
  * Save cache metadata

@@ -336,8 +336,26 @@ export class ContractService implements ContractReads, ContractWrites {
         } catch (estimationError: any) {
             console.log('⚠️ Redeem gas estimation failed:', estimationError);
 
-            // Analyze oracle error with enhanced messaging
+            // Analyze error message for specific contract errors
             const errorMessage = estimationError.message || estimationError.toString();
+            
+            // Check for specific contract errors first
+            if (errorMessage.includes('Dollar price too high')) {
+                console.log('❌ Contract rejected redeem: Dollar price too high');
+                throw new Error('Cannot redeem at this time: The current UUSD price is too high relative to collateral prices. This is a safety mechanism to protect the protocol. Please try again later when market conditions have stabilized.');
+            }
+
+            if (errorMessage.includes('Collateral disabled')) {
+                console.log('❌ Contract rejected redeem: Collateral disabled');
+                throw new Error('Redemptions are temporarily disabled for this collateral type. Please try again later or use a different collateral.');
+            }
+
+            if (errorMessage.includes('Insufficient collateral')) {
+                console.log('❌ Contract rejected redeem: Insufficient collateral');
+                throw new Error('Insufficient collateral in the protocol to fulfill this redemption. Please try a smaller amount.');
+            }
+
+            // Analyze oracle error with enhanced messaging
             const oracleAnalysis = analyzeOracleError(errorMessage);
 
             if (oracleAnalysis.isOracleIssue) {

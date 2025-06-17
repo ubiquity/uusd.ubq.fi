@@ -299,6 +299,19 @@ export class TransactionService {
         } catch (error) {
             console.error('❌ General redeem error:', error);
             
+            // Check if this is already an enhanced error from ContractService
+            const errorMessage = (error as Error).message;
+            if (errorMessage.includes('Cannot redeem at this time:') ||
+                errorMessage.includes('Redemptions are temporarily disabled') ||
+                errorMessage.includes('Insufficient collateral in the protocol') ||
+                errorMessage.includes('💡 Oracle Price Feed Issue Detected') ||
+                errorMessage.includes('Oracle keepers will update') ||
+                errorMessage.includes('Alternative actions:')) {
+                console.log('🔄 Error already enhanced by ContractService, passing through');
+                this.events.onTransactionError?.(TransactionOperation.REDEEM, error as Error);
+                throw error;
+            }
+
             // Enhanced error handling with specific messages for redeem errors
             const enhancedError = this.enhanceErrorMessage(error as Error, 'redeem');
             this.events.onTransactionError?.(TransactionOperation.REDEEM, enhancedError);
