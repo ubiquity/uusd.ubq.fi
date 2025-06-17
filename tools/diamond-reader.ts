@@ -51,8 +51,6 @@ import {
 import {
     loadCachedFunctions,
     saveFunctionsCache,
-    loadCachedResults,
-    saveResultsCache,
     loadCacheMetadata,
     saveCacheMetadata,
     shouldRefreshCache,
@@ -185,85 +183,71 @@ async function executeDefaultBehavior(client: any, verbose: boolean): Promise<vo
             displayParameterSpecsSummary();
         }
 
-        // Try to load cached results
-        let results = loadCachedResults();
-        let resultsFromCache = true;
+        // Always execute functions fresh (no results caching)
+        console.log(`\n🎯 Function Execution Plan:`);
+        console.log(`   📋 Zero-parameter functions: ${zeroParamFunctions.length}`);
+        console.log(`   🧠 Smart-parameter functions: ${smartParamFunctions.length}`);
+        console.log(`   ⚙️  Basic-parameter functions: ${basicParamFunctions.length}`);
+        console.log(`   📊 Total executable functions: ${totalCallableFunctions}`);
 
-        if (!results || !fromCache) {
-            console.log(`\n🎯 Function Execution Plan:`);
-            console.log(`   📋 Zero-parameter functions: ${zeroParamFunctions.length}`);
-            console.log(`   🧠 Smart-parameter functions: ${smartParamFunctions.length}`);
-            console.log(`   ⚙️  Basic-parameter functions: ${basicParamFunctions.length}`);
-            console.log(`   📊 Total executable functions: ${totalCallableFunctions}`);
+        // Start with zero-parameter functions using batch RPC
+        showLoading(`Executing ${zeroParamFunctions.length} zero-parameter functions...`);
 
-            // Start with zero-parameter functions using batch RPC
-            showLoading(`Executing ${zeroParamFunctions.length} zero-parameter functions...`);
+        const batchResult = await executeFunctionsBatch(
+            CONTRACT_ADDRESSES.DIAMOND,
+            zeroParamFunctions,
+            50 // Optimal batch size for efficiency
+        );
 
-            const batchResult = await executeFunctionsBatch(
+        let results: FunctionCallResult[] = [...batchResult.results];
+
+        // Build parameter context for smart parameter functions
+        if (smartParamFunctions.length > 0) {
+            showLoading('Building parameter context...');
+            const parameterContext = await buildParameterContext(
+                client,
                 CONTRACT_ADDRESSES.DIAMOND,
-                zeroParamFunctions,
-                50 // Optimal batch size for efficiency
+                functions
             );
 
-            results = [...batchResult.results];
+            showLoading(`Executing ${smartParamFunctions.length} smart-parameter functions...`);
+            const smartResults = await callParameterizedFunctionsBatch(
+                client,
+                CONTRACT_ADDRESSES.DIAMOND,
+                smartParamFunctions,
+                parameterContext,
+                5 // Smaller batch size for parameterized functions
+            );
 
-            // Build parameter context for smart parameter functions
-            if (smartParamFunctions.length > 0) {
-                showLoading('Building parameter context...');
-                const parameterContext = await buildParameterContext(
-                    client,
-                    CONTRACT_ADDRESSES.DIAMOND,
-                    functions
-                );
-
-                showLoading(`Executing ${smartParamFunctions.length} smart-parameter functions...`);
-                const smartResults = await callParameterizedFunctionsBatch(
-                    client,
-                    CONTRACT_ADDRESSES.DIAMOND,
-                    smartParamFunctions,
-                    parameterContext,
-                    5 // Smaller batch size for parameterized functions
-                );
-
-                results.push(...smartResults);
-            }
-
-            // Handle basic parameter functions if any
-            if (basicParamFunctions.length > 0) {
-                showLoading(`Executing ${basicParamFunctions.length} basic-parameter functions...`);
-                const basicResult = await executeFunctionsBatch(
-                    CONTRACT_ADDRESSES.DIAMOND,
-                    basicParamFunctions,
-                    20 // Medium batch size for basic parameter functions
-                );
-
-                results.push(...basicResult.results);
-            }
-
-            resultsFromCache = false;
-
-            // Cache the results
-            saveResultsCache(results);
-
-            const totalExecutionTime = batchResult.executionTimeMs; // Could aggregate if we track all times
-            showSuccess(`Completed ${results.length} function calls in ${totalExecutionTime}ms`);
-
-            const successfulCalls = results.filter(r => r.success).length;
-            console.log(`📊 Success rate: ${successfulCalls}/${results.length} (${((successfulCalls / results.length) * 100).toFixed(1)}%)`);
-        } else {
-            showSuccess(`Loaded ${results.length} function call results from cache`);
+            results.push(...smartResults);
         }
+
+        // Handle basic parameter functions if any
+        if (basicParamFunctions.length > 0) {
+            showLoading(`Executing ${basicParamFunctions.length} basic-parameter functions...`);
+            const basicResult = await executeFunctionsBatch(
+                CONTRACT_ADDRESSES.DIAMOND,
+                basicParamFunctions,
+                20 // Medium batch size for basic parameter functions
+            );
+
+            results.push(...basicResult.results);
+        }
+
+        const totalExecutionTime = batchResult.executionTimeMs; // Could aggregate if we track all times
+        showSuccess(`Completed ${results.length} function calls in ${totalExecutionTime}ms`);
+
+        const successfulCalls = results.filter(r => r.success).length;
+        console.log(`📊 Success rate: ${successfulCalls}/${results.length} (${((successfulCalls / results.length) * 100).toFixed(1)}%)`);
 
         // Update cache metadata
         const connectionInfo = await testConnection(client);
         const metadata: CacheMetadata = {
             contractAddress: CONTRACT_ADDRESSES.DIAMOND,
             lastDiscovery: fromCache ? (loadCacheMetadata()?.lastDiscovery || new Date().toISOString()) : new Date().toISOString(),
-            lastFunctionCall: resultsFromCache ? (loadCacheMetadata()?.lastFunctionCall || new Date().toISOString()) : new Date().toISOString(),
             blockNumber: connectionInfo.blockNumber,
             chainId: connectionInfo.chainId,
-            totalFunctions: functions.length,
-            successfulCalls: results.filter(r => r.success).length
+            totalFunctions: functions.length
         };
         saveCacheMetadata(metadata);
 
@@ -281,7 +265,7 @@ async function executeDefaultBehavior(client: any, verbose: boolean): Promise<vo
         console.log(`✅ Successful calls: ${successCount}`);
         console.log(`❌ Failed calls: ${failureCount}`);
         console.log(`📊 Success rate: ${((successCount / results.length) * 100).toFixed(1)}%`);
-        console.log(`💾 Results cached for instant future access`);
+        console.log(`💾 Functions cached for fast discovery`);
 
         if (failureCount > 0 && verbose) {
             console.log('\n🔍 Failed Function Details:');

@@ -1,7 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DiscoveredFunction } from './function-discovery.ts';
-import type { FunctionCallResult } from './function-caller.ts';
 
 const CACHE_DIR = join(process.cwd(), '.cache');
 const FUNCTIONS_CACHE = join(CACHE_DIR, 'functions.json');
@@ -94,7 +93,6 @@ export function loadCacheMetadata(): CacheMetadata | null {
 export function clearCache(): void {
     try {
         if (existsSync(FUNCTIONS_CACHE)) unlinkSync(FUNCTIONS_CACHE);
-        if (existsSync(RESULTS_CACHE)) unlinkSync(RESULTS_CACHE);
         if (existsSync(METADATA_CACHE)) unlinkSync(METADATA_CACHE);
         console.log('✅ Cache cleared successfully');
     } catch (error) {
@@ -116,11 +114,9 @@ export function displayCacheStatus(): void {
     console.log('📋 Cache Status:');
     console.log(`   Contract Address: ${metadata.contractAddress}`);
     console.log(`   Last Discovery: ${new Date(metadata.lastDiscovery).toLocaleString()}`);
-    console.log(`   Last Function Call: ${new Date(metadata.lastFunctionCall).toLocaleString()}`);
     console.log(`   Block Number: ${metadata.blockNumber}`);
     console.log(`   Chain ID: ${metadata.chainId}`);
     console.log(`   Total Functions: ${metadata.totalFunctions}`);
-    console.log(`   Successful Calls: ${metadata.successfulCalls}`);
 }
 
 /**

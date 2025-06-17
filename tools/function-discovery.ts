@@ -91,7 +91,7 @@ export async function discoverFacets(client: PublicClient, diamondAddress: Addre
  */
 export function parseSolidityFunctions(facetSourcesPath: string): Map<string, DiscoveredFunction> {
     const functionMap = new Map<string, DiscoveredFunction>();
-    const abiPath = join(process.cwd(), 'contracts/packages/contracts/out');
+    const abiPath = join(process.cwd(), '..', 'contracts/packages/contracts/out');
 
     try {
         const contractFiles = readdirSync(abiPath);

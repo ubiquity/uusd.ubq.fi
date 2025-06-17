@@ -125,6 +125,18 @@ export class ContractService implements ContractReads, ContractWrites {
     }
 
     /**
+     * Get current UUSD market price from the contract
+     */
+    async getDollarPriceUsd(): Promise<bigint> {
+        const publicClient = this.walletService.getPublicClient();
+        return await publicClient.readContract({
+            address: ADDRESSES.DIAMOND,
+            abi: DIAMOND_ABI,
+            functionName: 'getDollarPriceUsd'
+        }) as bigint;
+    }
+
+    /**
      * Get collateral amount needed for a given dollar amount
      */
     async getDollarInCollateral(collateralIndex: number, dollarAmount: bigint): Promise<bigint> {

@@ -76,10 +76,36 @@ class UUSDApp {
         // Initialize components immediately for fast UX
         this.tabManager.initialize((tab) => this.handleTabChange(tab));
 
-        // Load collateral options in background (not blocking UI)
-        this.priceService.initialize().catch(error => {
-            console.warn('Failed to load dynamic collateral options:', error);
+        // Load UUSD price and collateral options in background (not blocking UI)
+        Promise.all([
+            this.loadUUSDPrice(),
+            this.priceService.initialize()
+        ]).catch(error => {
+            console.warn('Failed to load price data or collateral options:', error);
         });
+    }
+
+    /**
+     * Load and display current UUSD price
+     */
+    private async loadUUSDPrice(): Promise<void> {
+        try {
+            const uusdPrice = await this.priceService.getCurrentUUSDPrice();
+            this.updateUUSDPriceDisplay(uusdPrice);
+        } catch (error: any) {
+            console.warn('Failed to load UUSD price:', error);
+            this.updateUUSDPriceDisplay('Unavailable');
+        }
+    }
+
+    /**
+     * Update UUSD price display in the UI
+     */
+    private updateUUSDPriceDisplay(price: string): void {
+        const priceElement = document.getElementById('uusdPrice');
+        if (priceElement) {
+            priceElement.textContent = price;
+        }
     }
 
     private setupServiceEventHandlers() {

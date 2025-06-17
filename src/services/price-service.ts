@@ -233,6 +233,16 @@ export class PriceService {
     }
 
     /**
+     * Get current UUSD market price from blockchain
+     */
+    async getCurrentUUSDPrice(): Promise<string> {
+        const rawPrice = await this.contractService.getDollarPriceUsd();
+        // Convert raw price (6 decimal precision) to USD format
+        const priceInUsd = Number(rawPrice) / 1000000;
+        return `$${priceInUsd.toFixed(6)}`;
+    }
+
+    /**
      * Refresh collateral options from blockchain
      */
     async refreshCollateralOptions(): Promise<void> {
