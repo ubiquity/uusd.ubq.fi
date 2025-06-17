@@ -1,27 +1,5 @@
 # UUSD Project Rules & Intelligence
 
-## Critical Git Commands
-
-### ⚠️ NEVER use `git --no-pager diff` without exclusions
-**Problem**: The compiled files `app.js` and `app.js.map` in the project root are massive and will exceed context window limits, causing tool failures.
-
-**Solutions**:
-```bash
-# ✅ SAFE: Exclude problematic compiled files
-git --no-pager diff -- . ':!app.js' ':!app.js.map'
-
-# ✅ SAFE: Check only source files
-git --no-pager diff src/
-
-# ✅ SAFE: Check specific file patterns
-git --no-pager diff --name-only
-
-# ❌ NEVER: This will crash due to massive compiled files
-git --no-pager diff
-```
-
-**Background**: The `app.js` and `app.js.map` files are esbuild compilation outputs that contain the entire bundled application and can be hundreds of thousands of lines long.
-
 ## Port In Use
 
 Assume that we already have the local server running on the default port (3000). If you encounter an error like "Port 3000 is already in use", it means the server is already running. You can access the application at `http://localhost:3000` in your browser.
@@ -53,7 +31,7 @@ Assume that we already have the local server running on the default port (3000).
 - **Runtime**: Always use `bun` for TypeScript execution, never compile first
 - **Package Management**: Use `bun install` for dependencies
 - **Environment**: Bun auto-loads .env files, no dotenv needed
-- **Build**: esbuild handles compilation, outputs to app.js
+- **Build**: esbuild handles compilation, outputs to build/ directory
 
 ## Known Working Patterns
 

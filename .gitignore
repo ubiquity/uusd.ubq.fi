@@ -120,6 +120,13 @@ out
 .nuxt
 dist
 
+# Build artifacts (esbuild output)
+# These files are generated during the build process and should not be tracked
+# They were previously tracked but have been removed from git history due to large size
+
+app.js
+app.js.map
+
 # Gatsby files
 
 # Comment in the public line in if your project uses Gatsby and not Next.js

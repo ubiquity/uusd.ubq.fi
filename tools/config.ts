@@ -9,7 +9,7 @@ import { mainnet } from 'viem/chains';
  * Network and RPC configuration
  */
 export const RPC_CONFIG = {
-    endpoint: 'https://rpc.ankr.com/eth',
+    endpoint: 'https://rpc.ubq.fi/1',
     chain: mainnet
 } as const;
 
@@ -146,11 +146,10 @@ export const DIAMOND_READ_ABI = [
  */
 export const CLI_COMMANDS = {
     HELP: 'help',
-    ALL: '--all',
-    COLLATERAL_INFO: '--collateral-info',
-    RATIOS: '--ratios',
-    PRICES: '--prices',
-    SYSTEM_STATUS: '--system-status'
+    DEFAULT: 'default',        // Auto-discover and call functions (new default)
+    DISCOVER_ONLY: '--discover-only',  // Just discover, don't call
+    CLEAR_CACHE: '--clear-cache',      // Clear cache and exit
+    CACHE_INFO: '--cache-info'         // Show cache status
 } as const;
 
 /**

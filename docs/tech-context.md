@@ -52,10 +52,10 @@
 - **Configuration**:
   ```bash
   # Development build with watch
-  bun run esbuild app.ts --bundle --outfile=app.js --format=esm --platform=browser --watch
+  bun run esbuild src/app.ts --bundle --outdir=build --format=esm --platform=browser --watch
 
   # Production build with minification
-  bun run esbuild app.ts --bundle --outfile=app.js --minify --format=esm --platform=browser
+  bun run esbuild src/app.ts --bundle --outdir=build --minify --format=esm --platform=browser
   ```
 - **Key Features**:
   - Sub-second rebuild times
@@ -145,14 +145,14 @@
 #### Development Build
 ```bash
 bun run build:watch
-# Outputs: app.js with source maps
+# Outputs: build/ directory with source maps
 # Features: Fast rebuilds, unminified for debugging
 ```
 
 #### Production Build
 ```bash
 bun run build
-# Outputs: app.js minified and optimized
+# Outputs: build/ directory with minified and optimized files
 # Features: Tree-shaking, minification, optimized for size
 ```
 
@@ -243,7 +243,7 @@ bun run build
 ### Build Requirements
 - **Node.js**: Not required (Bun handles all JavaScript execution)
 - **Dependencies**: Must be installable via Bun package manager
-- **Output**: Single `app.js` file with `index.html`
+- **Output**: Build directory with bundled files and `index.html`
 
 ### Production Environment
 - **Static Hosting**: Application deployable to any static file host

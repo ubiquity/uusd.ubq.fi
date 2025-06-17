@@ -1,52 +1,86 @@
 #!/usr/bin/env bun
 
 /**
- * Diamond Contract Reader CLI
+ * Enhanced Dynamic Diamond Contract Reader CLI
  *
- * A minimal CLI tool to read all settings from the deployed diamond contract
- * at 0xED3084c98148e2528DaDCB53C56352e549C488fA using rpc.ubq.fi/1 endpoint.
+ * Auto-discovers and calls all available view/pure functions from the diamond contract.
+ * Features permanent caching and efficient batch JSON-RPC calls for maximum speed.
+ *
+ * Much faster than manually checking each facet on Etherscan!
  */
 
 import { CLI_COMMANDS } from './config.ts';
-import { parseArgs, isValidCommand, showHelp, showInvalidCommand, showConnectionInfo, showLoading, showSectionHeader } from './cli-utils.ts';
+import {
+    parseArgs,
+    isValidCommand,
+    showHelp,
+    showConnectionInfo,
+    showLoading,
+    showSectionHeader,
+    showSuccess,
+    showError
+} from './cli-utils.ts';
 import {
     createContractReader,
     testConnection,
-    handleContractError,
-    readAllSettings,
-    readCollateralInfo,
-    readRatios,
-    readPrices,
-    readSystemStatus,
-    formatPrice,
-    formatRatio,
-    formatStatus,
-    formatAddress,
-    formatAmount
+    handleContractError
 } from './contract-reader.ts';
+import {
+    discoverAllFunctions,
+    groupFunctionsByFacet,
+    type DiscoveredFunction
+} from './function-discovery.ts';
+import {
+    filterCallableFunctions,
+    formatResultsByFacet,
+    type FunctionCallResult
+} from './function-caller.ts';
+import {
+    executeFunctionsBatch,
+    testBatchExecution,
+    type BatchExecutionResult
+} from './batch-caller.ts';
+import {
+    loadCachedFunctions,
+    saveFunctionsCache,
+    loadCachedResults,
+    saveResultsCache,
+    loadCacheMetadata,
+    saveCacheMetadata,
+    shouldRefreshCache,
+    clearCache,
+    displayCacheStatus,
+    type CacheMetadata
+} from './cache-manager.ts';
+import { CONTRACT_ADDRESSES } from './config.ts';
+import { join } from 'node:path';
+
+// Path to facet source files for function signature discovery
+const FACET_SOURCES_PATH = join(process.cwd(), 'contracts/packages/contracts/src/dollar/facets');
 
 /**
  * Execute the specified command
  */
 async function executeCommand(command: string, client: any, verbose: boolean): Promise<void> {
     switch (command) {
-        case CLI_COMMANDS.ALL:
-            await displayAllSettings(client, verbose);
+        case CLI_COMMANDS.DEFAULT:
+            await executeDefaultBehavior(client, verbose);
             break;
-        case CLI_COMMANDS.COLLATERAL_INFO:
-            await displayCollateralInfo(client, verbose);
+        case CLI_COMMANDS.DISCOVER_ONLY:
+            await displayDiscoveredFunctions(client, verbose);
             break;
-        case CLI_COMMANDS.RATIOS:
-            await displayRatios(client, verbose);
+        case CLI_COMMANDS.CLEAR_CACHE:
+            clearCache();
             break;
-        case CLI_COMMANDS.PRICES:
-            await displayPrices(client, verbose);
+        case CLI_COMMANDS.CACHE_INFO:
+            displayCacheStatus();
             break;
-        case CLI_COMMANDS.SYSTEM_STATUS:
-            await displaySystemStatus(client, verbose);
+        case CLI_COMMANDS.HELP:
+            showHelp();
             break;
         default:
-            console.log('Unknown command - this should not happen');
+            showError(`Unknown command: ${command}`);
+            showHelp();
     }
 }
 
@@ -57,191 +91,210 @@ async function main(): Promise<void> {
     try {
         const args = parseArgs();
 
-        // Show help if requested or no valid command provided
-        if (args.help || args.command === CLI_COMMANDS.HELP) {
+        // Handle non-network commands first
+        if (args.command === CLI_COMMANDS.HELP) {
             showHelp();
             return;
         }
 
-        // Validate command
-        if (!isValidCommand(args.command)) {
-            showInvalidCommand(args.command);
-            process.exit(1);
+        if (args.command === CLI_COMMANDS.CLEAR_CACHE) {
+            clearCache();
+            return;
         }
 
-        // Connect to the network
-        showLoading('Connecting to Ethereum mainnet...');
+        if (args.command === CLI_COMMANDS.CACHE_INFO) {
+            displayCacheStatus();
+            return;
+        }
+
+        // Network-dependent commands require connection
+        showLoading('Connecting to RPC...');
         const client = createContractReader();
 
-        // Test connection
-        const { blockNumber, chainId } = await testConnection(client);
-        showConnectionInfo(blockNumber, chainId);
+        // Test connection and get proper network info
+        const connectionInfo = await testConnection(client);
+        showConnectionInfo(connectionInfo.blockNumber, connectionInfo.chainId);
 
-        // Execute the requested command
         await executeCommand(args.command, client, args.verbose);
-
-    } catch (error) {
-        handleContractError(error, 'during execution');
+    } catch (err) {
+        handleContractError(err, 'executing CLI command');
     }
 }
 
 /**
- * Command implementations with comprehensive contract reading
+ * Default behavior: Discover functions and call them (with caching)
  */
-async function displayAllSettings(client: any, verbose: boolean): Promise<void> {
-    console.log('📊 Reading all diamond contract settings...');
-    console.log();
+async function executeDefaultBehavior(client: any, verbose: boolean): Promise<void> {
+    try {
+        // Check if we need to refresh cache for different contract
+        if (shouldRefreshCache(CONTRACT_ADDRESSES.DIAMOND)) {
+            showLoading('Cache is for different contract, refreshing...');
+        }
 
-    const data = await readAllSettings(client);
+        // Try to load cached functions first
+        let functions = loadCachedFunctions();
+        let fromCache = true;
 
-    // System Information
-    showSectionHeader('System Information');
-    console.log(`Dollar Token:      ${formatAddress(data.system.dollarToken)}`);
-    console.log(`Governance Token:  ${formatAddress(data.system.governanceToken)}`);
-    console.log(`Target Price:      ${formatPrice(data.system.targetPrice)}`);
-    console.log(`Total Supply:      ${formatAmount(data.system.totalSupply)} UUSD`);
-    console.log();
+        if (!functions) {
+            showLoading('Discovering diamond functions...');
+            functions = await discoverAllFunctions(
+                client,
+                CONTRACT_ADDRESSES.DIAMOND,
+                FACET_SOURCES_PATH
+            );
 
-    // Ratios
-    showSectionHeader('Current Ratios');
-    console.log(`Collateral Ratio:  ${formatRatio(data.ratios.collateralRatio)}`);
-    console.log();
+            // Cache the discovered functions
+            saveFunctionsCache(functions);
+            fromCache = false;
 
-    // Prices
-    showSectionHeader('Current Prices');
-    console.log(`Governance Price:  ${formatPrice(data.prices.governancePrice)}`);
-    console.log(`Target Price:      ${formatPrice(data.prices.targetPrice)}`);
-    console.log();
+            showSuccess(`Discovered ${functions.length} functions from diamond contract`);
+        } else {
+            showSuccess(`Loaded ${functions.length} functions from cache`);
+        }
 
-    // Collateral Information
-    showSectionHeader('Collateral Information');
-    for (const collateral of data.collaterals) {
-        console.log(`${collateral[1]} (${formatAddress(collateral.address)}):`);
-        console.log(`  Index:           ${collateral[0]}`);
-        console.log(`  Enabled:         ${formatStatus(collateral[5])}`);
-        console.log(`  Current Price:   ${formatPrice(collateral[7])}`);
-        console.log(`  Pool Ceiling:    ${formatAmount(collateral[8])} UUSD`);
-        console.log(`  Mint Paused:     ${collateral[9] ? '❌ Yes' : '✅ No'}`);
-        console.log(`  Redeem Paused:   ${collateral[10] ? '❌ Yes' : '✅ No'}`);
-        console.log(`  Minting Fee:     ${formatRatio(collateral[12])}`);
-        console.log(`  Redemption Fee:  ${formatRatio(collateral[13])}`);
+        // Filter to safe callable functions
+        const callableFunctions = filterCallableFunctions(functions);
+
+        if (callableFunctions.length === 0) {
+            showError('No safe functions found to call automatically');
+            return;
+        }
+
+        // Try to load cached results
+        let results = loadCachedResults();
+        let resultsFromCache = true;
+
+        if (!results || !fromCache) {
+            showLoading(`Calling ${callableFunctions.length} safe view/pure functions using batch RPC...`);
+
+            // Execute batch calls efficiently
+            const batchResult = await executeFunctionsBatch(
+                CONTRACT_ADDRESSES.DIAMOND,
+                callableFunctions,
+                50 // Optimal batch size for efficiency
+            );
+
+            results = batchResult.results;
+            resultsFromCache = false;
+
+            // Cache the results
+            saveResultsCache(results);
+
+            showSuccess(`Completed ${results.length} function calls in ${batchResult.executionTimeMs}ms`);
+            console.log(`📊 Success rate: ${batchResult.successfulRequests}/${batchResult.totalRequests} (${((batchResult.successfulRequests / batchResult.totalRequests) * 100).toFixed(1)}%)`);
+        } else {
+            showSuccess(`Loaded ${results.length} function call results from cache`);
+        }
+
+        // Update cache metadata
+        const connectionInfo = await testConnection(client);
+        const metadata: CacheMetadata = {
+            contractAddress: CONTRACT_ADDRESSES.DIAMOND,
+            lastDiscovery: fromCache ? (loadCacheMetadata()?.lastDiscovery || new Date().toISOString()) : new Date().toISOString(),
+            lastFunctionCall: resultsFromCache ? (loadCacheMetadata()?.lastFunctionCall || new Date().toISOString()) : new Date().toISOString(),
+            blockNumber: connectionInfo.blockNumber,
+            chainId: connectionInfo.chainId,
+            totalFunctions: functions.length,
+            successfulCalls: results.filter(r => r.success).length
+        };
+        saveCacheMetadata(metadata);
+
         console.log();
+
+        // Display results organized by facet
+        const formattedResults = formatResultsByFacet(results, functions);
+        console.log(formattedResults);
+
+        // Summary statistics
+        const successCount = results.filter(r => r.success).length;
+        const failureCount = results.filter(r => !r.success).length;
+
+        showSectionHeader('Execution Summary');
+        console.log(`✅ Successful calls: ${successCount}`);
+        console.log(`❌ Failed calls: ${failureCount}`);
+        console.log(`📊 Success rate: ${((successCount / results.length) * 100).toFixed(1)}%`);
+        console.log(`💾 Results cached for instant future access`);
+
+        if (failureCount > 0 && verbose) {
+            console.log('\n🔍 Failed Function Details:');
+            for (const result of results.filter(r => !r.success)) {
+                console.log(`   ${result.functionName}: ${result.error}`);
+            }
+        }
+
+    } catch (error) {
+        showError(`Failed to execute default behavior: ${error}`);
     }
 }
 
-async function displayCollateralInfo(client: any, verbose: boolean): Promise<void> {
-    console.log('💰 Reading collateral information...');
-    console.log();
+/**
+ * Display discovered functions without calling them
+ */
+async function displayDiscoveredFunctions(client: any, verbose: boolean): Promise<void> {
+    try {
+        // Try to load from cache first
+        let functions = loadCachedFunctions();
 
-    const collaterals = await readCollateralInfo(client);
+        if (!functions) {
+            showLoading('Discovering diamond functions...');
+            functions = await discoverAllFunctions(
+                client,
+                CONTRACT_ADDRESSES.DIAMOND,
+                FACET_SOURCES_PATH
+            );
 
-    showSectionHeader('Detailed Collateral Information');
+            // Cache the discovered functions
+            saveFunctionsCache(functions);
+            showSuccess(`Discovered ${functions.length} functions from diamond contract`);
+        } else {
+            showSuccess(`Loaded ${functions.length} functions from cache`);
+        }
 
-    for (const collateral of collaterals) {
-        console.log(`${collateral[1]} - ${collateral[2]}`);
-        console.log(`  Index:                 ${collateral[0]}`);
-        console.log(`  Address:               ${formatAddress(collateral.address)}`);
-        console.log(`  Price Feed:            ${formatAddress(collateral[3])}`);
-        console.log(`  Staleness Threshold:   ${collateral[4]} seconds`);
-        console.log(`  Status:                ${formatStatus(collateral[5])}`);
-        console.log(`  Missing Decimals:      ${collateral[6]}`);
-        console.log(`  Current Price:         ${formatPrice(collateral[7])}`);
-        console.log(`  Pool Ceiling:          ${formatAmount(collateral[8])} UUSD`);
-        console.log(`  Mint Status:           ${collateral[9] ? '❌ Paused' : '✅ Active'}`);
-        console.log(`  Redeem Status:         ${collateral[10] ? '❌ Paused' : '✅ Active'}`);
-        console.log(`  Borrow Status:         ${collateral[11] ? '❌ Paused' : '✅ Active'}`);
-        console.log(`  Minting Fee:           ${formatRatio(collateral[12])}`);
-        console.log(`  Redemption Fee:        ${formatRatio(collateral[13])}`);
         console.log();
-    }
-}
 
-async function displayRatios(client: any, verbose: boolean): Promise<void> {
-    console.log('📈 Reading system ratios...');
-    console.log();
+        // Group functions by facet for organized display
+        const groupedFunctions = groupFunctionsByFacet(functions);
 
-    const ratios = await readRatios(client);
+        for (const [facetName, facetFunctions] of groupedFunctions) {
+            showSectionHeader(`${facetName}`);
 
-    showSectionHeader('System Ratios');
-    console.log(`Collateral Ratio:      ${formatRatio(ratios.collateralRatio)}`);
-    console.log(`Target Price:          ${formatPrice(ratios.targetPrice)}`);
+            const viewFunctions = facetFunctions.filter(f => f.isCallable);
+            const otherFunctions = facetFunctions.filter(f => !f.isCallable);
 
-    // Calculate derived ratios
-    const collateralPercent = Number(ratios.collateralRatio) / 10000; // Convert from basis points
-    const governancePercent = 100 - collateralPercent;
+            if (viewFunctions.length > 0) {
+                console.log('📖 View/Pure Functions (callable):');
+                for (const func of viewFunctions) {
+                    const paramInfo = func.hasParameters ? ` (${func.inputs.length} params)` : ' (no params)';
+                    console.log(`   ✅ ${func.signature}${paramInfo}`);
+                }
+                console.log();
+            }
 
-    console.log();
-    console.log('Ratio Breakdown:');
-    console.log(`  Collateral Coverage:   ${collateralPercent.toFixed(2)}%`);
-    console.log(`  Governance Coverage:   ${governancePercent.toFixed(2)}%`);
+            if (otherFunctions.length > 0 && verbose) {
+                console.log('🔒 Write Functions (not callable):');
+                for (const func of otherFunctions) {
+                    const paramInfo = func.hasParameters ? ` (${func.inputs.length} params)` : ' (no params)';
+                    console.log(`   ⚠️  ${func.signature}${paramInfo}`);
+                }
+                console.log();
+            }
+        }
 
-    if (collateralPercent === 100) {
-        console.log('  Mode:                  🔒 Full Collateral Mode');
-    } else if (collateralPercent === 0) {
-        console.log('  Mode:                  🏛️ Pure Governance Mode');
-    } else {
-        console.log('  Mode:                  ⚖️ Mixed Collateral Mode');
-    }
-    console.log();
-}
+        // Summary
+        const callableFunctions = functions.filter(f => f.isCallable);
+        const safeToCall = filterCallableFunctions(functions);
 
-async function displayPrices(client: any, verbose: boolean): Promise<void> {
-    console.log('💲 Reading current prices...');
-    console.log();
-
-    const prices = await readPrices(client);
-
-    showSectionHeader('System Prices');
-    console.log(`Governance Token:      ${formatPrice(prices.governancePrice)}`);
-    console.log(`Target Price:          ${formatPrice(prices.targetPrice)}`);
-    console.log();
-
-    showSectionHeader('Collateral Prices');
-    for (const collateral of prices.collateralPrices) {
-        console.log(`${collateral.symbol}:`.padEnd(20) + `${formatPrice(collateral.price)}`);
-    }
-    console.log();
-}
-
-async function displaySystemStatus(client: any, verbose: boolean): Promise<void> {
-    console.log('🔍 Reading system status...');
-    console.log();
-
-    const status = await readSystemStatus(client);
-
-    showSectionHeader('System Status Overview');
-
-    let totalEnabled = 0;
-    let totalMintPaused = 0;
-    let totalRedeemPaused = 0;
-
-    for (const collateral of status.collateralStatuses) {
-        if (collateral.isEnabled) totalEnabled++;
-        if (collateral.isMintPaused) totalMintPaused++;
-        if (collateral.isRedeemPaused) totalRedeemPaused++;
-    }
-
-    console.log(`Total Collaterals:     ${status.collateralStatuses.length}`);
-    console.log(`Enabled Collaterals:   ${totalEnabled}`);
-    console.log(`Mint Paused:           ${totalMintPaused}`);
-    console.log(`Redeem Paused:         ${totalRedeemPaused}`);
-    console.log();
-
-    showSectionHeader('Individual Collateral Status');
-    for (const collateral of status.collateralStatuses) {
-        console.log(`${collateral.symbol} (${formatAddress(collateral.address)}):`);
-        console.log(`  Enabled:         ${formatStatus(collateral.isEnabled)}`);
-        console.log(`  Mint Status:     ${collateral.isMintPaused ? '❌ Paused' : '✅ Active'}`);
-        console.log(`  Redeem Status:   ${collateral.isRedeemPaused ? '❌ Paused' : '✅ Active'}`);
-        console.log(`  Borrow Status:   ${collateral.isBorrowPaused ? '❌ Paused' : '✅ Active'}`);
-        console.log(`  Pool Ceiling:    ${formatAmount(collateral.poolCeiling)} UUSD`);
+        console.log('📊 Discovery Summary:');
+        console.log(`   Total functions: ${functions.length}`);
+        console.log(`   View/Pure functions: ${callableFunctions.length}`);
+        console.log(`   Safe to auto-call: ${safeToCall.length}`);
         console.log();
+        console.log('💡 Run without arguments to automatically call all safe functions');
+
+    } catch (error) {
+        showError(`Failed to discover functions: ${error}`);
     }
 }
 
-// Execute main function
-if (import.meta.main) {
-    main().catch((error) => {
-        handleContractError(error, 'during startup');
-    });
-}
+// Run the CLI
+main();

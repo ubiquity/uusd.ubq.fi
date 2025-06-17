@@ -19,9 +19,52 @@ export interface CliArgs {
 export function parseArgs(): CliArgs {
     const args = process.argv.slice(2);
 
+    // If no arguments provided, use default behavior
+    if (args.length === 0) {
+        return {
+            command: CLI_COMMANDS.DEFAULT,
+            help: false,
+            verbose: false
+        };
+    }
+
+    // Check for specific flags
+    if (args.includes('--help') || args.includes('-h')) {
+        return {
+            command: CLI_COMMANDS.HELP,
+            help: true,
+            verbose: false
+        };
+    }
+
+    if (args.includes(CLI_COMMANDS.DISCOVER_ONLY)) {
+        return {
+            command: CLI_COMMANDS.DISCOVER_ONLY,
+            help: false,
+            verbose: args.includes('--verbose') || args.includes('-v')
+        };
+    }
+
+    if (args.includes(CLI_COMMANDS.CLEAR_CACHE)) {
+        return {
+            command: CLI_COMMANDS.CLEAR_CACHE,
+            help: false,
+            verbose: false
+        };
+    }
+
+    if (args.includes(CLI_COMMANDS.CACHE_INFO)) {
+        return {
+            command: CLI_COMMANDS.CACHE_INFO,
+            help: false,
+            verbose: false
+        };
+    }
+
+    // Default behavior - discover and call functions
     return {
-        command: args[0] || CLI_COMMANDS.HELP,
-        help: args.includes('--help') || args.includes('-h'),
+        command: CLI_COMMANDS.DEFAULT,
+        help: false,
         verbose: args.includes('--verbose') || args.includes('-v')
     };
 }
@@ -30,7 +73,7 @@ export function parseArgs(): CliArgs {
  * Validate if command is supported
  */
 export function isValidCommand(command: string): boolean {
-    const validCommands = Object.values(CLI_COMMANDS);
+    const validCommands = Object.values(CLI_COMMANDS) as string[];
     return validCommands.includes(command);
 }
 
@@ -42,38 +85,40 @@ export function showHelp(): void {
 ${DISPLAY_CONFIG.SYMBOLS.DATA} Diamond Contract Reader CLI
 
 USAGE:
-    bun run tools/diamond-reader.ts [COMMAND] [OPTIONS]
+    bun run tools/diamond-reader.ts [OPTIONS]
 
 COMMANDS:
-    help                    Show this help message
-    ${CLI_COMMANDS.ALL}                   Read all diamond contract settings
-    ${CLI_COMMANDS.COLLATERAL_INFO}       Read collateral information
-    ${CLI_COMMANDS.RATIOS}               Read collateral and governance ratios
-    ${CLI_COMMANDS.PRICES}               Read current prices
-    ${CLI_COMMANDS.SYSTEM_STATUS}        Read system status information
+    (no arguments)          Auto-discover and call all diamond functions (default)
+    ${CLI_COMMANDS.DISCOVER_ONLY}        Discover and list all view/pure functions without calling them
+    ${CLI_COMMANDS.CLEAR_CACHE}         Clear all cached data and exit
+    ${CLI_COMMANDS.CACHE_INFO}          Show cache status information
 
 OPTIONS:
     --help, -h             Show help information
-    --verbose, -v          Show detailed output
+    --verbose, -v          Show detailed output including failed function calls
 
 EXAMPLES:
+    bun run tools/diamond-reader.ts
     bun run tools/diamond-reader.ts --help
-    bun run tools/diamond-reader.ts ${CLI_COMMANDS.ALL}
-    bun run tools/diamond-reader.ts ${CLI_COMMANDS.COLLATERAL_INFO} --verbose
+    bun run tools/diamond-reader.ts ${CLI_COMMANDS.DISCOVER_ONLY}
+    bun run tools/diamond-reader.ts ${CLI_COMMANDS.DISCOVER_ONLY} --verbose
+    bun run tools/diamond-reader.ts ${CLI_COMMANDS.CLEAR_CACHE}
+    bun run tools/diamond-reader.ts ${CLI_COMMANDS.CACHE_INFO}
 
 CONTRACT INFORMATION:
     ${DISPLAY_CONFIG.SYMBOLS.INFO} Diamond Address: ${CONTRACT_ADDRESSES.DIAMOND}
     ${DISPLAY_CONFIG.SYMBOLS.INFO} Network: Ethereum mainnet (${RPC_CONFIG.endpoint})
-    ${DISPLAY_CONFIG.SYMBOLS.INFO} Chain ID: ${RPC_CONFIG.chain.id}
 
 DESCRIPTION:
-    This CLI tool reads settings and information from the deployed Ubiquity USD
-    diamond contract on the Ethereum mainnet. It provides read-only access to:
+    This CLI tool dynamically discovers and interacts with all available functions
+    from the deployed Ubiquity USD diamond contract on Ethereum mainnet.
 
-    • Collateral information and configuration
-    • System ratios and prices
-    • Contract status and parameters
-    • Real-time blockchain data
+    • Automatically discovers all facets and their functions (cached permanently)
+    • Calls all safe view/pure functions with intelligent parameter generation
+    • Uses efficient batch JSON-RPC calls to your RPC endpoint
+    • Provides comprehensive contract state analysis
+    • Organizes results by facet for easy understanding
+    • Much faster than manually checking each facet on Etherscan
 `);
 }
 
