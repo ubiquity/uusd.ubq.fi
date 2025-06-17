@@ -68,6 +68,10 @@ export class PriceService {
      * Get collateral option by index
      */
     getCollateralByIndex(index: number): CollateralOption | undefined {
+        // Use hardcoded LUSD for index 0 to avoid race condition
+        if (index === 0) {
+            return LUSD_COLLATERAL;
+        }
         return this.collateralOptions.find(c => c.index === index);
     }
 

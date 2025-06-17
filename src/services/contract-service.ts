@@ -169,12 +169,15 @@ export class ContractService implements ContractReads, ContractWrites {
         this.walletService.validateConnection();
         const walletClient = this.walletService.getWalletClient();
         const publicClient = this.walletService.getPublicClient();
+        const account = this.walletService.getAccount()!;
 
         const hash = await walletClient.writeContract({
             address: tokenAddress,
             abi: ERC20_ABI,
             functionName: 'approve',
-            args: [spender, amount]
+            args: [spender, amount],
+            account,
+            chain: walletClient.chain
         });
 
         await publicClient.waitForTransactionReceipt({ hash });
@@ -195,6 +198,7 @@ export class ContractService implements ContractReads, ContractWrites {
         this.walletService.validateConnection();
         const walletClient = this.walletService.getWalletClient();
         const publicClient = this.walletService.getPublicClient();
+        const account = this.walletService.getAccount()!;
 
         const hash = await walletClient.writeContract({
             address: ADDRESSES.DIAMOND,
@@ -207,7 +211,9 @@ export class ContractService implements ContractReads, ContractWrites {
                 maxCollateralIn,
                 maxGovernanceIn,
                 isOneToOne
-            ]
+            ],
+            account,
+            chain: walletClient.chain
         });
 
         await publicClient.waitForTransactionReceipt({ hash });
@@ -226,6 +232,7 @@ export class ContractService implements ContractReads, ContractWrites {
         this.walletService.validateConnection();
         const walletClient = this.walletService.getWalletClient();
         const publicClient = this.walletService.getPublicClient();
+        const account = this.walletService.getAccount()!;
 
         const hash = await walletClient.writeContract({
             address: ADDRESSES.DIAMOND,
@@ -236,7 +243,9 @@ export class ContractService implements ContractReads, ContractWrites {
                 dollarAmount,
                 governanceOutMin,
                 collateralOutMin
-            ]
+            ],
+            account,
+            chain: walletClient.chain
         });
 
         await publicClient.waitForTransactionReceipt({ hash });
@@ -250,12 +259,15 @@ export class ContractService implements ContractReads, ContractWrites {
         this.walletService.validateConnection();
         const walletClient = this.walletService.getWalletClient();
         const publicClient = this.walletService.getPublicClient();
+        const account = this.walletService.getAccount()!;
 
         const hash = await walletClient.writeContract({
             address: ADDRESSES.DIAMOND,
             abi: DIAMOND_ABI,
             functionName: 'collectRedemption',
-            args: [BigInt(collateralIndex)]
+            args: [BigInt(collateralIndex)],
+            account,
+            chain: walletClient.chain
         });
 
         await publicClient.waitForTransactionReceipt({ hash });
