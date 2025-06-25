@@ -15,21 +15,6 @@ jobs:
       - name: Install deployctl
         run: deno install -A --no-check -r https://deno.land/x/deploy@1.12.0/deployctl.ts
 
-      - name: Verify Deno Deploy token
-        run: |
-          cd .github/workflows/deployment
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            ./verify-token.sh production \
-              "${{ secrets.DENO_DEPLOY_TOKEN }}" \
-              "uusd-ubq-fi" \
-              "uusd-ubq-fi-preview"
-          else
-            ./verify-token.sh preview \
-              "${{ secrets.DENO_DEPLOY_TOKEN }}" \
-              "uusd-ubq-fi" \
-              "uusd-ubq-fi-preview"
-          fi
-
       - name: Deploy to Deno
         run: |
           cd .github/workflows/deployment
