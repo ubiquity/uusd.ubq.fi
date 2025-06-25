@@ -196,10 +196,20 @@ class UUSDApp {
 
     // Public methods called from HTML
     async connectWallet() {
+        const connectButton = document.getElementById('connectWallet') as HTMLButtonElement;
+        const originalText = connectButton.textContent;
+
         try {
+            // Set loading state
+            connectButton.textContent = 'Connecting...';
+            connectButton.disabled = true;
+
             await this.walletService.connect();
             // UI updates are handled by event handlers
         } catch (error: any) {
+            // Reset button state on error
+            connectButton.textContent = originalText;
+            connectButton.disabled = false;
             this.notificationManager.showError('mint', error.message);
         }
     }
