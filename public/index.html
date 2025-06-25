@@ -9,6 +9,15 @@
 <body>
     <div class="container">
 
+        <div class="price-section">
+            <p class="uusd-price">UUSD Price: <span id="uusdPrice">Loading...</span></p>
+        </div>
+
+        <div class="tabs" style="display: none;">
+            <button class="tab active" onclick="window.app.switchTab('mint')">Mint UUSD</button>
+            <button class="tab" onclick="window.app.switchTab('redeem')">Redeem UUSD</button>
+        </div>
+
         <div class="wallet-section">
             <button id="connectWallet" onclick="window.app.connectWallet()">Connect Wallet</button>
             <div id="walletInfo" style="display: none;">
@@ -17,23 +26,10 @@
             </div>
         </div>
 
-        <div class="price-section">
-            <p class="uusd-price">Current UUSD Price: <span id="uusdPrice">Loading...</span></p>
-        </div>
-
-
-
-        <div class="tabs">
-            <button class="tab active" onclick="window.app.switchTab('mint')">Mint UUSD</button>
-            <button class="tab" onclick="window.app.switchTab('redeem')">Redeem UUSD</button>
-        </div>
-
-
-
-        <div id="mintTab" class="tab-content active">
+        <div id="mintTab" class="tab-content active" style="display: none;">
             <form id="mintForm" onsubmit="window.app.handleMint(event)">
                 <div class="form-group">
-                    <label for="mintAmount">UUSD Amount to Mint</label>
+                    <label for="mintAmount">Amount</label>
                     <input type="number" id="mintAmount" step="0.01" placeholder="0.00" required>
                     <label>
                         <input type="checkbox" id="forceCollateralOnly">
@@ -71,10 +67,10 @@
             </form>
         </div>
 
-        <div id="redeemTab" class="tab-content">
+        <div id="redeemTab" class="tab-content" style="display: none;">
             <form id="redeemForm" onsubmit="window.app.handleRedeem(event)">
                 <div class="form-group">
-                    <label for="redeemAmount">UUSD Amount to Redeem</label>
+                    <label for="redeemAmount">Amount</label>
                     <input type="number" id="redeemAmount" step="0.01" placeholder="0.00" required>
                 </div>
 

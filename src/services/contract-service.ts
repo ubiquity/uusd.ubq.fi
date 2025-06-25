@@ -29,6 +29,14 @@ export interface BatchMintData {
 }
 
 /**
+ * Batch page load data response
+ */
+export interface BatchPageLoadData {
+    uusdPrice: bigint;
+    collateralOptions: CollateralOption[];
+}
+
+/**
  * Interface for contract read operations
  */
 export interface ContractReads {
@@ -38,6 +46,7 @@ export interface ContractReads {
     getAllowance(tokenAddress: Address, owner: Address, spender: Address): Promise<bigint>;
     getRedeemCollateralBalance(userAddress: Address, collateralIndex: number): Promise<bigint>;
     batchFetchMintData(collateralIndex: number, dollarAmount: bigint): Promise<BatchMintData>;
+    batchFetchPageLoadData(): Promise<BatchPageLoadData>;
 }
 
 /**
@@ -76,38 +85,8 @@ export class ContractService implements ContractReads, ContractWrites {
      * Load all available collateral options from the contract
      */
     async loadCollateralOptions(): Promise<CollateralOption[]> {
-        const publicClient = this.walletService.getPublicClient();
-
-        const addresses = await publicClient.readContract({
-            address: ADDRESSES.DIAMOND,
-            abi: DIAMOND_ABI,
-            functionName: 'allCollaterals'
-        });
-
-        const options = await Promise.all(
-            (addresses as Address[]).map(async (address) => {
-                const info = await publicClient.readContract({
-                    address: ADDRESSES.DIAMOND,
-                    abi: DIAMOND_ABI,
-                    functionName: 'collateralInformation',
-                    args: [address]
-                }) as any;
-
-                return {
-                    index: Number(info.index),
-                    name: info.symbol,
-                    address: address,
-                    mintingFee: Number(formatUnits(info.mintingFee, 6)),
-                    redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
-                    missingDecimals: Number(info.missingDecimals),
-                    isEnabled: info.isEnabled,
-                    isMintPaused: info.isMintPaused,
-                    isRedeemPaused: info.isRedeemPaused
-                };
-            })
-        );
-
-        return options.filter(o => o.isEnabled && !o.isMintPaused);
+        const { collateralOptions } = await this.batchFetchPageLoadData();
+        return collateralOptions;
     }
 
     /**
@@ -227,6 +206,104 @@ export class ContractService implements ContractReads, ContractWrites {
                 governancePrice,
                 collateralAmount
             };
+        }
+    }
+
+    /**
+     * Batch fetch all page load data in a single RPC call
+     */
+    async batchFetchPageLoadData(): Promise<BatchPageLoadData> {
+        const publicClient = this.walletService.getPublicClient();
+        console.log('🔄 Batching page load data fetch...');
+
+        try {
+            const initialResults = await publicClient.multicall({
+                contracts: [
+                    {
+                        address: ADDRESSES.DIAMOND,
+                        abi: DIAMOND_ABI,
+                        functionName: 'getDollarPriceUsd'
+                    },
+                    {
+                        address: ADDRESSES.DIAMOND,
+                        abi: DIAMOND_ABI,
+                        functionName: 'allCollaterals'
+                    }
+                ]
+            });
+
+            const uusdPrice = initialResults[0].status === 'success' ? initialResults[0].result as bigint : 0n;
+            const collateralAddresses = initialResults[1].status === 'success' ? initialResults[1].result as Address[] : [];
+
+            if (collateralAddresses.length === 0) {
+                return { uusdPrice, collateralOptions: [] };
+            }
+
+            const collateralInfoContracts = collateralAddresses.map(address => ({
+                address: ADDRESSES.DIAMOND,
+                abi: DIAMOND_ABI,
+                functionName: 'collateralInformation' as const,
+                args: [address] as const
+            }));
+
+            const collateralInfoResults = await publicClient.multicall({
+                contracts: collateralInfoContracts
+            });
+
+            const collateralOptions: CollateralOption[] = collateralInfoResults.map((result, i) => {
+                if (result.status === 'success') {
+                    const info = result.result as any;
+                    return {
+                        index: Number(info.index),
+                        name: info.symbol,
+                        address: collateralAddresses[i],
+                        mintingFee: Number(formatUnits(info.mintingFee, 6)),
+                        redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
+                        missingDecimals: Number(info.missingDecimals),
+                        isEnabled: info.isEnabled,
+                        isMintPaused: info.isMintPaused,
+                        isRedeemPaused: info.isRedeemPaused
+                    } as CollateralOption;
+                }
+                return null;
+            }).filter((o): o is CollateralOption => o !== null && o?.isEnabled && !o?.isMintPaused);
+
+            console.log('✅ Page load data fetched successfully');
+            return { uusdPrice, collateralOptions };
+
+        } catch (error) {
+            console.error('❌ Page load batch fetch failed, falling back to individual calls:', error);
+            const uusdPrice = await this.getDollarPriceUsd();
+            // This part will be slow, but it's a fallback
+            const publicClient = this.walletService.getPublicClient();
+            const addresses = await publicClient.readContract({
+                address: ADDRESSES.DIAMOND,
+                abi: DIAMOND_ABI,
+                functionName: 'allCollaterals'
+            }) as Address[];
+            const options = await Promise.all(
+                addresses.map(async (address) => {
+                    const info = await publicClient.readContract({
+                        address: ADDRESSES.DIAMOND,
+                        abi: DIAMOND_ABI,
+                        functionName: 'collateralInformation',
+                        args: [address]
+                    }) as any;
+                    return {
+                        index: Number(info.index),
+                        name: info.symbol,
+                        address: address,
+                        mintingFee: Number(formatUnits(info.mintingFee, 6)),
+                        redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
+                        missingDecimals: Number(info.missingDecimals),
+                        isEnabled: info.isEnabled,
+                        isMintPaused: info.isMintPaused,
+                        isRedeemPaused: info.isRedeemPaused
+                    };
+                })
+            );
+            const collateralOptions = options.filter(o => o.isEnabled && !o.isMintPaused);
+            return { uusdPrice, collateralOptions };
         }
     }
 
@@ -435,7 +512,7 @@ export class ContractService implements ContractReads, ContractWrites {
             // Check for specific contract errors first
             if (errorMessage.includes('Dollar price too high')) {
                 console.log('❌ Contract rejected redeem: Dollar price too high');
-                throw new Error('Cannot redeem at this time: The current UUSD price is too high relative to collateral prices. This is a safety mechanism to protect the protocol. Please try again later when market conditions have stabilized.');
+                throw new Error('Cannot redeem at this time: The current UUSD price is too high relative to collateral prices. This is a safety mechanism to protect the protocol. Please try again later.');
             }
 
             if (errorMessage.includes('Collateral disabled')) {

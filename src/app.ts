@@ -76,12 +76,9 @@ class UUSDApp {
         // Initialize components immediately for fast UX
         this.tabManager.initialize((tab) => this.handleTabChange(tab));
 
-        // Load UUSD price and collateral options in background (not blocking UI)
-        Promise.all([
-            this.loadUUSDPrice(),
-            this.priceService.initialize()
-        ]).catch(error => {
-            console.warn('Failed to load price data or collateral options:', error);
+        // Only load UUSD price immediately - defer collateral options until needed
+        this.loadUUSDPrice().catch(error => {
+            console.warn('Failed to load UUSD price:', error);
         });
     }
 
@@ -113,12 +110,14 @@ class UUSDApp {
         this.walletService.setEventHandlers({
             onConnect: (account: Address) => {
                 this.updateWalletUI(account);
+                this.tabManager.updateWalletConnection(true);
                 this.mintComponent.updateWalletConnection(true);
                 this.redeemComponent.updateWalletConnection(true);
                 this.redeemComponent.checkForPendingRedemptions(account);
             },
             onDisconnect: () => {
                 this.updateWalletUI(null);
+                this.tabManager.updateWalletConnection(false);
                 this.mintComponent.updateWalletConnection(false);
                 this.redeemComponent.updateWalletConnection(false);
             }
@@ -166,10 +165,22 @@ class UUSDApp {
         });
     }
 
-    private handleTabChange(tab: 'mint' | 'redeem') {
+    private async handleTabChange(tab: 'mint' | 'redeem') {
         // Clear notifications when switching tabs
         this.notificationManager.clearNotifications('mint');
         this.notificationManager.clearNotifications('redeem');
+
+        // Lazy load collateral options when user first accesses mint/redeem
+        if (!this.priceService.isInitialized()) {
+            console.log(`🔄 User accessed ${tab} tab, loading collateral options...`);
+            try {
+                await this.priceService.initialize();
+                console.log('✅ Collateral options loaded');
+            } catch (error) {
+                console.warn('Failed to load collateral options:', error);
+                this.notificationManager.showError(tab, 'Failed to load collateral options. Please refresh the page.');
+            }
+        }
     }
 
     private updateWalletUI(account: Address | null) {

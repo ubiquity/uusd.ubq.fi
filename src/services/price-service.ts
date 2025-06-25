@@ -55,6 +55,7 @@ export class PriceService {
     private contractService: ContractService;
     private collateralOptions: CollateralOption[] = [];
     private cache = new Map<string, CacheEntry<any>>();
+    private initialized = false;
 
     constructor(contractService: ContractService) {
         this.contractService = contractService;
@@ -64,7 +65,16 @@ export class PriceService {
      * Initialize service by loading collateral options
      */
     async initialize(): Promise<void> {
+        if (this.initialized) return;
         this.collateralOptions = await this.contractService.loadCollateralOptions();
+        this.initialized = true;
+    }
+
+    /**
+     * Check if service has been initialized
+     */
+    isInitialized(): boolean {
+        return this.initialized;
     }
 
     /**

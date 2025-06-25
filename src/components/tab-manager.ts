@@ -5,6 +5,7 @@
 export class TabManager {
     private currentTab: 'mint' | 'redeem' = 'mint';
     private onTabChangeCallback?: (tab: 'mint' | 'redeem') => void;
+    private walletConnected = false;
 
     /**
      * Initialize the tab manager
@@ -12,6 +13,39 @@ export class TabManager {
      */
     initialize(onTabChange?: (tab: 'mint' | 'redeem') => void): void {
         this.onTabChangeCallback = onTabChange;
+        this.updateTabVisibility();
+    }
+
+    /**
+     * Update wallet connection state
+     * @param isConnected - Whether the wallet is connected
+     */
+    updateWalletConnection(isConnected: boolean): void {
+        this.walletConnected = isConnected;
+        this.updateTabVisibility();
+    }
+
+    /**
+     * Update tab visibility based on wallet connection state
+     */
+    private updateTabVisibility(): void {
+        const mintTab = document.getElementById('mintTab');
+        const redeemTab = document.getElementById('redeemTab');
+        const tabButtons = document.querySelector('.tabs');
+
+        if (mintTab && redeemTab && tabButtons) {
+            if (this.walletConnected) {
+                // Show tab buttons
+                (tabButtons as HTMLElement).style.display = 'block';
+                // Show the current active tab content based on CSS classes
+                this.switchTab(this.currentTab);
+            } else {
+                // Hide tab buttons and content
+                (tabButtons as HTMLElement).style.display = 'none';
+                mintTab.style.display = 'none';
+                redeemTab.style.display = 'none';
+            }
+        }
     }
 
     /**
@@ -19,15 +53,27 @@ export class TabManager {
      * @param tab - The tab to switch to ('mint' or 'redeem')
      */
     switchTab(tab: 'mint' | 'redeem'): void {
+        // Only allow tab switching if wallet is connected
+        if (!this.walletConnected) {
+            return;
+        }
+
         this.currentTab = tab;
+
+        const mintTab = document.getElementById('mintTab')!;
+        const redeemTab = document.getElementById('redeemTab')!;
+
+        // Clear any inline display styles so CSS classes can control visibility
+        mintTab.style.display = '';
+        redeemTab.style.display = '';
 
         // Update tab buttons
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelector(`.tab:nth-child(${tab === 'mint' ? 1 : 2})`)?.classList.add('active');
 
-        // Update tab content
-        document.getElementById('mintTab')!.classList.toggle('active', tab === 'mint');
-        document.getElementById('redeemTab')!.classList.toggle('active', tab === 'redeem');
+        // Update tab content classes
+        mintTab.classList.toggle('active', tab === 'mint');
+        redeemTab.classList.toggle('active', tab === 'redeem');
 
         // Notify callback if provided
         if (this.onTabChangeCallback) {
