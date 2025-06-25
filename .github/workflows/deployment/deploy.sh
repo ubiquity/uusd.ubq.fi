@@ -126,17 +126,15 @@ fi
 # fi
 
 # Run deployment with environment variables
-cd ..
+cd ../..
 deployctl deploy \
   --project="$PROJECT_NAME" \
-  $CREATE_FLAG \
-  --entrypoint=../../public/index.html \
+  "$CREATE_FLAG" \
+  --entrypoint=src/main.ts \
   --token="$DENO_DEPLOY_TOKEN" \
-  --root="." \
   --include="**" \
-  --exclude="**.spec.ts" \
   --env="$ENV_VARS"
-cd -
+cd - || exit
 
 DEPLOY_STATUS=$?
 
