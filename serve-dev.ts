@@ -1,10 +1,6 @@
-import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { readFileSync, watchFile, Stats } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { Buffer } from 'node:buffer';
+import { generateDevtoolsJson } from "./src/utils/generate-devtools-json.ts";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = new URL('.', import.meta.url).pathname;
 
 const mimeTypes: { [key: string]: string } = {
   '.html': 'text/html',
@@ -15,7 +11,7 @@ const mimeTypes: { [key: string]: string } = {
 };
 
 // Store connected clients for hot reload
-const clients = new Set<ServerResponse>();
+const clients = new Set<ReadableStreamDefaultController>();
 
 // Hot reload script to inject into HTML
 const hotReloadScript = `
@@ -37,72 +33,87 @@ const hotReloadScript = `
 </script>
 `;
 
-const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-  // Add CORS headers for development
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  const url = req.url || '/';
-
-  // Handle hot reload endpoint
-  if (url === '/hot-reload') {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    });
-
-    res.write('data: connected\n\n');
-    clients.add(res);
-
-    req.on('close', () => {
-      clients.delete(res);
-    });
-    return;
-  }
-
-  let filePath: string;
-
+function getFilePath(url: string): string {
   // Route handling for the refactored structure
   if (url === '/') {
     // Serve public/index.html for root requests
-    filePath = join(__dirname, 'public', 'index.html');
+    return new URL('./public/index.html', import.meta.url).pathname;
+  } else if (url.startsWith('/.well-known/')) {
+    // Serve .well-known files from public directory
+    return new URL(`./public${url}`, import.meta.url).pathname;
   } else if (url.startsWith('/src/')) {
     // Serve files from src/ directory
-    filePath = join(__dirname, url);
+    return new URL(`.${url}`, import.meta.url).pathname;
   } else if (url.startsWith('/public/')) {
     // Serve files from public/ directory
-    filePath = join(__dirname, url);
+    return new URL(`.${url}`, import.meta.url).pathname;
   } else {
     // Serve files from root directory (like app.js)
-    filePath = join(__dirname, url);
+    return new URL(`.${url}`, import.meta.url).pathname;
+  }
+}
+
+async function handler(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+
+  // Add CORS headers for development
+  const headers = new Headers({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  });
+
+  // Handle hot reload endpoint
+  if (url.pathname === '/hot-reload') {
+    let controller: ReadableStreamDefaultController;
+
+    const stream = new ReadableStream({
+      start(ctrl) {
+        controller = ctrl;
+        clients.add(controller);
+        controller.enqueue(new TextEncoder().encode('data: connected\n\n'));
+      },
+      cancel() {
+        clients.delete(controller);
+      }
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
   }
 
+  const filePath = getFilePath(url.pathname);
+
   try {
-    let content: string | Buffer = readFileSync(filePath);
+    let content: Uint8Array | string = await Deno.readFile(filePath);
     const ext = filePath.substring(filePath.lastIndexOf('.'));
 
     // Inject hot reload script into HTML files
     if (ext === '.html') {
-      content = content.toString().replace('</body>', `${hotReloadScript}</body>`);
+      const textContent = new TextDecoder().decode(content);
+      content = textContent.replace('</body>', `${hotReloadScript}</body>`);
     }
 
-    res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
-    res.end(content);
+    headers.set('Content-Type', mimeTypes[ext] || 'text/plain');
+
+    return new Response(content, { headers });
   } catch (err) {
-    res.writeHead(404);
-    res.end('Not found');
+    return new Response('Not found', { status: 404, headers });
   }
-});
+}
 
 // Function to notify all clients to reload
 function notifyReload() {
   console.log('📁 File changed, notifying clients to reload...');
   clients.forEach(client => {
     try {
-      client.write('data: reload\n\n');
+      client.enqueue(new TextEncoder().encode('data: reload\n\n'));
     } catch (err) {
       clients.delete(client);
     }
@@ -110,28 +121,56 @@ function notifyReload() {
 }
 
 // Watch for changes to built files
-const appJsPath = join(__dirname, 'app.js');
-const cssPath = join(__dirname, 'src', 'styles', 'main.css');
+const appJsPath = new URL('./app.js', import.meta.url).pathname;
+const cssPath = new URL('./src/styles/main.css', import.meta.url).pathname;
 
-// Watch app.js for changes (esbuild output)
-watchFile(appJsPath, { interval: 500 }, (curr, prev) => {
-  if (curr.mtime !== prev.mtime) {
-    console.log('🔨 app.js changed');
-    notifyReload();
+// Start file watchers with debouncing
+async function startFileWatchers() {
+  try {
+    const watcher = Deno.watchFs([appJsPath, cssPath]);
+    let debounceTimer: number | null = null;
+
+    for await (const event of watcher) {
+      if (event.kind === 'modify') {
+        // Clear existing timer
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+
+        // Set new timer with 100ms delay
+        debounceTimer = setTimeout(() => {
+          for (const path of event.paths) {
+            if (path.endsWith('app.js')) {
+              console.log('🔨 app.js changed');
+              notifyReload();
+              break; // Only notify once per event
+            } else if (path.endsWith('main.css')) {
+              console.log('🎨 CSS changed');
+              notifyReload();
+              break; // Only notify once per event
+            }
+          }
+          debounceTimer = null;
+        }, 100);
+      }
+    }
+  } catch (err) {
+    console.log('⚠️  File watching not available:', err.message);
   }
-});
+}
 
-// Watch CSS for changes
-watchFile(cssPath, { interval: 500 }, (curr, prev) => {
-  if (curr.mtime !== prev.mtime) {
-    console.log('🎨 CSS changed');
-    notifyReload();
-  }
-});
+const PORT = parseInt(Deno.env.get('PORT') || '3000');
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`🚀 Development server running at http://localhost:${PORT}`);
-  console.log('🔥 Hot reload enabled');
-  console.log('🗺️  Source maps enabled for debugging');
-});
+// Generate devtools JSON if this is the main entry point
+if (import.meta.main) {
+  await generateDevtoolsJson();
+}
+
+console.log(`🚀 Development server running at http://localhost:${PORT}`);
+console.log('🔥 Hot reload enabled');
+console.log('🗺️  Source maps enabled for debugging');
+
+// Start file watching in background
+startFileWatchers();
+
+await Deno.serve({ port: PORT }, handler);

@@ -9,6 +9,7 @@ import {
 } from 'viem';
 import { mainnet } from 'viem/chains';
 import { validateWalletConnection } from '../utils/validation-utils.ts';
+import { RPC_URL } from '../../tools/config.ts';
 
 /**
  * Interface for wallet service events
@@ -31,7 +32,7 @@ export class WalletService {
     constructor() {
         this.publicClient = createPublicClient({
             chain: mainnet,
-            transport: http()
+            transport: http(RPC_URL)
         });
     }
 

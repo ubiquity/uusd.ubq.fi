@@ -40,11 +40,22 @@ export interface RedeemPriceResult extends RedeemCalculationOutput {
 }
 
 /**
+ * Cache entry for blockchain data
+ */
+interface CacheEntry<T> {
+    data: T;
+    timestamp: number;
+    ttl: number;
+}
+
+/**
  * Service responsible for price calculations and contract price data
  */
 export class PriceService {
     private contractService: ContractService;
     private collateralOptions: CollateralOption[] = [];
+    private cache = new Map<string, CacheEntry<any>>();
+    private initialized = false;
 
     constructor(contractService: ContractService) {
         this.contractService = contractService;
@@ -54,7 +65,16 @@ export class PriceService {
      * Initialize service by loading collateral options
      */
     async initialize(): Promise<void> {
+        if (this.initialized) return;
         this.collateralOptions = await this.contractService.loadCollateralOptions();
+        this.initialized = true;
+    }
+
+    /**
+     * Check if service has been initialized
+     */
+    isInitialized(): boolean {
+        return this.initialized;
     }
 
     /**
@@ -93,15 +113,13 @@ export class PriceService {
             collateral = dynamicCollateral;
         }
 
-        // Get current blockchain prices
-        const [collateralRatio, governancePrice] = await Promise.all([
-            this.contractService.getCollateralRatio(),
-            this.contractService.getGovernancePrice()
-        ]);
+        // Use optimized batch fetch for blockchain data
+        const batchData = await this.contractService.batchFetchMintData(collateralIndex, dollarAmount);
+        const { collateralRatio, governancePrice } = batchData;
 
-        // Calculate collateral amount needed based on ratio mode
-        const collateralAmount = await this.getCollateralAmountForMint(
-            collateral,
+        // Calculate final collateral amount based on ratio mode - optimize to avoid extra RPC calls
+        const collateralAmount = this.calculateCollateralAmountForMint(
+            batchData.collateralAmount,
             dollarAmount,
             collateralRatio,
             isForceCollateralOnly
@@ -209,7 +227,32 @@ export class PriceService {
     }
 
     /**
-     * Get collateral amount needed for mint operation
+     * Calculate collateral amount for mint operation using pre-fetched data to avoid extra RPC calls
+     */
+    private calculateCollateralAmountForMint(
+        fullCollateralAmount: bigint,
+        dollarAmount: bigint,
+        collateralRatio: bigint,
+        isForceCollateralOnly: boolean
+    ): bigint {
+        const poolPricePrecision = 1000000n;
+
+        if (isForceCollateralOnly || collateralRatio >= poolPricePrecision) {
+            // 100% collateral mode - use the pre-fetched full amount
+            return fullCollateralAmount;
+        } else if (collateralRatio === 0n) {
+            // 100% governance mode - no collateral needed
+            return 0n;
+        } else {
+            // Mixed mode - calculate proportional amount based on collateral ratio
+            const dollarForCollateral = calculateDollarForCollateral(dollarAmount, collateralRatio);
+            // Calculate proportional collateral amount to avoid additional RPC call
+            return (fullCollateralAmount * dollarForCollateral) / dollarAmount;
+        }
+    }
+
+    /**
+     * Get collateral amount needed for mint operation (legacy method for compatibility)
      */
     private async getCollateralAmountForMint(
         collateral: CollateralOption,

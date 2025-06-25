@@ -180,3 +180,5 @@ app.js.map
 
 # Finder (MacOS) folder config
 .DS_Store
+public/.well-known/appspecific/com.chrome.devtools.json
+.uuid
