@@ -138,8 +138,8 @@ deployctl deploy \
   "$CREATE_FLAG" \
   --entrypoint=serve.ts \
   --token="$DENO_DEPLOY_TOKEN" \
-  --root="../" \
-  --include="../../src/**" \
+  --root="." \
+  --include="src/**" \
   --include="public/**" \
   --include="app.js" \
   --include="serve.ts" \
