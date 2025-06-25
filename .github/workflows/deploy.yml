@@ -1,0 +1,46 @@
+name: Deploy
+on: [push]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: "1.43.x"
+
+      - name: Install deployctl
+        run: deno install -A --no-check -r https://deno.land/x/deploy@1.12.0/deployctl.ts
+
+      - name: Verify Deno Deploy token
+        run: |
+          cd .github/workflows/deployment
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ./verify-token.sh production \
+              "${{ secrets.DENO_DEPLOY_TOKEN }}" \
+              "uusd-ubq-fi" \
+              "uusd-ubq-fi-preview"
+          else
+            ./verify-token.sh preview \
+              "${{ secrets.DENO_DEPLOY_TOKEN }}" \
+              "uusd-ubq-fi" \
+              "uusd-ubq-fi-preview"
+          fi
+
+      - name: Deploy to Deno
+        run: |
+          cd .github/workflows/deployment
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ./deploy.sh production \
+              "${{ secrets.DENO_DEPLOY_TOKEN }}" \
+              "uusd-ubq-fi" \
+              "uusd-ubq-fi-preview"
+          else
+            ./deploy.sh preview \
+              "${{ secrets.DENO_DEPLOY_TOKEN }}" \
+              "uusd-ubq-fi" \
+              "uusd-ubq-fi-preview"
+          fi
