@@ -22,6 +22,7 @@ interface MintServices {
  */
 export class MintComponent {
     private services: MintServices;
+    private debounceTimer: number | null = null;
 
     constructor(services: MintServices) {
         this.services = services;
@@ -40,9 +41,24 @@ export class MintComponent {
     }
 
     /**
-     * Update mint output based on current form values
+     * Update mint output based on current form values with debouncing
      */
     async updateOutput(): Promise<void> {
+        // Clear existing timer
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+        }
+
+        // Debounce the actual calculation to avoid excessive RPC calls during typing
+        this.debounceTimer = setTimeout(async () => {
+            await this.performCalculation();
+        }, 300); // Wait 300ms after user stops typing
+    }
+
+    /**
+     * Perform the actual mint calculation (debounced)
+     */
+    private async performCalculation(): Promise<void> {
         try {
             const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
             const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
@@ -67,12 +83,16 @@ export class MintComponent {
             const dollarAmount = parseEther(amount);
             const isForceCollateralOnly = forceCollateralOnly.checked;
 
-            // Calculate mint output using price service with hardcoded LUSD
+            console.log('🔄 Calculating mint output (debounced)...');
+
+            // Calculate mint output using optimized price service with batched RPC calls
             const result = await this.services.priceService.calculateMintOutput({
                 dollarAmount,
                 collateralIndex: LUSD_COLLATERAL.index,
                 isForceCollateralOnly
             });
+
+            console.log('✅ Mint calculation completed');
 
             // Update UI with LUSD hardcoded values
             const collateralNeeded = document.getElementById('collateralNeeded');

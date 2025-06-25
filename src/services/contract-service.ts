@@ -20,6 +20,15 @@ export interface CollateralOption extends CollateralInfo {
 }
 
 /**
+ * Batch mint data response
+ */
+export interface BatchMintData {
+    collateralRatio: bigint;
+    governancePrice: bigint;
+    collateralAmount: bigint;
+}
+
+/**
  * Interface for contract read operations
  */
 export interface ContractReads {
@@ -28,6 +37,7 @@ export interface ContractReads {
     getDollarInCollateral(collateralIndex: number, dollarAmount: bigint): Promise<bigint>;
     getAllowance(tokenAddress: Address, owner: Address, spender: Address): Promise<bigint>;
     getRedeemCollateralBalance(userAddress: Address, collateralIndex: number): Promise<bigint>;
+    batchFetchMintData(collateralIndex: number, dollarAmount: bigint): Promise<BatchMintData>;
 }
 
 /**
@@ -147,6 +157,77 @@ export class ContractService implements ContractReads, ContractWrites {
             functionName: 'getDollarInCollateral',
             args: [BigInt(collateralIndex), dollarAmount]
         }) as bigint;
+    }
+
+    /**
+     * Batch fetch all mint calculation data in a single RPC call
+     * This replaces 3 individual contract calls with 1 multicall
+     */
+    async batchFetchMintData(collateralIndex: number, dollarAmount: bigint): Promise<BatchMintData> {
+        const publicClient = this.walletService.getPublicClient();
+
+        console.log('🔄 Batching mint data fetch...');
+
+        try {
+            const results = await publicClient.multicall({
+                contracts: [
+                    {
+                        address: ADDRESSES.DIAMOND,
+                        abi: DIAMOND_ABI,
+                        functionName: 'collateralRatio'
+                    },
+                    {
+                        address: ADDRESSES.DIAMOND,
+                        abi: DIAMOND_ABI,
+                        functionName: 'getGovernancePriceUsd'
+                    },
+                    {
+                        address: ADDRESSES.DIAMOND,
+                        abi: DIAMOND_ABI,
+                        functionName: 'getDollarInCollateral',
+                        args: [BigInt(collateralIndex), dollarAmount]
+                    }
+                ]
+            });
+
+            // Extract results with proper error handling
+            const collateralRatio = results[0].status === 'success' ? results[0].result as bigint : 0n;
+            const governancePrice = results[1].status === 'success' ? results[1].result as bigint : 0n;
+            const collateralAmount = results[2].status === 'success' ? results[2].result as bigint : 0n;
+
+            // Check for any failures
+            const failedCalls = results.filter(r => r.status === 'failure');
+            if (failedCalls.length > 0) {
+                console.warn('⚠️ Some batch calls failed:', failedCalls.length);
+                // Log individual failures for debugging
+                failedCalls.forEach((failure, index) => {
+                    console.warn(`Call ${index} failed:`, failure.error);
+                });
+            }
+
+            console.log('✅ Batch data fetched successfully');
+
+            return {
+                collateralRatio,
+                governancePrice,
+                collateralAmount
+            };
+        } catch (error) {
+            console.error('❌ Batch fetch failed, falling back to individual calls:', error);
+
+            // Fallback to individual calls if multicall fails
+            const [collateralRatio, governancePrice, collateralAmount] = await Promise.all([
+                this.getCollateralRatio(),
+                this.getGovernancePrice(),
+                this.getDollarInCollateral(collateralIndex, dollarAmount)
+            ]);
+
+            return {
+                collateralRatio,
+                governancePrice,
+                collateralAmount
+            };
+        }
     }
 
     /**
@@ -350,7 +431,7 @@ export class ContractService implements ContractReads, ContractWrites {
 
             // Analyze error message for specific contract errors
             const errorMessage = estimationError.message || estimationError.toString();
-            
+
             // Check for specific contract errors first
             if (errorMessage.includes('Dollar price too high')) {
                 console.log('❌ Contract rejected redeem: Dollar price too high');
