@@ -130,7 +130,7 @@ cd ..
 deployctl deploy \
   --project="$PROJECT_NAME" \
   $CREATE_FLAG \
-  --entrypoint=src/main.ts \
+  --entrypoint=../../public/index.html \
   --token="$DENO_DEPLOY_TOKEN" \
   --root="." \
   --include="**" \
