@@ -1,0 +1,28 @@
+{
+  "tasks": {
+    "start": "deno run --allow-all serve.ts",
+    "dev": "deno run --allow-all serve-dev.ts"
+  },
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno", "dom"],
+    "strict": true
+  },
+  "fmt": {
+    "files": {
+      "include": ["src/", "*.ts"],
+      "exclude": ["node_modules/", "contracts/"]
+    }
+  },
+  "lint": {
+    "files": {
+      "include": ["src/", "*.ts"],
+      "exclude": ["node_modules/", "contracts/"]
+    }
+  },
+  "exclude": [
+    "node_modules/",
+    "contracts/",
+    "build/"
+  ]
+}

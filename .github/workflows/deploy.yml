@@ -1,31 +1,53 @@
-name: Deploy
-on: [push]
+name: Deploy to Deno Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Set up Deno
+    permissions:
+      id-token: write # Needed for auth with Deno Deploy
+      contents: read # Needed to clone the repository
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build application
+        run: bun run build
+
+      - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: "1.43.x"
+          deno-version: v1.x
 
-      - name: Install deployctl
-        run: deno install -A --no-check -r https://deno.land/x/deploy@1.12.0/deployctl.ts
-
-      - name: Deploy to Deno
-        run: |
-          cd .github/workflows/deployment
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            ./deploy.sh production \
-              "${{ secrets.DENO_DEPLOY_TOKEN }}" \
-              "uusd-ubq-fi" \
-              "uusd-ubq-fi-preview"
-          else
-            ./deploy.sh preview \
-              "${{ secrets.DENO_DEPLOY_TOKEN }}" \
-              "uusd-ubq-fi" \
-              "uusd-ubq-fi-preview"
-          fi
+      - name: Deploy to Deno Deploy
+        uses: denoland/deployctl@v1
+        with:
+          project: "uusd-ubq-fi"
+          entrypoint: "serve.ts"
+          root: "."
+          include: |
+            src/**
+            public/**
+            app.js
+            serve.ts
+          exclude: |
+            **/*.spec.ts
+            serve-dev.ts
+            node_modules/**
+            .git/**

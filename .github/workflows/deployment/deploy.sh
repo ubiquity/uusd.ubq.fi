@@ -126,11 +126,44 @@ fi
 # fi
 
 # Run deployment with environment variables
-cd ../..
+# Make sure we're in the project root
+cd "$(dirname "$0")/../../.." || exit 1
+
+# Verify we're in the right directory
+if [ ! -f "package.json" ]; then
+  echo "❌ Error: Not in project root directory" >&2
+  exit 1
+fi
+
+# Install dependencies if node_modules doesn't exist
+if [ ! -d "node_modules" ]; then
+  echo "📦 Installing dependencies..."
+  if command -v bun &> /dev/null; then
+    bun install
+  elif command -v npm &> /dev/null; then
+    npm install
+  else
+    echo "❌ Error: No package manager found (bun or npm required)" >&2
+    exit 1
+  fi
+fi
 
 # Build the application first for Deno deployment
 echo "🔨 Building application..."
-bun run build
+if command -v bun &> /dev/null; then
+  bun run build
+elif command -v npm &> /dev/null; then
+  npm run build
+else
+  echo "❌ Error: No package manager found for build step" >&2
+  exit 1
+fi
+
+# Verify build output exists
+if [ ! -f "app.js" ]; then
+  echo "❌ Error: Build failed - app.js not found" >&2
+  exit 1
+fi
 
 # Deploy to Deno
 deployctl deploy \
@@ -139,13 +172,14 @@ deployctl deploy \
   --entrypoint=serve.ts \
   --token="$DENO_DEPLOY_TOKEN" \
   --root="." \
-  --include="src/**" \
-  --include="public/**" \
+  --include="src/" \
+  --include="public/" \
   --include="app.js" \
   --include="serve.ts" \
-  --exclude="**.spec.ts" \
-  --exclude="serve-dev.ts"
-cd - || exit
+  --exclude="**/*.spec.ts" \
+  --exclude="serve-dev.ts" \
+  --exclude="node_modules/" \
+  --exclude=".git/"
 
 DEPLOY_STATUS=$?
 
