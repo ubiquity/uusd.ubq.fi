@@ -1,13 +1,15 @@
 {
-  "name": "minimal-uusd-app",
-  "module": "index.ts",
+  "name": "uusd.ubq.fi",
+  "module": "src/app.ts",
   "type": "module",
   "scripts": {
     "dev": "bun run build:watch & bun run serve:dev",
     "build": "bun run esbuild src/app.ts --bundle --outfile=app.js --minify --format=esm --platform=browser --sourcemap",
     "build:watch": "bun run esbuild src/app.ts --bundle --outfile=app.js --format=esm --platform=browser --sourcemap=inline --watch=forever",
-    "serve": "bun run serve.ts",
-    "serve:dev": "bun run serve-dev.ts",
+    "serve": "deno run --allow-all serve.ts",
+    "serve:dev": "deno run --allow-all serve-dev.ts",
+    "serve:bun": "bun run serve.ts",
+    "serve:bun:dev": "bun run serve-dev.ts",
     "browser:open": "/Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser --remote-debugging-port=9222",
     "diamond": "bun run tools/diamond-reader.ts"
   },

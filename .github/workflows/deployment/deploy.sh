@@ -127,13 +127,24 @@ fi
 
 # Run deployment with environment variables
 cd ../..
+
+# Build the application first for Deno deployment
+echo "🔨 Building application..."
+bun run build
+
+# Deploy to Deno
 deployctl deploy \
   --project="$PROJECT_NAME" \
   "$CREATE_FLAG" \
-  --entrypoint=../../src/main.ts \
+  --entrypoint=serve.ts \
   --token="$DENO_DEPLOY_TOKEN" \
-  --include="**" \
-  --env="$ENV_VARS"
+  --root="." \
+  --include="src/**" \
+  --include="public/**" \
+  --include="app.js" \
+  --include="serve.ts" \
+  --exclude="**.spec.ts" \
+  --exclude="serve-dev.ts"
 cd - || exit
 
 DEPLOY_STATUS=$?

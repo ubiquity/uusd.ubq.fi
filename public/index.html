@@ -8,11 +8,6 @@
 </head>
 <body>
     <div class="container">
-        <h1>UUSD Mint & Redeem</h1>
-        
-        <div class="price-section">
-            <p class="uusd-price">Current UUSD Price: <span id="uusdPrice">Loading...</span></p>
-        </div>
 
         <div class="wallet-section">
             <button id="connectWallet" onclick="window.app.connectWallet()">Connect Wallet</button>
@@ -22,24 +17,30 @@
             </div>
         </div>
 
+        <div class="price-section">
+            <p class="uusd-price">Current UUSD Price: <span id="uusdPrice">Loading...</span></p>
+        </div>
+
+
+
         <div class="tabs">
             <button class="tab active" onclick="window.app.switchTab('mint')">Mint UUSD</button>
             <button class="tab" onclick="window.app.switchTab('redeem')">Redeem UUSD</button>
         </div>
+
+
 
         <div id="mintTab" class="tab-content active">
             <form id="mintForm" onsubmit="window.app.handleMint(event)">
                 <div class="form-group">
                     <label for="mintAmount">UUSD Amount to Mint</label>
                     <input type="number" id="mintAmount" step="0.01" placeholder="0.00" required>
-                </div>
-
-                <div class="form-group">
                     <label>
                         <input type="checkbox" id="forceCollateralOnly">
-                        Use collateral only (no UBQ required)
+                        Do not use UBQ
                     </label>
                 </div>
+
 
                 <div id="mintOutput" class="output-section" style="display: none;">
                     <h3>Required Inputs</h3>
