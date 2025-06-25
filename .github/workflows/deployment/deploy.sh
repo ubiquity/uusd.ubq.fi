@@ -126,7 +126,7 @@ fi
 # fi
 
 # Run deployment with environment variables
-cd ../..
+cd ../../..
 
 # Build the application first for Deno deployment
 echo "🔨 Building application..."
