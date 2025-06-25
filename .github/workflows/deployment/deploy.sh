@@ -139,7 +139,7 @@ deployctl deploy \
   --entrypoint=serve.ts \
   --token="$DENO_DEPLOY_TOKEN" \
   --root="." \
-  --include="src/**" \
+  --include="../../src/**" \
   --include="public/**" \
   --include="app.js" \
   --include="serve.ts" \
