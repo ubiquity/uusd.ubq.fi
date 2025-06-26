@@ -126,11 +126,15 @@ fi
 # fi
 
 # Run deployment with environment variables
-cd ../..
+cd ../../..
 
 # Build the application first for Deno deployment
 echo "🔨 Building application..."
 bun run build
+
+# Copy CSS to public directory for production serving
+echo "📋 Copying CSS to public directory..."
+cp src/styles/main.css public/main.css
 
 # Deploy to Deno
 deployctl deploy \
@@ -139,12 +143,10 @@ deployctl deploy \
   --entrypoint=serve.ts \
   --token="$DENO_DEPLOY_TOKEN" \
   --root="." \
-  --include="src/**" \
   --include="public/**" \
   --include="app.js" \
-  --include="serve.ts" \
-  --exclude="**.spec.ts" \
-  --exclude="serve-dev.ts"
+  --include="app.js.map" \
+  --include="serve.ts"
 cd - || exit
 
 DEPLOY_STATUS=$?
