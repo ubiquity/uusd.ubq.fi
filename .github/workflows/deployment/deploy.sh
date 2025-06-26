@@ -25,6 +25,7 @@ fi
 if [ "$ENVIRONMENT" = "production" ]; then
   PROJECT_NAME="$DENO_PROJECT_NAME"
   echo "🏭 Deploying to production project: $PROJECT_NAME"
+  CREATE_FLAG=""
 else
   PROJECT_NAME="$DENO_PREVIEW_PROJECT_NAME"
   echo "🛠️ Deploying to preview project: $PROJECT_NAME"
@@ -137,16 +138,28 @@ echo "📋 Copying CSS to public directory..."
 cp src/styles/main.css public/main.css
 
 # Deploy to Deno
-deployctl deploy \
-  --project="$PROJECT_NAME" \
-  "$CREATE_FLAG" \
-  --entrypoint=serve.ts \
-  --token="$DENO_DEPLOY_TOKEN" \
-  --root="." \
-  --include="public/**" \
-  --include="app.js" \
-  --include="app.js.map" \
-  --include="serve.ts"
+if [ -n "$CREATE_FLAG" ]; then
+  deployctl deploy \
+    --project="$PROJECT_NAME" \
+    "$CREATE_FLAG" \
+    --entrypoint=serve.ts \
+    --token="$DENO_DEPLOY_TOKEN" \
+    --root="." \
+    --include="public/**" \
+    --include="app.js" \
+    --include="app.js.map" \
+    --include="serve.ts"
+else
+  deployctl deploy \
+    --project="$PROJECT_NAME" \
+    --entrypoint=serve.ts \
+    --token="$DENO_DEPLOY_TOKEN" \
+    --root="." \
+    --include="public/**" \
+    --include="app.js" \
+    --include="app.js.map" \
+    --include="serve.ts"
+fi
 cd - || exit
 
 DEPLOY_STATUS=$?
