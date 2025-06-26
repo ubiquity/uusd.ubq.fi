@@ -132,6 +132,10 @@ cd ../../..
 echo "🔨 Building application..."
 bun run build
 
+# Copy CSS to public directory for production serving
+echo "📋 Copying CSS to public directory..."
+cp src/styles/main.css public/main.css
+
 # Deploy to Deno
 deployctl deploy \
   --project="$PROJECT_NAME" \
@@ -139,7 +143,6 @@ deployctl deploy \
   --entrypoint=serve.ts \
   --token="$DENO_DEPLOY_TOKEN" \
   --root="." \
-  --include="src/styles/**" \
   --include="public/**" \
   --include="app.js" \
   --include="app.js.map" \

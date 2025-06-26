@@ -15,6 +15,9 @@ function getFilePath(url: string): string {
   } else if (url.startsWith('/.well-known/')) {
     // Serve .well-known files from public directory
     return new URL(`./public${url}`, import.meta.url).pathname;
+  } else if (url === '/src/styles/main.css') {
+    // Serve CSS from public directory in production
+    return new URL('./public/main.css', import.meta.url).pathname;
   } else if (url.startsWith('/src/')) {
     // Serve files from src/ directory
     return new URL(`.${url}`, import.meta.url).pathname;
