@@ -139,11 +139,11 @@ deployctl deploy \
   --entrypoint=serve.ts \
   --token="$DENO_DEPLOY_TOKEN" \
   --root="." \
-  --include="src/**" \
+  --include="src/styles/**" \
   --include="public/**" \
   --include="app.js" \
-  --include="serve.ts" \
-  --exclude="serve-dev.ts"
+  --include="app.js.map" \
+  --include="serve.ts"
 cd - || exit
 
 DEPLOY_STATUS=$?
