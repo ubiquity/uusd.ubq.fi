@@ -1,3 +1,6 @@
+import type { MintComponent } from './mint-component.ts';
+import type { RedeemComponent } from './redeem-component.ts';
+
 /**
  * Tab Manager Component
  * Handles tab switching and state management between mint and redeem tabs
@@ -6,6 +9,8 @@ export class TabManager {
     private currentTab: 'mint' | 'redeem' = 'mint';
     private onTabChangeCallback?: (tab: 'mint' | 'redeem') => void;
     private walletConnected = false;
+    private mintComponent?: MintComponent;
+    private redeemComponent?: RedeemComponent;
 
     /**
      * Initialize the tab manager
@@ -14,6 +19,16 @@ export class TabManager {
     initialize(onTabChange?: (tab: 'mint' | 'redeem') => void): void {
         this.onTabChangeCallback = onTabChange;
         this.updateTabVisibility();
+    }
+
+    /**
+     * Set component references for auto-population functionality
+     * @param mintComponent - Reference to the mint component
+     * @param redeemComponent - Reference to the redeem component
+     */
+    setComponents(mintComponent: MintComponent, redeemComponent: RedeemComponent): void {
+        this.mintComponent = mintComponent;
+        this.redeemComponent = redeemComponent;
     }
 
     /**
@@ -58,6 +73,7 @@ export class TabManager {
             return;
         }
 
+        const previousTab = this.currentTab;
         this.currentTab = tab;
 
         const mintTab = document.getElementById('mintTab')!;
@@ -75,10 +91,43 @@ export class TabManager {
         mintTab.classList.toggle('active', tab === 'mint');
         redeemTab.classList.toggle('active', tab === 'redeem');
 
+        // Trigger auto-population only when actually switching tabs
+        if (previousTab !== tab) {
+            this.triggerAutoPopulation(tab);
+        }
+
         // Notify callback if provided
         if (this.onTabChangeCallback) {
             this.onTabChangeCallback(tab);
         }
+    }
+
+    /**
+     * Trigger auto-population of input fields when switching to a tab
+     * @param tab - The tab that was switched to
+     */
+    private triggerAutoPopulation(tab: 'mint' | 'redeem'): void {
+        console.log(`🔄 [DEBUG] triggerAutoPopulation called for ${tab} tab`);
+        console.log(`🔧 [DEBUG] mintComponent:`, this.mintComponent);
+        console.log(`🔧 [DEBUG] redeemComponent:`, this.redeemComponent);
+
+        // Small delay to ensure tab content is fully visible
+        setTimeout(() => {
+            try {
+                if (tab === 'mint' && this.mintComponent) {
+                    console.log(`🎯 [DEBUG] Triggering mint auto-populate`);
+                    this.mintComponent.autoPopulateWithMaxBalance();
+                } else if (tab === 'redeem' && this.redeemComponent) {
+                    console.log(`🎯 [DEBUG] Triggering redeem auto-populate`);
+                    this.redeemComponent.autoPopulateWithMaxBalance();
+                } else {
+                    console.warn(`❌ [DEBUG] Component not found for ${tab} tab`);
+                }
+            } catch (error) {
+                console.error('❌ [DEBUG] Failed to auto-populate balance on tab switch:', error);
+                // Silently fail - don't disrupt user experience
+            }
+        }, 100);
     }
 
     /**

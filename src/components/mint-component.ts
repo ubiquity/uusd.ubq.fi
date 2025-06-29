@@ -5,8 +5,10 @@ import type { PriceService } from '../services/price-service.ts';
 import type { TransactionService, TransactionOperation } from '../services/transaction-service.ts';
 import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import type { NotificationManager } from './notification-manager.ts';
+import type { InventoryBarComponent } from './inventory-bar-component.ts';
 import { OracleStatusComponent } from './oracle-status-component.ts';
 import { analyzeOracleError } from '../utils/oracle-utils.ts';
+import { getMaxTokenBalance, hasAvailableBalance } from '../utils/balance-utils.ts';
 
 interface MintServices {
     walletService: WalletService;
@@ -14,6 +16,7 @@ interface MintServices {
     priceService: PriceService;
     transactionService: TransactionService;
     notificationManager: NotificationManager;
+    inventoryBar: InventoryBarComponent;
 }
 
 /**
@@ -27,6 +30,7 @@ export class MintComponent {
     constructor(services: MintServices) {
         this.services = services;
         this.setupEventListeners();
+        this.setupBalanceSubscription();
     }
 
     /**
@@ -311,5 +315,72 @@ export class MintComponent {
         `;
 
         notificationContainer.appendChild(helpButton);
+    }
+
+    /**
+     * Setup balance update subscription
+     */
+    private setupBalanceSubscription(): void {
+        console.log('📋 [DEBUG] Setting up mint balance subscription');
+
+        if (this.services.inventoryBar) {
+            this.services.inventoryBar.onBalancesUpdated((balances) => {
+                console.log('🔔 [DEBUG] Mint component received balance update:', balances);
+
+                // Only auto-populate if mint tab is currently active and input is empty
+                const tabManager = (window as any).app?.tabManager;
+                if (tabManager?.getCurrentTab() === 'mint') {
+                    this.autoPopulateWithMaxBalance();
+                }
+            });
+        } else {
+            console.warn('❌ [DEBUG] No inventory bar service available for mint subscription');
+        }
+    }
+
+    /**
+     * Auto-populate input field with maximum LUSD balance
+     * Called when mint tab becomes active
+     */
+    autoPopulateWithMaxBalance(): void {
+        console.log('🚀 [DEBUG] Mint auto-populate called');
+
+        if (!this.services.walletService.isConnected()) {
+            console.log('💸 [DEBUG] Wallet not connected, skipping auto-populate');
+            return;
+        }
+
+        const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
+        if (!amountInput) {
+            console.warn('❌ [DEBUG] mintAmount input element not found');
+            return;
+        }
+
+        // Only populate if input is empty (don't overwrite user input)
+        if (amountInput.value && amountInput.value !== '0') {
+            console.log(`⏭️ [DEBUG] Input already has value: ${amountInput.value}, skipping auto-populate`);
+            return;
+        }
+
+        console.log('🔄 [DEBUG] Checking inventory bar service...');
+        console.log('📊 [DEBUG] inventoryBar service:', this.services.inventoryBar);
+
+        try {
+            const maxLusdBalance = getMaxTokenBalance(this.services.inventoryBar, 'LUSD');
+            console.log(`💰 [DEBUG] Max LUSD balance retrieved: ${maxLusdBalance}`);
+
+            // Only populate if there's an available balance
+            if (hasAvailableBalance(this.services.inventoryBar, 'LUSD')) {
+                console.log(`✅ [DEBUG] Setting mint input to: ${maxLusdBalance}`);
+                amountInput.value = maxLusdBalance;
+                // Trigger calculation update
+                this.updateOutput();
+            } else {
+                console.log('🚫 [DEBUG] No available LUSD balance to populate');
+            }
+        } catch (error) {
+            console.error('❌ [DEBUG] Failed to auto-populate LUSD balance:', error);
+            // Silently fail - don't disrupt user experience
+        }
     }
 }

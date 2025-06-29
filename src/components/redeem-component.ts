@@ -6,6 +6,8 @@ import type { TransactionService } from '../services/transaction-service.ts';
 import { TransactionOperation } from '../services/transaction-service.ts';
 import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import type { NotificationManager } from './notification-manager.ts';
+import type { InventoryBarComponent } from './inventory-bar-component.ts';
+import { getMaxTokenBalance, hasAvailableBalance } from '../utils/balance-utils.ts';
 
 interface RedeemServices {
     walletService: WalletService;
@@ -13,6 +15,7 @@ interface RedeemServices {
     priceService: PriceService;
     transactionService: TransactionService;
     notificationManager: NotificationManager;
+    inventoryBar: InventoryBarComponent;
 }
 
 /**
@@ -25,6 +28,7 @@ export class RedeemComponent {
     constructor(services: RedeemServices) {
         this.services = services;
         this.setupEventListeners();
+        this.setupBalanceSubscription();
     }
 
     /**
@@ -272,6 +276,73 @@ export class RedeemComponent {
             } else {
                 this.updateOutput();
             }
+        }
+    }
+
+    /**
+     * Setup balance update subscription
+     */
+    private setupBalanceSubscription(): void {
+        console.log('📋 [DEBUG] Setting up redeem balance subscription');
+
+        if (this.services.inventoryBar) {
+            this.services.inventoryBar.onBalancesUpdated((balances) => {
+                console.log('🔔 [DEBUG] Redeem component received balance update:', balances);
+
+                // Only auto-populate if redeem tab is currently active and input is empty
+                const tabManager = (window as any).app?.tabManager;
+                if (tabManager?.getCurrentTab() === 'redeem') {
+                    this.autoPopulateWithMaxBalance();
+                }
+            });
+        } else {
+            console.warn('❌ [DEBUG] No inventory bar service available for redeem subscription');
+        }
+    }
+
+    /**
+     * Auto-populate input field with maximum UUSD balance
+     * Called when redeem tab becomes active
+     */
+    autoPopulateWithMaxBalance(): void {
+        console.log('🚀 [DEBUG] Redeem auto-populate called');
+
+        if (!this.services.walletService.isConnected()) {
+            console.log('💸 [DEBUG] Wallet not connected, skipping auto-populate');
+            return;
+        }
+
+        const amountInput = document.getElementById('redeemAmount') as HTMLInputElement;
+        if (!amountInput) {
+            console.warn('❌ [DEBUG] redeemAmount input element not found');
+            return;
+        }
+
+        // Only populate if input is empty (don't overwrite user input)
+        if (amountInput.value && amountInput.value !== '0') {
+            console.log(`⏭️ [DEBUG] Input already has value: ${amountInput.value}, skipping auto-populate`);
+            return;
+        }
+
+        console.log('🔄 [DEBUG] Checking inventory bar service...');
+        console.log('📊 [DEBUG] inventoryBar service:', this.services.inventoryBar);
+
+        try {
+            const maxUusdBalance = getMaxTokenBalance(this.services.inventoryBar, 'UUSD');
+            console.log(`💰 [DEBUG] Max UUSD balance retrieved: ${maxUusdBalance}`);
+
+            // Only populate if there's an available balance
+            if (hasAvailableBalance(this.services.inventoryBar, 'UUSD')) {
+                console.log(`✅ [DEBUG] Setting redeem input to: ${maxUusdBalance}`);
+                amountInput.value = maxUusdBalance;
+                // Trigger calculation update
+                this.updateOutput();
+            } else {
+                console.log('🚫 [DEBUG] No available UUSD balance to populate');
+            }
+        } catch (error) {
+            console.error('❌ [DEBUG] Failed to auto-populate UUSD balance:', error);
+            // Silently fail - don't disrupt user experience
         }
     }
 }

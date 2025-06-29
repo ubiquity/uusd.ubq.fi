@@ -142,6 +142,7 @@ if [ -n "$CREATE_FLAG" ]; then
   deployctl deploy \
     --project="$PROJECT_NAME" \
     "$CREATE_FLAG" \
+    --prod \
     --entrypoint=serve.ts \
     --token="$DENO_DEPLOY_TOKEN" \
     --root="." \
@@ -152,6 +153,7 @@ if [ -n "$CREATE_FLAG" ]; then
 else
   deployctl deploy \
     --project="$PROJECT_NAME" \
+    --prod \
     --entrypoint=serve.ts \
     --token="$DENO_DEPLOY_TOKEN" \
     --root="." \

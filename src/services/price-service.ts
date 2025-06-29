@@ -11,6 +11,7 @@ import {
 } from '../utils/calculation-utils.ts';
 import type { ContractService, CollateralOption } from './contract-service.ts';
 import { LUSD_COLLATERAL } from '../contracts/constants.ts';
+import { PriceHistoryService, type PriceDataPoint } from './price-history-service.ts';
 
 /**
  * Interface for price calculation parameters
@@ -53,12 +54,15 @@ interface CacheEntry<T> {
  */
 export class PriceService {
     private contractService: ContractService;
+    private priceHistoryService: PriceHistoryService;
     private collateralOptions: CollateralOption[] = [];
     private cache = new Map<string, CacheEntry<any>>();
     private initialized = false;
 
-    constructor(contractService: ContractService) {
+    constructor(contractService: ContractService, walletService?: any) {
         this.contractService = contractService;
+        // Create a new WalletService if not provided - we'll fix this in app.ts
+        this.priceHistoryService = new PriceHistoryService(walletService || contractService);
     }
 
     /**
@@ -283,6 +287,35 @@ export class PriceService {
         // Convert raw price (6 decimal precision) to USD format
         const priceInUsd = Number(rawPrice) / 1000000;
         return `$${priceInUsd.toFixed(6)}`;
+    }
+
+    /**
+     * Get UUSD price history for sparkline visualization
+     */
+    async getUUSDPriceHistory(): Promise<PriceDataPoint[]> {
+        return this.priceHistoryService.getUUSDPriceHistory({
+            maxDataPoints: 168,
+            timeRangeHours: 168,
+            sampleIntervalMinutes: 60
+        });
+    }
+
+    /**
+     * Get cached UUSD price history immediately (synchronous)
+     */
+    getCachedUUSDPriceHistory(): PriceDataPoint[] {
+        return this.priceHistoryService.getCachedPriceHistory({
+            maxDataPoints: 168,
+            timeRangeHours: 168,
+            sampleIntervalMinutes: 60
+        });
+    }
+
+    /**
+     * Clear price history cache (useful for refreshing data)
+     */
+    clearPriceHistoryCache(): void {
+        this.priceHistoryService.clearCache();
     }
 
     /**
