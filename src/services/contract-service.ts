@@ -9,6 +9,7 @@ import { ADDRESSES, DIAMOND_ABI, ERC20_ABI } from '../contracts/constants.ts';
 import type { CollateralInfo } from '../utils/calculation-utils.ts';
 import type { WalletService } from './wallet-service.ts';
 import { analyzeOracleError, getAlternativeActions, getOracleRefreshEstimate } from '../utils/oracle-utils.ts';
+import { CurvePriceService } from './curve-price-service.ts';
 
 /**
  * Extended collateral information with blockchain state
@@ -76,9 +77,11 @@ export interface ContractWrites {
  */
 export class ContractService implements ContractReads, ContractWrites {
     private walletService: WalletService;
+    private curvePriceService: CurvePriceService;
 
     constructor(walletService: WalletService) {
         this.walletService = walletService;
+        this.curvePriceService = new CurvePriceService(walletService);
     }
 
     /**
@@ -114,15 +117,38 @@ export class ContractService implements ContractReads, ContractWrites {
     }
 
     /**
-     * Get current UUSD market price from the contract
+     * Get current UUSD market price from Curve pool (not oracle price)
      */
     async getDollarPriceUsd(): Promise<bigint> {
-        const publicClient = this.walletService.getPublicClient();
-        return await publicClient.readContract({
-            address: ADDRESSES.DIAMOND,
-            abi: DIAMOND_ABI,
-            functionName: 'getDollarPriceUsd'
-        }) as bigint;
+        try {
+            const publicClient = this.walletService.getPublicClient();
+
+            // Get LUSD oracle price from Diamond contract
+            const lusdOraclePrice = await publicClient.readContract({
+                address: ADDRESSES.DIAMOND,
+                abi: DIAMOND_ABI,
+                functionName: 'getDollarPriceUsd'
+            }) as bigint;
+
+            console.log(`📊 LUSD oracle price: $${Number(lusdOraclePrice) / 1000000}`);
+
+            // Calculate actual UUSD market price using Curve pool
+            const uusdMarketPrice = await this.curvePriceService.getUUSDMarketPrice(lusdOraclePrice);
+
+            console.log(`🎯 UUSD market price: $${Number(uusdMarketPrice) / 1000000}`);
+
+            return uusdMarketPrice;
+        } catch (error) {
+            console.error('❌ Failed to get UUSD market price, falling back to oracle price:', error);
+
+            // Fallback to original oracle price if Curve calculation fails
+            const publicClient = this.walletService.getPublicClient();
+            return await publicClient.readContract({
+                address: ADDRESSES.DIAMOND,
+                abi: DIAMOND_ABI,
+                functionName: 'getDollarPriceUsd'
+            }) as bigint;
+        }
     }
 
     /**
