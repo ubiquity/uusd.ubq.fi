@@ -45,12 +45,17 @@ export class PriceHistoryService {
     private readonly TOKEN_EXCHANGE_TOPIC = '0x8b3e96f2b889fa771c53c981b40daf005f63f637f1869f707052d15a3dd97140';
 
     private cache: Map<string, PriceDataPoint[]> = new Map();
+    private pointCache: Map<string, { point: PriceDataPoint; timestamp: number }> = new Map(); // Block-level caching with timestamps
     private cacheTimestamp: number = 0;
     private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+    private readonly POINT_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes for individual points
 
     constructor(walletService: WalletService) {
         this.walletService = walletService;
         this.rpcBatchService = new RPCBatchService();
+
+        // Clean up old cache entries on initialization
+        this.cleanupOldCache();
     }
 
     /**
@@ -91,6 +96,57 @@ export class PriceHistoryService {
             console.error('❌ Failed to fetch price history:', error);
             return [];
         }
+    }
+
+    /**
+     * Get cached price history immediately (synchronous)
+     * Returns cached data instantly for immediate rendering
+     */
+    getCachedPriceHistory(config: PriceHistoryConfig = {
+        maxDataPoints: 24,
+        timeRangeHours: 24,
+        sampleIntervalMinutes: 60
+    }): PriceDataPoint[] {
+        const cacheKey = `${config.timeRangeHours}h_${config.maxDataPoints}pts`;
+
+        // Return cached data if available
+        if (this.isCacheValid(cacheKey)) {
+            return this.cache.get(cacheKey) || [];
+        }
+
+        // If no main cache, try to build from individual cached points
+        return this.buildFromCachedPoints(config);
+    }
+
+    /**
+     * Build price history from individual cached points
+     */
+    private buildFromCachedPoints(config: PriceHistoryConfig): PriceDataPoint[] {
+        const cachedPoints: PriceDataPoint[] = [];
+
+        try {
+            // Use estimated current block for cache key generation
+            const estimatedCurrentBlock = BigInt(Date.now() / 12000); // Rough estimate
+            const targetBlocks = this.calculateBlockRange(estimatedCurrentBlock, config.timeRangeHours);
+            const blockRange = targetBlocks.toBlock - targetBlocks.fromBlock;
+            const stepSize = blockRange / BigInt(config.maxDataPoints);
+
+            // Check for cached individual points
+            for (let i = 0; i < config.maxDataPoints; i++) {
+                const targetBlock = targetBlocks.fromBlock + (stepSize * BigInt(i));
+                const quantizedBlock = this.quantizeToBlockBoundary(targetBlock, 300n);
+                const pointKey = `hour_${quantizedBlock}`;
+                const cachedPoint = this.getPointFromCache(pointKey);
+
+                if (cachedPoint) {
+                    cachedPoints.push(cachedPoint);
+                }
+            }
+        } catch (error) {
+            // Ignore errors in cache reconstruction
+        }
+
+        return cachedPoints.sort((a, b) => Number(a.blockNumber - b.blockNumber));
     }
 
     /**
@@ -158,7 +214,7 @@ export class PriceHistoryService {
     }
 
     /**
-     * Fetch price history by sampling prices at regular intervals using batched RPC calls
+     * Fetch price history by sampling prices at regular intervals using intelligent caching
      */
     private async fetchPriceBySampling(
         publicClient: PublicClient,
@@ -168,50 +224,84 @@ export class PriceHistoryService {
         const blockRange = targetBlocks.toBlock - targetBlocks.fromBlock;
         const stepSize = blockRange / BigInt(config.maxDataPoints);
 
-        // Generate block numbers for sampling
+        // Generate quantized block numbers (every 300 blocks = ~1 hour)
         const blockNumbers: bigint[] = [];
         for (let i = 0; i < config.maxDataPoints; i++) {
-            const blockNumber = targetBlocks.fromBlock + (stepSize * BigInt(i));
-            blockNumbers.push(blockNumber);
+            const targetBlock = targetBlocks.fromBlock + (stepSize * BigInt(i));
+            // Quantize to nearest 300-block boundary
+            const quantizedBlock = this.quantizeToBlockBoundary(targetBlock, 300n);
+            blockNumbers.push(quantizedBlock);
         }
 
-        console.log(`📊 Batching ${blockNumbers.length} RPC requests into single call...`);
+        // Check cache for existing data points using quantized blocks
+        const cachedPoints: PriceDataPoint[] = [];
+        const missingBlocks: bigint[] = [];
 
-        try {
-            // Use batched RPC service to get all data in one request
-            const testAmount = parseEther('1'); // 1 LUSD
-            const batchResult = await this.rpcBatchService.batchHistoryRequests(
-                publicClient,
-                blockNumbers,
-                this.CURVE_POOL_ADDRESS,
-                testAmount
-            );
+        for (const blockNumber of blockNumbers) {
+            const pointKey = `hour_${blockNumber}`;  // Use "hour_" prefix for quantized blocks
+            const cachedPoint = this.getPointFromCache(pointKey);
 
-            if (batchResult.errors.length > 0) {
-                console.warn('⚠️ Some batched requests had errors:', batchResult.errors);
+            if (cachedPoint) {
+                cachedPoints.push(cachedPoint);
+            } else {
+                missingBlocks.push(blockNumber);
             }
+        }
 
-            // Combine block and price data into price points
-            const pricePoints: PriceDataPoint[] = [];
-            for (let i = 0; i < blockNumbers.length; i++) {
-                const block = batchResult.blocks[i];
-                const price = batchResult.prices[i];
+        console.log(`🔍 Cache status: ${cachedPoints.length} cached, ${missingBlocks.length} missing blocks`);
 
-                if (block && price > 0n) {
-                    pricePoints.push({
-                        timestamp: Number(block.timestamp),
-                        price,
-                        blockNumber: blockNumbers[i]
-                    });
+        // Only fetch missing data points
+        let newPoints: PriceDataPoint[] = [];
+        if (missingBlocks.length > 0) {
+            console.log(`📊 Batching ${missingBlocks.length} missing RPC requests...`);
+
+            try {
+                const testAmount = parseEther('1'); // 1 LUSD
+                const batchResult = await this.rpcBatchService.batchHistoryRequests(
+                    publicClient,
+                    missingBlocks,
+                    this.CURVE_POOL_ADDRESS,
+                    testAmount
+                );
+
+                if (batchResult.errors.length > 0) {
+                    console.warn('⚠️ Some batched requests had errors:', batchResult.errors);
                 }
-            }
 
-            console.log(`✅ Successfully processed ${pricePoints.length}/${blockNumbers.length} price points from batched RPC`);
-            return pricePoints;
-        } catch (error) {
-            console.error('❌ Batched RPC sampling failed:', error);
-            return [];
+                // Process new data points and cache them
+                for (let i = 0; i < missingBlocks.length; i++) {
+                    const block = batchResult.blocks[i];
+                    const price = batchResult.prices[i];
+
+                    if (block && price > 0n) {
+                        const point: PriceDataPoint = {
+                            timestamp: Number(block.timestamp),
+                            price,
+                            blockNumber: missingBlocks[i]
+                        };
+
+                        // Cache the new point with quantized key
+                        const pointKey = `hour_${missingBlocks[i]}`;
+                        this.cachePoint(pointKey, point);
+
+                        newPoints.push(point);
+                    }
+                }
+
+                console.log(`✅ Fetched ${newPoints.length}/${missingBlocks.length} new data points`);
+            } catch (error) {
+                console.error('❌ Batched RPC sampling failed:', error);
+                return cachedPoints; // Return at least cached data
+            }
         }
+
+        // Combine cached and new points, sort by block number
+        const allPoints = [...cachedPoints, ...newPoints].sort(
+            (a, b) => Number(a.blockNumber - b.blockNumber)
+        );
+
+        console.log(`✅ Total points: ${allPoints.length} (${cachedPoints.length} cached + ${newPoints.length} new)`);
+        return allPoints;
     }
 
 
@@ -282,6 +372,14 @@ export class PriceHistoryService {
     }
 
     /**
+     * Quantize block number to nearest boundary (e.g., every 300 blocks)
+     * This creates consistent cache keys across page refreshes
+     */
+    private quantizeToBlockBoundary(blockNumber: bigint, boundary: bigint): bigint {
+        return (blockNumber / boundary) * boundary;
+    }
+
+    /**
      * Check if cache is valid
      */
     private isCacheValid(cacheKey: string): boolean {
@@ -290,10 +388,131 @@ export class PriceHistoryService {
     }
 
     /**
+     * Get a price point from cache if valid (checks both memory and localStorage)
+     */
+    private getPointFromCache(pointKey: string): PriceDataPoint | null {
+        // First check memory cache
+        let cached = this.pointCache.get(pointKey);
+
+        // If not in memory, try localStorage with current key format
+        if (!cached) {
+            try {
+                const stored = localStorage.getItem(`price_${pointKey}`);
+                if (stored) {
+                    cached = JSON.parse(stored);
+                    // Restore to memory cache
+                    if (cached) {
+                        this.pointCache.set(pointKey, cached);
+                    }
+                }
+            } catch (error) {
+                // Ignore localStorage errors
+            }
+        }
+
+        if (!cached) return null;
+
+        // Check if cache entry is still valid (30 minutes)
+        const cacheAge = Date.now() - cached.timestamp;
+        if (cacheAge > this.POINT_CACHE_TTL_MS) {
+            this.pointCache.delete(pointKey);
+            try {
+                localStorage.removeItem(`price_${pointKey}`);
+            } catch (error) {
+                // Ignore localStorage errors
+            }
+            return null;
+        }
+
+        // Convert BigInt strings back to BigInt
+        if (typeof cached.point.price === 'string') {
+            cached.point.price = BigInt(cached.point.price);
+        }
+        if (typeof cached.point.blockNumber === 'string') {
+            cached.point.blockNumber = BigInt(cached.point.blockNumber);
+        }
+
+        return cached.point;
+    }
+
+    /**
+     * Cache a price point (stores in both memory and localStorage)
+     */
+    private cachePoint(pointKey: string, point: PriceDataPoint): void {
+        const cacheData = {
+            point: {
+                ...point,
+                price: point.price.toString(), // Convert BigInt to string for JSON
+                blockNumber: point.blockNumber.toString()
+            },
+            timestamp: Date.now()
+        };
+
+        // Store in memory
+        this.pointCache.set(pointKey, {
+            point,
+            timestamp: Date.now()
+        });
+
+        // Store in localStorage
+        try {
+            localStorage.setItem(`price_${pointKey}`, JSON.stringify(cacheData));
+        } catch (error) {
+            // Ignore localStorage errors (quota exceeded, etc.)
+        }
+    }
+
+    /**
      * Clear the price history cache
      */
     clearCache(): void {
         this.cache.clear();
+        this.pointCache.clear();
         this.cacheTimestamp = 0;
+    }
+
+    /**
+     * Clean up cache entries older than one week
+     */
+    private cleanupOldCache(): void {
+        const oneWeekMs = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
+        const cutoffTime = Date.now() - oneWeekMs;
+        let cleanedCount = 0;
+
+        try {
+            // Clean up localStorage
+            const keysToRemove: string[] = [];
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('price_block_') || key.startsWith('price_hour_'))) {
+                    try {
+                        const stored = localStorage.getItem(key);
+                        if (stored) {
+                            const cached = JSON.parse(stored);
+                            if (cached.timestamp && cached.timestamp < cutoffTime) {
+                                keysToRemove.push(key);
+                            }
+                        }
+                    } catch (error) {
+                        // If we can't parse it, it's probably corrupted - remove it
+                        keysToRemove.push(key);
+                    }
+                }
+            }
+
+            // Remove old entries
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+                cleanedCount++;
+            });
+
+            if (cleanedCount > 0) {
+                console.log(`🧹 Cleaned up ${cleanedCount} old cache entries (older than 1 week)`);
+            }
+        } catch (error) {
+            // Ignore localStorage errors
+            console.warn('⚠️ Could not clean up old cache entries:', error);
+        }
     }
 }

@@ -301,6 +301,17 @@ export class PriceService {
     }
 
     /**
+     * Get cached UUSD price history immediately (synchronous)
+     */
+    getCachedUUSDPriceHistory(): PriceDataPoint[] {
+        return this.priceHistoryService.getCachedPriceHistory({
+            maxDataPoints: 168,
+            timeRangeHours: 168,
+            sampleIntervalMinutes: 60
+        });
+    }
+
+    /**
      * Clear price history cache (useful for refreshing data)
      */
     clearPriceHistoryCache(): void {

@@ -11,7 +11,6 @@ import { NotificationManager } from './components/notification-manager.ts';
 import { TabManager } from './components/tab-manager.ts';
 import { MintComponent } from './components/mint-component.ts';
 import { RedeemComponent } from './components/redeem-component.ts';
-import { SparklineComponent } from './components/sparkline-component.ts';
 
 // Import utilities
 import { formatAddress } from './utils/format-utils.ts';
@@ -38,7 +37,6 @@ class UUSDApp {
     private tabManager: TabManager;
     private mintComponent: MintComponent;
     private redeemComponent: RedeemComponent;
-    private sparklineComponent: SparklineComponent | null = null;
 
     constructor() {
         // Initialize services with dependency injection
@@ -78,22 +76,30 @@ class UUSDApp {
         // Initialize components immediately for fast UX
         this.tabManager.initialize((tab) => this.handleTabChange(tab));
 
-        // Only load UUSD price immediately - defer collateral options until needed
+        // Initialize dynamic date labels for chart
+        this.initializeDynamicDates();
+
+        // RENDER CACHED SPARKLINE IMMEDIATELY (synchronous)
+        this.renderCachedSparkline();
+
+        // Load UUSD price (separate from sparkline)
         this.loadUUSDPrice().catch(error => {
             console.warn('Failed to load UUSD price:', error);
+        });
+
+        // Load sparkline updates in parallel (separate from price)
+        this.loadRealPriceHistory().catch(error => {
+            console.warn('Failed to load price history:', error);
         });
     }
 
     /**
-     * Load and display current UUSD price with sparkline
+     * Load and display current UUSD price ONLY
      */
     private async loadUUSDPrice(): Promise<void> {
         try {
             const uusdPrice = await this.priceService.getCurrentUUSDPrice();
             this.updateUUSDPriceDisplay(uusdPrice);
-
-            // Load and display price history sparkline
-            this.loadPriceHistory();
         } catch (error: any) {
             console.warn('Failed to load UUSD price:', error);
             this.updateUUSDPriceDisplay('Unavailable');
@@ -101,94 +107,111 @@ class UUSDApp {
     }
 
     /**
-     * Load and display price history sparkline
+     * Render cached sparkline immediately (synchronous)
      */
-    private async loadPriceHistory(): Promise<void> {
+    private renderCachedSparkline(): void {
         try {
-            const priceHistory = await this.priceService.getUUSDPriceHistory();
-            this.initializeSparkline(priceHistory);
+            const cachedHistory = this.priceService.getCachedUUSDPriceHistory();
+            if (cachedHistory.length > 0) {
+                console.log('⚡ Immediate sparkline render with', cachedHistory.length, 'cached points');
+                this.generateRealSparkline(cachedHistory);
+            }
+        } catch (error: any) {
+            // Ignore cache errors for immediate render
+            console.warn('Could not render cached sparkline:', error);
+        }
+    }
+
+    /**
+     * Load real price history and generate dynamic sparkline
+     * Uses "render-first, update-later" pattern for optimal UX
+     */
+    private async loadRealPriceHistory(): Promise<void> {
+        try {
+            // Get current cached state to compare
+            const cachedHistory = this.priceService.getCachedUUSDPriceHistory();
+
+            // STEP 2: Fetch fresh data and update if different
+            const freshHistory = await this.priceService.getUUSDPriceHistory();
+            console.log('📊 Fresh price history loaded:', freshHistory.length, 'points');
+
+            // Only re-render if we got more/different data
+            if (freshHistory.length > cachedHistory.length ||
+                (freshHistory.length > 0 && cachedHistory.length === 0)) {
+                console.log('🔄 Updating with fresh data');
+                this.generateRealSparkline(freshHistory);
+            }
         } catch (error: any) {
             console.warn('Failed to load price history:', error);
-            // Sparkline will show empty state
         }
     }
 
     /**
-     * Initialize sparkline component with price data
+     * Generate real sparkline from actual price data
      */
-    private initializeSparkline(priceHistory: any[]): void {
-        const sparklineContainer = document.getElementById('sparklineContainer');
-        if (!sparklineContainer) throw new Error('Sparkline container not found');
+    private generateRealSparkline(priceHistory: any[]): void {
+        const chartElement = document.querySelector('.sparkline-chart') as HTMLElement;
+        const strokeElement = document.querySelector('.sparkline-stroke') as HTMLElement;
 
-        // Destroy existing sparkline if present
-        if (this.sparklineComponent) {
-            this.sparklineComponent.destroy();
-        }
+        if (!chartElement || !strokeElement || priceHistory.length === 0) return;
 
-        // Create new sparkline
-        this.sparklineComponent = new SparklineComponent(sparklineContainer, {
-            width: 80,
-            height: 20,
-            lineColor: '#00d4aa',
-            lineWidth: 1.5,
-            fillColor: 'rgba(0, 212, 170, 0.1)'
+        // Convert BigInt prices to numbers for Math operations
+        const prices = priceHistory.map(point => {
+            // Handle both BigInt and number types
+            if (typeof point.price === 'bigint') {
+                return Number(point.price) / 1000000; // Convert from 6-decimal precision to USD
+            }
+            return typeof point.price === 'number' ? point.price : parseFloat(point.price);
         });
 
-        // Update with price data
-        this.sparklineComponent.updateData(priceHistory);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        const priceRange = maxPrice - minPrice;
 
-        // Add trend indicator
-        this.updateTrendIndicator();
-    }
+        // Map prices to chart coordinates based on $0.99-$1.01 range
+        const chartMinPrice = 0.99;
+        const chartMaxPrice = 1.01;
+        const chartRange = chartMaxPrice - chartMinPrice;
 
-    /**
-     * Update trend indicator based on sparkline data
-     */
-    private updateTrendIndicator(): void {
-        if (!this.sparklineComponent) return;
+        // Create polygon points for the sparkline
+        const points: string[] = [];
 
-        const trend = this.sparklineComponent.getTrend();
-        const priceChange = this.sparklineComponent.getPriceChange();
+        prices.forEach((price, index) => {
+            const x = (index / (prices.length - 1)) * 100; // 0-100%
 
-        const priceElement = document.getElementById('uusdPrice');
-        if (!priceElement) return;
+            // Map price to chart position: $0.99 = 80%, $1.01 = 20%
+            const normalizedPrice = (price - chartMinPrice) / chartRange;
+            const y = 80 - (normalizedPrice * 60); // Map to 80%-20% (inverted)
 
-        // Remove existing trend classes
-        priceElement.classList.remove('price-up', 'price-down', 'price-flat');
+            points.push(`${x}% ${y}%`);
+        });
 
-        // Add trend class and symbol
-        let trendSymbol = '';
-        let trendClass = '';
+        // Add bottom corners for fill area
+        points.push('100% 100%', '0% 100%');
 
-        if (trend === 'up') {
-            trendSymbol = ' ↗';
-            trendClass = 'price-up';
-        } else if (trend === 'down') {
-            trendSymbol = ' ↘';
-            trendClass = 'price-down';
-        } else {
-            trendSymbol = ' →';
-            trendClass = 'price-flat';
-        }
+        // Create stroke path (without bottom fill)
+        const strokePath = [...points.slice(0, -2)]; // Remove bottom corners
+        strokePath.push(...points.slice(0, -2).reverse().map(point => {
+            const [x, y] = point.split(' ');
+            const yNum = parseFloat(y.replace('%', ''));
+            return `${x} ${yNum + 0.1}%`; // Add minimal thickness for single-pixel line
+        }));
 
-        priceElement.classList.add(trendClass);
+        // Apply to CSS clip-path
+        const clipPath = `polygon(${points.join(', ')})`;
+        const strokeClipPath = `polygon(${strokePath.join(', ')})`;
 
-        // Add percentage change if significant
-        if (Math.abs(priceChange) > 0.01) {
-            const changeText = `${trendSymbol} ${priceChange > 0 ? '+' : ''}${priceChange.toFixed(2)}%`;
+        chartElement.style.clipPath = clipPath;
+        strokeElement.style.clipPath = strokeClipPath;
 
-            let changeElement = document.getElementById('priceChange');
-            if (!changeElement) {
-                changeElement = document.createElement('span');
-                changeElement.id = 'priceChange';
-                changeElement.style.fontSize = '0.8em';
-                changeElement.style.marginLeft = '8px';
-                priceElement.appendChild(changeElement);
-            }
+        // Add "ready" class to trigger fade-in animation
+        chartElement.classList.add('ready');
+        strokeElement.classList.add('ready');
 
-            changeElement.textContent = changeText;
-            changeElement.className = `price-change ${trendClass}`;
-        }
+        console.log('📈 Dynamic sparkline generated with', points.length - 2, 'data points');
+        console.log('💰 Actual price range: $' + minPrice.toFixed(6), '→ $' + maxPrice.toFixed(6));
+        console.log('📊 Chart mapping: $0.99 → 80%, $1.01 → 20%');
+        console.log('📍 First few points:', points.slice(0, 3));
     }
 
     /**
@@ -199,6 +222,38 @@ class UUSDApp {
         if (priceElement) {
             priceElement.textContent = price;
         }
+    }
+
+    /**
+     * Initialize dynamic date labels for the last 7 days
+     */
+    private initializeDynamicDates(): void {
+        const dateContainer = document.getElementById('dynamic-dates');
+        if (!dateContainer) return;
+
+        // Get last 7 days including today
+        const dates: string[] = [];
+        const today = new Date();
+
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - i);
+
+            // Format as "Mon DD"
+            const month = date.toLocaleDateString('en-US', { month: 'short' });
+            const day = date.getDate();
+
+            dates.push(`${month} ${day}`);
+        }
+
+        // Clear existing content and add dynamic dates
+        dateContainer.innerHTML = '';
+        dates.forEach(dateStr => {
+            const span = document.createElement('span');
+            span.className = 'date-label';
+            span.textContent = dateStr;
+            dateContainer.appendChild(span);
+        });
     }
 
     private setupServiceEventHandlers() {
