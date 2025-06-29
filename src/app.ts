@@ -63,9 +63,21 @@ class UUSDApp {
             notificationManager: this.notificationManager
         };
 
-        this.mintComponent = new MintComponent(services);
-        this.redeemComponent = new RedeemComponent(services);
+        // Create inventory bar component first (needed by mint/redeem components)
         this.inventoryBarComponent = new InventoryBarComponent(services);
+
+        // Create mint/redeem components with inventory bar reference
+        this.mintComponent = new MintComponent({
+            ...services,
+            inventoryBar: this.inventoryBarComponent
+        });
+        this.redeemComponent = new RedeemComponent({
+            ...services,
+            inventoryBar: this.inventoryBarComponent
+        });
+
+        // Register components with tab manager for auto-population
+        this.tabManager.setComponents(this.mintComponent, this.redeemComponent);
 
         this.setupServiceEventHandlers();
 

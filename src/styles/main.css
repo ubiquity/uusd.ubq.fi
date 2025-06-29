@@ -140,7 +140,7 @@ input,button,select {
     /* Default: hide until real data loads */
     clip-path: polygon(0% 100%, 0% 100%, 0% 100%);
     opacity: 0;
-    transition: opacity 0.6s ease-in-out;
+    transition: opacity 1s ease-in-out;
 }
 
 .sparkline-stroke {
@@ -153,7 +153,7 @@ input,button,select {
     /* Default: hide until real data loads */
     clip-path: polygon(0% 100%, 0% 100%, 0% 100%);
     opacity: 0;
-    transition: opacity 0.6s ease-in-out;
+    transition: opacity 1s ease-in-out;
 }
 
 .sparkline-chart.ready,

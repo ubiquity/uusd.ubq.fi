@@ -24,6 +24,11 @@ export interface InventoryBarServices {
 }
 
 /**
+ * Callback type for balance update notifications
+ */
+export type BalanceUpdateCallback = (balances: TokenBalance[]) => void;
+
+/**
  * Inventory Bar Component
  * Displays token balances (LUSD, UUSD, UBQ) at the bottom of the page with USD values
  */
@@ -32,6 +37,7 @@ export class InventoryBarComponent {
     private state: InventoryBarState;
     private updateInterval: number | null = null;
     private readonly UPDATE_INTERVAL_MS = 30000; // 30 seconds
+    private balanceUpdateCallbacks: BalanceUpdateCallback[] = [];
 
     constructor(services: InventoryBarServices) {
         this.services = services;
@@ -157,6 +163,9 @@ export class InventoryBarComponent {
             this.state.isLoading = false;
 
             this.renderBalances();
+
+            // 🔥 NEW: Trigger auto-population when balances are loaded/updated
+            this.notifyBalancesUpdated();
 
         } catch (error) {
             console.error('Failed to load token balances:', error);
@@ -338,9 +347,41 @@ export class InventoryBarComponent {
     }
 
     /**
+     * Subscribe to balance updates
+     */
+    public onBalancesUpdated(callback: BalanceUpdateCallback): void {
+        this.balanceUpdateCallbacks.push(callback);
+    }
+
+    /**
+     * Unsubscribe from balance updates
+     */
+    public offBalancesUpdated(callback: BalanceUpdateCallback): void {
+        const index = this.balanceUpdateCallbacks.indexOf(callback);
+        if (index > -1) {
+            this.balanceUpdateCallbacks.splice(index, 1);
+        }
+    }
+
+    /**
+     * Notify all subscribers that balances have been updated
+     */
+    private notifyBalancesUpdated(): void {
+        console.log('📢 [DEBUG] Notifying balance update subscribers...', this.balanceUpdateCallbacks.length);
+        this.balanceUpdateCallbacks.forEach(callback => {
+            try {
+                callback(this.state.balances);
+            } catch (error) {
+                console.error('Error in balance update callback:', error);
+            }
+        });
+    }
+
+    /**
      * Cleanup component
      */
     public destroy(): void {
         this.stopPeriodicUpdates();
+        this.balanceUpdateCallbacks = [];
     }
 }
