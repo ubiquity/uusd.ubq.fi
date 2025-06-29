@@ -66,3 +66,80 @@ input:focus, select:focus { outline: none; }
 input,button,select {
  backdrop-filter:blur(8px);
 }
+
+/* Sparkline and Price Trend Styles */
+.price-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+#sparklineContainer {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 8px;
+    backdrop-filter: blur(8px);
+}
+
+/* Price trend indicators */
+.price-up {
+    color: #00ff88 !important;
+}
+
+.price-down {
+    color: #ff4757 !important;
+}
+
+.price-flat {
+    color: #ffa502 !important;
+}
+
+.price-change {
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+.price-change.price-up {
+    color: #00ff88;
+}
+
+.price-change.price-down {
+    color: #ff4757;
+}
+
+.price-change.price-flat {
+    color: #ffa502;
+}
+
+/* Sparkline tooltip styles */
+.sparkline-tooltip {
+    background: rgba(0, 0, 0, 0.9) !important;
+    color: white !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive design for sparkline */
+@media (max-width: 480px) {
+    .price-section {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    #sparklineContainer {
+        margin-left: 0 !important;
+    }
+
+    .price-change {
+        font-size: 0.7em !important;
+    }
+}

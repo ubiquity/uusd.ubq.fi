@@ -11,6 +11,7 @@ import { NotificationManager } from './components/notification-manager.ts';
 import { TabManager } from './components/tab-manager.ts';
 import { MintComponent } from './components/mint-component.ts';
 import { RedeemComponent } from './components/redeem-component.ts';
+import { SparklineComponent } from './components/sparkline-component.ts';
 
 // Import utilities
 import { formatAddress } from './utils/format-utils.ts';
@@ -37,12 +38,13 @@ class UUSDApp {
     private tabManager: TabManager;
     private mintComponent: MintComponent;
     private redeemComponent: RedeemComponent;
+    private sparklineComponent: SparklineComponent | null = null;
 
     constructor() {
         // Initialize services with dependency injection
         this.walletService = new WalletService();
         this.contractService = new ContractService(this.walletService);
-        this.priceService = new PriceService(this.contractService);
+        this.priceService = new PriceService(this.contractService, this.walletService);
         this.transactionService = new TransactionService(
             this.walletService,
             this.contractService,
@@ -83,15 +85,122 @@ class UUSDApp {
     }
 
     /**
-     * Load and display current UUSD price
+     * Load and display current UUSD price with sparkline
      */
     private async loadUUSDPrice(): Promise<void> {
         try {
             const uusdPrice = await this.priceService.getCurrentUUSDPrice();
             this.updateUUSDPriceDisplay(uusdPrice);
+
+            // Load and display price history sparkline
+            this.loadPriceHistory();
         } catch (error: any) {
             console.warn('Failed to load UUSD price:', error);
             this.updateUUSDPriceDisplay('Unavailable');
+        }
+    }
+
+    /**
+     * Load and display price history sparkline
+     */
+    private async loadPriceHistory(): Promise<void> {
+        try {
+            const priceHistory = await this.priceService.getUUSDPriceHistory();
+            this.initializeSparkline(priceHistory);
+        } catch (error: any) {
+            console.warn('Failed to load price history:', error);
+            // Sparkline will show empty state
+        }
+    }
+
+    /**
+     * Initialize sparkline component with price data
+     */
+    private initializeSparkline(priceHistory: any[]): void {
+        const priceElement = document.getElementById('uusdPrice');
+        if (!priceElement) return;
+
+        // Create sparkline container if it doesn't exist
+        let sparklineContainer = document.getElementById('sparklineContainer');
+        if (!sparklineContainer) {
+            sparklineContainer = document.createElement('div');
+            sparklineContainer.id = 'sparklineContainer';
+            sparklineContainer.style.marginLeft = '12px';
+            sparklineContainer.style.display = 'inline-block';
+            sparklineContainer.style.verticalAlign = 'middle';
+
+            // Insert after the price element
+            priceElement.parentNode?.insertBefore(sparklineContainer, priceElement.nextSibling);
+        }
+
+        // Destroy existing sparkline if present
+        if (this.sparklineComponent) {
+            this.sparklineComponent.destroy();
+        }
+
+        // Create new sparkline
+        this.sparklineComponent = new SparklineComponent(sparklineContainer, {
+            width: 80,
+            height: 20,
+            lineColor: '#00d4aa',
+            lineWidth: 1.5,
+            fillColor: 'rgba(0, 212, 170, 0.1)'
+        });
+
+        // Update with price data
+        this.sparklineComponent.updateData(priceHistory);
+
+        // Add trend indicator
+        this.updateTrendIndicator();
+    }
+
+    /**
+     * Update trend indicator based on sparkline data
+     */
+    private updateTrendIndicator(): void {
+        if (!this.sparklineComponent) return;
+
+        const trend = this.sparklineComponent.getTrend();
+        const priceChange = this.sparklineComponent.getPriceChange();
+
+        const priceElement = document.getElementById('uusdPrice');
+        if (!priceElement) return;
+
+        // Remove existing trend classes
+        priceElement.classList.remove('price-up', 'price-down', 'price-flat');
+
+        // Add trend class and symbol
+        let trendSymbol = '';
+        let trendClass = '';
+
+        if (trend === 'up') {
+            trendSymbol = ' ↗';
+            trendClass = 'price-up';
+        } else if (trend === 'down') {
+            trendSymbol = ' ↘';
+            trendClass = 'price-down';
+        } else {
+            trendSymbol = ' →';
+            trendClass = 'price-flat';
+        }
+
+        priceElement.classList.add(trendClass);
+
+        // Add percentage change if significant
+        if (Math.abs(priceChange) > 0.01) {
+            const changeText = `${trendSymbol} ${priceChange > 0 ? '+' : ''}${priceChange.toFixed(2)}%`;
+
+            let changeElement = document.getElementById('priceChange');
+            if (!changeElement) {
+                changeElement = document.createElement('span');
+                changeElement.id = 'priceChange';
+                changeElement.style.fontSize = '0.8em';
+                changeElement.style.marginLeft = '8px';
+                priceElement.appendChild(changeElement);
+            }
+
+            changeElement.textContent = changeText;
+            changeElement.className = `price-change ${trendClass}`;
         }
     }
 
