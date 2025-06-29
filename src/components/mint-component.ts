@@ -83,16 +83,12 @@ export class MintComponent {
             const dollarAmount = parseEther(amount);
             const isForceCollateralOnly = forceCollateralOnly.checked;
 
-            console.log('🔄 Calculating mint output (debounced)...');
-
             // Calculate mint output using optimized price service with batched RPC calls
             const result = await this.services.priceService.calculateMintOutput({
                 dollarAmount,
                 collateralIndex: LUSD_COLLATERAL.index,
                 isForceCollateralOnly
             });
-
-            console.log('✅ Mint calculation completed');
 
             // Update UI with LUSD hardcoded values
             const collateralNeeded = document.getElementById('collateralNeeded');
@@ -148,6 +144,9 @@ export class MintComponent {
         } else {
             button.textContent = 'Mint UUSD';
         }
+
+        // Re-enable the button after updating text (it may have been disabled during transaction)
+        button.disabled = false;
     }
 
     /**
@@ -171,12 +170,6 @@ export class MintComponent {
             }
 
             const amount = parseEther(amountInput.value);
-
-            console.log('Starting mint transaction:', {
-                amount: amountInput.value,
-                collateralIndex: LUSD_COLLATERAL.index,
-                isForceCollateralOnly: forceCollateralOnly.checked
-            });
 
             await this.services.transactionService.executeMint({
                 collateralIndex: LUSD_COLLATERAL.index,
