@@ -117,6 +117,18 @@ export class ContractService implements ContractReads, ContractWrites {
     }
 
     /**
+     * Get LUSD oracle price from Diamond contract
+     */
+    async getLUSDOraclePrice(): Promise<bigint> {
+        const publicClient = this.walletService.getPublicClient();
+        return await publicClient.readContract({
+            address: ADDRESSES.DIAMOND,
+            abi: DIAMOND_ABI,
+            functionName: 'getDollarPriceUsd'
+        }) as bigint;
+    }
+
+    /**
      * Get current UUSD market price from Curve pool (not oracle price)
      */
     async getDollarPriceUsd(): Promise<bigint> {

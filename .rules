@@ -96,6 +96,13 @@ const maxCollateralIn = mintResult.collateralNeeded * (basisPointsDivisor + slip
 - **Target**: Maintain under 5 seconds
 - **Bundle Size**: Keep optimized through tree-shaking
 
+### Network Optimization Patterns
+- **Batch Requests**: Use JSON-RPC 2.0 batch pattern for multiple blockchain calls
+- **Token Balance Fetching**: Implemented optimized batch utility for ERC20 balanceOf calls
+- **Parallel Processing**: Execute multiple eth_call requests simultaneously instead of sequentially
+- **Error Isolation**: Individual token failures don't break entire batch operation
+- **Performance Impact**: Reduced network overhead for inventory bar token queries (LUSD, UUSD, UBQ)
+
 ### User Experience Patterns
 - **Real-time Updates**: All calculations respond to user input within 100ms
 - **Loading States**: Always show progress during multi-step transactions

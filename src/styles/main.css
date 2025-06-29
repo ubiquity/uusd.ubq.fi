@@ -199,10 +199,10 @@ input,button,select {
 /* Date Labels */
 .date-labels {
     position: absolute;
-    bottom: 10px;
+    bottom: 135px;
     width: 100%;
     display: flex;
-    justify-content: space-between;
+    justify-content: space-around;
     padding: 0 20px;
 }
 
@@ -271,4 +271,226 @@ input,button,select {
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(8px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Inventory Bar Styles */
+.inventory-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    /* background-color: transparent; */
+    /* backdrop-filter: blur(8px); */
+    /* box-shadow: 0 0 96px #ffffff40; */
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 16px 20px;
+    z-index: 1000;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.inventory-bar.disconnected {
+    opacity: 0.6;
+}
+
+.inventory-bar.connected {
+    opacity: 1;
+}
+
+.inventory-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.inventory-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 140px;
+}
+
+.inventory-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.total-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    font-family: monospace;
+}
+
+.inventory-tokens {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex: 1;
+    justify-content: right;
+}
+
+.token-balance {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    /* border: 1px solid rgba(255, 255, 255, 0.1); */
+    backdrop-filter: blur(4px);
+    transition: all 0.3s ease;
+    width: calc( 100vw / 5);
+    flex-shrink: 0;
+}
+
+.token-balance:hover {
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.token-balance.zero-balance {
+    opacity: 0.5;
+}
+
+.token-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.token-symbol {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.token-amount {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    font-family: monospace;
+}
+
+.token-usd-value {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    font-family: monospace;
+    margin-top: 2px;
+}
+
+/* Loading states */
+.loading-message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+}
+
+.loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-top: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Message states */
+.disconnected-message,
+.no-balances-message,
+.error-message {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    text-align: center;
+    padding: 12px 20px;
+}
+
+.error-message {
+    color: #ff4757;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.retry-button {
+    padding: 6px 12px;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.retry-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .inventory-content {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .inventory-header {
+        align-items: center;
+        text-align: center;
+        display: none;
+    }
+
+    .inventory-tokens {
+        gap: 16px;
+        justify-content: space-around;
+        width: 100%;
+    }
+
+    .token-balance {
+        min-width: 80px;
+        padding: 10px 12px;
+    }
+
+    .token-amount {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .inventory-bar {
+        padding: 12px 16px;
+    }
+
+    .inventory-tokens {
+        gap: 12px;
+    }
+
+    .token-balance {
+        min-width: 70px;
+        padding: 8px 10px;
+    }
+
+    .token-symbol {
+        font-size: 11px;
+    }
+
+    .token-amount {
+        font-size: 13px;
+    }
+
+    .token-usd-value {
+        font-size: 10px;
+    }
 }

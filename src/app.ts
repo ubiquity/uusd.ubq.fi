@@ -11,6 +11,7 @@ import { NotificationManager } from './components/notification-manager.ts';
 import { TabManager } from './components/tab-manager.ts';
 import { MintComponent } from './components/mint-component.ts';
 import { RedeemComponent } from './components/redeem-component.ts';
+import { InventoryBarComponent } from './components/inventory-bar-component.ts';
 
 // Import utilities
 import { formatAddress } from './utils/format-utils.ts';
@@ -37,6 +38,7 @@ class UUSDApp {
     private tabManager: TabManager;
     private mintComponent: MintComponent;
     private redeemComponent: RedeemComponent;
+    private inventoryBarComponent: InventoryBarComponent;
 
     constructor() {
         // Initialize services with dependency injection
@@ -63,6 +65,7 @@ class UUSDApp {
 
         this.mintComponent = new MintComponent(services);
         this.redeemComponent = new RedeemComponent(services);
+        this.inventoryBarComponent = new InventoryBarComponent(services);
 
         this.setupServiceEventHandlers();
 
@@ -265,12 +268,14 @@ class UUSDApp {
                 this.mintComponent.updateWalletConnection(true);
                 this.redeemComponent.updateWalletConnection(true);
                 this.redeemComponent.checkForPendingRedemptions(account);
+                this.inventoryBarComponent.handleWalletConnectionChange(account);
             },
             onDisconnect: () => {
                 this.updateWalletUI(null);
                 this.tabManager.updateWalletConnection(false);
                 this.mintComponent.updateWalletConnection(false);
                 this.redeemComponent.updateWalletConnection(false);
+                this.inventoryBarComponent.handleWalletConnectionChange(null);
             }
         });
 
