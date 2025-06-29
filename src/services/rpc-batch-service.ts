@@ -176,8 +176,14 @@ export class RPCBatchService {
             return transport.url;
         }
 
-        // Fallback to the RPC URL we know works
-        return 'https://rpc.ubq.fi/1';
+        // Environment-aware fallback
+        if (typeof window !== 'undefined' &&
+            (window.location.hostname === 'localhost' ||
+             window.location.hostname === '127.0.0.1' ||
+             window.location.hostname.includes('local'))) {
+            return 'https://rpc.ubq.fi/1'; // Development: external endpoint
+        }
+        return 'rpc/1'; // Production: same-domain endpoint (uusd.ubq.fi/rpc/1)
     }
 
     /**

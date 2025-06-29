@@ -1,8 +1,19 @@
 import { createPublicClient, http, type Address } from 'viem';
 import { mainnet } from 'viem/chains';
 
+// Environment-aware RPC URL configuration
+const getRpcUrl = (): string => {
+  if (typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' ||
+       window.location.hostname === '127.0.0.1' ||
+       window.location.hostname.includes('local'))) {
+    return 'https://rpc.ubq.fi/1'; // Development: external endpoint
+  }
+  return '/rpc/1'; // Production: same-domain endpoint (uusd.ubq.fi/rpc/1)
+};
+
 // Network and contract configuration
-export const RPC_URL = 'https://rpc.ubq.fi/1';
+export const RPC_URL = getRpcUrl();
 export const CONTRACT_ADDRESSES = {
     DIAMOND: '0xED3084c98148e2528DaDCB53C56352e549C488fA' as Address,
 };
