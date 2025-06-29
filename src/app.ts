@@ -117,21 +117,8 @@ class UUSDApp {
      * Initialize sparkline component with price data
      */
     private initializeSparkline(priceHistory: any[]): void {
-        const priceElement = document.getElementById('uusdPrice');
-        if (!priceElement) return;
-
-        // Create sparkline container if it doesn't exist
-        let sparklineContainer = document.getElementById('sparklineContainer');
-        if (!sparklineContainer) {
-            sparklineContainer = document.createElement('div');
-            sparklineContainer.id = 'sparklineContainer';
-            sparklineContainer.style.marginLeft = '12px';
-            sparklineContainer.style.display = 'inline-block';
-            sparklineContainer.style.verticalAlign = 'middle';
-
-            // Insert after the price element
-            priceElement.parentNode?.insertBefore(sparklineContainer, priceElement.nextSibling);
-        }
+        const sparklineContainer = document.getElementById('sparklineContainer');
+        if (!sparklineContainer) throw new Error('Sparkline container not found');
 
         // Destroy existing sparkline if present
         if (this.sparklineComponent) {

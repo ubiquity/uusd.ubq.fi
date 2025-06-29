@@ -1,5 +1,6 @@
 import { type Address, type PublicClient, type Log, parseEther } from 'viem';
 import type { WalletService } from './wallet-service.ts';
+import { RPCBatchService, type BatchRequestResult } from './rpc-batch-service.ts';
 
 /**
  * Historical price data point
@@ -35,6 +36,7 @@ interface TokenExchangeEvent {
  */
 export class PriceHistoryService {
     private walletService: WalletService;
+    private rpcBatchService: RPCBatchService;
     private readonly CURVE_POOL_ADDRESS: Address = '0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f';
     private readonly LUSD_INDEX = 0n;
     private readonly UUSD_INDEX = 1n;
@@ -48,6 +50,7 @@ export class PriceHistoryService {
 
     constructor(walletService: WalletService) {
         this.walletService = walletService;
+        this.rpcBatchService = new RPCBatchService();
     }
 
     /**
@@ -155,73 +158,62 @@ export class PriceHistoryService {
     }
 
     /**
-     * Fetch price history by sampling prices at regular intervals
+     * Fetch price history by sampling prices at regular intervals using batched RPC calls
      */
     private async fetchPriceBySampling(
         publicClient: PublicClient,
         targetBlocks: { fromBlock: bigint; toBlock: bigint },
         config: PriceHistoryConfig
     ): Promise<PriceDataPoint[]> {
-        const pricePoints: PriceDataPoint[] = [];
         const blockRange = targetBlocks.toBlock - targetBlocks.fromBlock;
         const stepSize = blockRange / BigInt(config.maxDataPoints);
 
+        // Generate block numbers for sampling
+        const blockNumbers: bigint[] = [];
         for (let i = 0; i < config.maxDataPoints; i++) {
             const blockNumber = targetBlocks.fromBlock + (stepSize * BigInt(i));
-
-            try {
-                const [block, price] = await Promise.all([
-                    publicClient.getBlock({ blockNumber }),
-                    this.getPriceAtBlock(publicClient, blockNumber)
-                ]);
-
-                pricePoints.push({
-                    timestamp: Number(block.timestamp),
-                    price,
-                    blockNumber
-                });
-            } catch (error) {
-                console.warn(`Failed to get price at block ${blockNumber}:`, error);
-            }
+            blockNumbers.push(blockNumber);
         }
 
-        return pricePoints.filter(p => p.price > 0n);
-    }
-
-    /**
-     * Get UUSD price at a specific block using get_dy call
-     */
-    private async getPriceAtBlock(publicClient: PublicClient, blockNumber: bigint): Promise<bigint> {
-        const testAmount = parseEther('1'); // 1 LUSD
+        console.log(`📊 Batching ${blockNumbers.length} RPC requests into single call...`);
 
         try {
-            const uusdReceived = await publicClient.readContract({
-                address: this.CURVE_POOL_ADDRESS,
-                abi: [{
-                    name: 'get_dy',
-                    type: 'function',
-                    stateMutability: 'view',
-                    inputs: [
-                        { name: 'i', type: 'int128' },
-                        { name: 'j', type: 'int128' },
-                        { name: 'dx', type: 'uint256' }
-                    ],
-                    outputs: [{ type: 'uint256' }]
-                }],
-                functionName: 'get_dy',
-                args: [this.LUSD_INDEX, this.UUSD_INDEX, testAmount],
-                blockNumber
-            }) as bigint;
+            // Use batched RPC service to get all data in one request
+            const testAmount = parseEther('1'); // 1 LUSD
+            const batchResult = await this.rpcBatchService.batchHistoryRequests(
+                publicClient,
+                blockNumbers,
+                this.CURVE_POOL_ADDRESS,
+                testAmount
+            );
 
-            // Assuming LUSD is approximately $1.00, calculate UUSD price
-            // UUSD_Price = LUSD_Price × (1 LUSD / UUSD_received)
-            const lusdPriceUsd = 1000000n; // $1.00 in 6 decimal precision
-            return (lusdPriceUsd * testAmount) / uusdReceived;
+            if (batchResult.errors.length > 0) {
+                console.warn('⚠️ Some batched requests had errors:', batchResult.errors);
+            }
+
+            // Combine block and price data into price points
+            const pricePoints: PriceDataPoint[] = [];
+            for (let i = 0; i < blockNumbers.length; i++) {
+                const block = batchResult.blocks[i];
+                const price = batchResult.prices[i];
+
+                if (block && price > 0n) {
+                    pricePoints.push({
+                        timestamp: Number(block.timestamp),
+                        price,
+                        blockNumber: blockNumbers[i]
+                    });
+                }
+            }
+
+            console.log(`✅ Successfully processed ${pricePoints.length}/${blockNumbers.length} price points from batched RPC`);
+            return pricePoints;
         } catch (error) {
-            console.warn(`Failed to get price at block ${blockNumber}:`, error);
-            return 0n;
+            console.error('❌ Batched RPC sampling failed:', error);
+            return [];
         }
     }
+
 
     /**
      * Parse TokenExchange event from log data

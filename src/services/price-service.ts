@@ -294,8 +294,8 @@ export class PriceService {
      */
     async getUUSDPriceHistory(): Promise<PriceDataPoint[]> {
         return this.priceHistoryService.getUUSDPriceHistory({
-            maxDataPoints: 24,
-            timeRangeHours: 24,
+            maxDataPoints: 168,
+            timeRangeHours: 168,
             sampleIntervalMinutes: 60
         });
     }
