@@ -298,7 +298,7 @@ export class TransactionService {
 
         } catch (error) {
             console.error('❌ General redeem error:', error);
-            
+
             // Check if this is already an enhanced error from ContractService
             const errorMessage = (error as Error).message;
             if (errorMessage.includes('Cannot redeem at this time:') ||
@@ -466,42 +466,19 @@ export class TransactionService {
     private enhanceErrorMessage(error: Error, operation: string): Error {
         const errorMessage = error.message.toLowerCase();
 
-        // Oracle/Price data errors (most specific first)
-        if (errorMessage.includes('stale stable/usd data') || errorMessage.includes('stale') && errorMessage.includes('data')) {
-            return new Error(`Price oracle data is outdated. The LUSD price feed needs to be updated before transactions can proceed. Please try again in a few minutes, or consider using a different collateral type if available.`);
-        }
-
-        // Gas-related errors
-        if (errorMessage.includes('gas') || errorMessage.includes('out of gas')) {
-            return new Error(`Transaction failed due to insufficient gas. This may be caused by high network congestion. Please try again with higher gas settings.`);
-        }
-
-        // Insufficient balance errors
-        if (errorMessage.includes('insufficient') || errorMessage.includes('balance')) {
-            return new Error(`Insufficient token balance for ${operation} operation. Please check your wallet balances.`);
-        }
-
-        // User rejection
+        // User rejection - keep user-friendly message
         if (errorMessage.includes('rejected') || errorMessage.includes('denied') || errorMessage.includes('user rejected')) {
-            return new Error(`Transaction was cancelled by user.`);
+            return new Error('Transaction was cancelled by user.');
         }
 
-        // Network errors
-        if (errorMessage.includes('network') || errorMessage.includes('connection')) {
-            return new Error(`Network connection error. Please check your internet connection and try again.`);
+        // Gas-related errors - keep helpful guidance for gas issues
+        if ((errorMessage.includes('insufficient gas') || errorMessage.includes('out of gas') ||
+             errorMessage.includes('gas required exceeds') || errorMessage.includes('gas limit')) &&
+            !errorMessage.includes('rejected') && !errorMessage.includes('denied')) {
+            return new Error('Transaction failed due to insufficient gas. This may be caused by high network congestion. Please try again with higher gas settings.');
         }
 
-        // Slippage errors
-        if (errorMessage.includes('slippage') || errorMessage.includes('price') || errorMessage.includes('amount')) {
-            return new Error(`Transaction failed due to price movement. Please try again with updated parameters.`);
-        }
-
-        // Generic contract errors
-        if (errorMessage.includes('revert') || errorMessage.includes('execution reverted')) {
-            return new Error(`Transaction failed: Smart contract rejected the operation. Please check your inputs and try again.`);
-        }
-
-        // Default enhanced message
-        return new Error(`${operation.charAt(0).toUpperCase() + operation.slice(1)} transaction failed: ${error.message}`);
+        // For all other errors, return the raw error message
+        return error;
     }
 }
