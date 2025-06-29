@@ -199,7 +199,7 @@ input,button,select {
 /* Date Labels */
 .date-labels {
     position: absolute;
-    bottom: 135px;
+    bottom: 100px;
     width: 100%;
     display: flex;
     justify-content: space-around;
@@ -347,7 +347,7 @@ input,button,select {
     /* border: 1px solid rgba(255, 255, 255, 0.1); */
     backdrop-filter: blur(4px);
     transition: all 0.3s ease;
-    width: calc( 100vw / 5);
+    width: calc( 100vw / 4);
     flex-shrink: 0;
 }
 
@@ -361,32 +361,51 @@ input,button,select {
 }
 
 .token-info {
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
+    flex-direction: row;
     align-items: center;
-    gap: 2px;
+    gap: 12px;
+}
+
+.token-info>div{
+        font-size: 12px;
+        font-weight: 600;
+        /* color: #fff; */
+        font-family: monospace;
 }
 
 .token-symbol {
-    font-size: 12px;
-    font-weight: 600;
+    /* font-size: 16px; */
+    /* font-weight: 600; */
     color: rgba(255, 255, 255, 0.7);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    /* text-transform: uppercase; */
+    /* letter-spacing: 0.5px; */
+    /* font-family: monospace; */
 }
 
 .token-amount {
-    font-size: 16px;
-    font-weight: 600;
+    /* font-size: 16px; */
+    /* font-weight: 600; */
     color: #fff;
-    font-family: monospace;
+    /* font-family: monospace; */
 }
 
+.token-usd-value::before {
+    content: '(';
+}
+.token-usd-value::after {
+    content: ')';
+}
 .token-usd-value {
-    font-size: 11px;
+    /* display: inline-flex; */
+    /* font-size: 11px; */
     color: rgba(255, 255, 255, 0.6);
-    font-family: monospace;
-    margin-top: 2px;
+    /* font-family: monospace; */
+    /* margin-top: 2px; */
+    /* font-size: 16px; */
+    /* font-weight: 600; */
+    /* color: #fff; */
+    /* font-family: monospace; */
 }
 
 /* Loading states */

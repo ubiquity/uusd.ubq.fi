@@ -120,14 +120,13 @@ function notifyReload() {
   });
 }
 
-// Watch for changes to built files
+// Watch for changes to built files (excluding CSS for hot reload)
 const appJsPath = new URL('./app.js', import.meta.url).pathname;
-const cssPath = new URL('./src/styles/main.css', import.meta.url).pathname;
 
 // Start file watchers with debouncing
 async function startFileWatchers() {
   try {
-    const watcher = Deno.watchFs([appJsPath, cssPath]);
+    const watcher = Deno.watchFs([appJsPath]);
     let debounceTimer: number | null = null;
 
     for await (const event of watcher) {
@@ -142,10 +141,6 @@ async function startFileWatchers() {
           for (const path of event.paths) {
             if (path.endsWith('app.js')) {
               console.log('🔨 app.js changed');
-              notifyReload();
-              break; // Only notify once per event
-            } else if (path.endsWith('main.css')) {
-              console.log('🎨 CSS changed');
               notifyReload();
               break; // Only notify once per event
             }
