@@ -67,6 +67,20 @@ const SAMPLE_ADDRESSES = [
  * Parameter specifications for UUSD Diamond contract functions
  */
 const PARAMETER_SPECS: ParameterSpec[] = [
+    // getRoleAdmin - Add support for bytes32 role hash
+    {
+        selector: '0x248a9ca3',
+        name: 'getRoleAdmin',
+        generator: {
+            generate: async (context) => [
+                ['0x0000000000000000000000000000000000000000000000000000000000000000']
+            ],
+            description: 'Admin role query for zero hash',
+            maxCalls: 1
+        },
+        description: 'Get admin role for a given role hash',
+        priority: 3
+    },
     // Collateral Information - High Priority
     {
         selector: '0x82ae27cd',
