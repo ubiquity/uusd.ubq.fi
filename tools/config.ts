@@ -2,23 +2,28 @@ import { createPublicClient, http, type Address } from 'viem';
 import { mainnet } from 'viem/chains';
 
 // Environment-aware RPC URL configuration
-const getRpcUrl = (): string => {
-  // If running in Bun/Node (CLI), always use external endpoint
-  if (typeof process !== 'undefined' && (
-      typeof process.versions?.bun !== 'undefined' ||
-      typeof process.versions?.node !== 'undefined'
-    )) {
-    return 'https://rpc.ubq.fi/1';
+export const getRpcUrl = (): string => {
+  // Default to cloud-hosted endpoint for local development convenience
+  const defaultRpcUrl = 'https://rpc.ubq.fi/1';
+
+  // In browser environment
+  if (typeof window !== 'undefined' && window.location) {
+    // Only use relative endpoint when on ubq.fi domain (prevents CORS prefetch lag)
+    if (window.location.hostname.includes('ubq.fi') &&
+        !window.location.hostname.includes('localhost')) {
+      return '/rpc/1';
+    }
+    // For all other browser cases (localhost, dev servers, etc.), use cloud endpoint
+    return defaultRpcUrl;
   }
-  // If running in browser, check for localhost
-  if (typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' ||
-       window.location.hostname === '127.0.0.1' ||
-       window.location.hostname.includes('local'))) {
-    return 'https://rpc.ubq.fi/1';
+
+  // In Node/Bun environment (CLI), use cloud endpoint
+  if (typeof process !== 'undefined') {
+    return defaultRpcUrl;
   }
-  // Browser prod: use relative endpoint
-  return '/rpc/1';
+
+  // Fallback to cloud endpoint for any other cases
+  return defaultRpcUrl;
 };
 
 // Network and contract configuration
