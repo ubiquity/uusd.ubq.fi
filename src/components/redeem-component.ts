@@ -77,6 +77,9 @@ export class RedeemComponent {
             const collateralRedeemed = document.getElementById('collateralRedeemed');
             const ubqRedeemed = document.getElementById('ubqRedeemed');
             const redemptionFee = document.getElementById('redemptionFee');
+            const redeemTwapPrice = document.getElementById('redeemTwapPrice');
+            const redeemPriceThreshold = document.getElementById('redeemPriceThreshold');
+            const redeemTwapWarning = document.getElementById('redeemTwapWarning') as HTMLDivElement;
 
             if (collateralRedeemed) {
                 collateralRedeemed.textContent = `${formatUnits(result.collateralRedeemed, 18 - LUSD_COLLATERAL.missingDecimals)} ${LUSD_COLLATERAL.name}`;
@@ -87,10 +90,25 @@ export class RedeemComponent {
             if (redemptionFee) {
                 redemptionFee.textContent = `${LUSD_COLLATERAL.redemptionFee}%`;
             }
+            if (redeemTwapPrice) {
+                redeemTwapPrice.textContent = `$${formatUnits(result.twapPrice, 6)}`;
+            }
+            if (redeemPriceThreshold) {
+                redeemPriceThreshold.textContent = `$${formatUnits(result.redeemPriceThreshold, 6)}`;
+            }
 
             // Update button text
             if (this.services.walletService.isConnected()) {
-                await this.updateButton(LUSD_COLLATERAL.index, dollarAmount);
+                await this.updateButton(LUSD_COLLATERAL.index, dollarAmount, result.isRedeemingAllowed);
+            }
+
+            if (redeemTwapWarning) {
+                if (result.isRedeemingAllowed) {
+                    redeemTwapWarning.style.display = 'none';
+                } else {
+                    redeemTwapWarning.textContent = `Redeeming is disabled because the TWAP price is above the threshold.`;
+                    redeemTwapWarning.style.display = 'block';
+                }
             }
         } catch (error) {
             console.error('Error updating redeem output:', error);
@@ -100,12 +118,18 @@ export class RedeemComponent {
     /**
      * Update redeem button text based on approval status and pending redemptions
      */
-    private async updateButton(collateralIndex: number, amount: bigint): Promise<void> {
+    private async updateButton(collateralIndex: number, amount: bigint, isRedeemingAllowed: boolean): Promise<void> {
         const button = document.getElementById('redeemButton') as HTMLButtonElement;
         const account = this.services.walletService.getAccount();
 
         if (!account) {
             button.textContent = 'Connect wallet first';
+            return;
+        }
+
+        if (!isRedeemingAllowed) {
+            button.textContent = 'Redeeming Disabled';
+            button.disabled = true;
             return;
         }
 
@@ -117,6 +141,7 @@ export class RedeemComponent {
 
         if (redeemBalance > 0n) {
             button.textContent = 'Collect Redemption';
+            button.disabled = false;
             return;
         }
 
@@ -128,6 +153,7 @@ export class RedeemComponent {
         } else {
             button.textContent = 'Redeem UUSD';
         }
+        button.disabled = false;
     }
 
     /**

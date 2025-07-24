@@ -133,6 +133,20 @@ export const DIAMOND_ABI = [
             { name: 'collateralIndex', type: 'uint256' }
         ],
         outputs: [{ type: 'uint256' }]
+    },
+    {
+        name: 'mintPriceThreshold',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'uint256' }]
+    },
+    {
+        name: 'redeemPriceThreshold',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'uint256' }]
     }
 ] as const;
 

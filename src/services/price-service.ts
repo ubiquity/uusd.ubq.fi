@@ -29,6 +29,9 @@ export interface MintPriceResult extends MintCalculationOutput {
     collateral: CollateralOption;
     collateralRatio: bigint;
     governancePrice: bigint;
+    twapPrice: bigint;
+    mintPriceThreshold: bigint;
+    isMintingAllowed: boolean;
 }
 
 /**
@@ -38,6 +41,9 @@ export interface RedeemPriceResult extends RedeemCalculationOutput {
     collateral: CollateralOption;
     collateralRatio: bigint;
     governancePrice: bigint;
+    twapPrice: bigint;
+    redeemPriceThreshold: bigint;
+    isRedeemingAllowed: boolean;
 }
 
 /**
@@ -121,6 +127,11 @@ export class PriceService {
         const batchData = await this.contractService.batchFetchMintData(collateralIndex, dollarAmount);
         const { collateralRatio, governancePrice } = batchData;
 
+        const [twapPrice, mintPriceThreshold] = await Promise.all([
+            this.contractService.getLUSDOraclePrice(),
+            this.contractService.getMintPriceThreshold()
+        ]);
+
         // Calculate final collateral amount based on ratio mode - optimize to avoid extra RPC calls
         const collateralAmount = this.calculateCollateralAmountForMint(
             batchData.collateralAmount,
@@ -145,7 +156,10 @@ export class PriceService {
             ...result,
             collateral,
             collateralRatio,
-            governancePrice
+            governancePrice,
+            twapPrice,
+            mintPriceThreshold,
+            isMintingAllowed: twapPrice >= mintPriceThreshold
         };
     }
 
@@ -168,9 +182,11 @@ export class PriceService {
         }
 
         // Get current blockchain prices
-        const [collateralRatio, governancePrice] = await Promise.all([
+        const [collateralRatio, governancePrice, twapPrice, redeemPriceThreshold] = await Promise.all([
             this.contractService.getCollateralRatio(),
-            this.contractService.getGovernancePrice()
+            this.contractService.getGovernancePrice(),
+            this.contractService.getLUSDOraclePrice(),
+            this.contractService.getRedeemPriceThreshold()
         ]);
 
         // Get collateral amount based on fee-adjusted dollar amount
@@ -195,7 +211,10 @@ export class PriceService {
             ...result,
             collateral,
             collateralRatio,
-            governancePrice
+            governancePrice,
+            twapPrice,
+            redeemPriceThreshold,
+            isRedeemingAllowed: twapPrice <= redeemPriceThreshold
         };
     }
 

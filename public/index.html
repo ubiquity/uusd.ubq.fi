@@ -52,7 +52,7 @@
 
 
                 <div id="mintOutput" class="output-section" style="display: none;">
-                    <h3>Required Inputs</h3>
+                    <h3>Summary</h3>
                     <div class="output-row">
                         <span class="output-label">Collateral Needed:</span>
                         <span class="output-value" id="collateralNeeded">-</span>
@@ -69,7 +69,23 @@
                         <span class="output-label">Total UUSD Minted:</span>
                         <span class="output-value" id="totalMinted">-</span>
                     </div>
+                    <hr>
+                    <div class="output-row">
+                        <span class="output-label">TWAP Price:
+                            <span class="tooltip">
+                                <img src="info-icon.svg" alt="info" class="tooltip-icon">
+                                <span class="tooltip-text">The smart contract uses a Time-Weighted Average Price (TWAP) to determine redemption eligibility. This prevents flash loan attacks.</span>
+                            </span>
+                        </span>
+                        <span class="output-value" id="mintTwapPrice">-</span>
+                    </div>
+                    <div class="output-row">
+                        <span class="output-label">Mint Price Threshold:</span>
+                        <span class="output-value" id="mintPriceThreshold">-</span>
+                    </div>
                 </div>
+
+                <div id="mintTwapWarning" class="twap-warning" style="display: none;"></div>
 
                 <button type="submit" class="action-button" id="mintButton" disabled>
                     Enter amount to continue
@@ -101,7 +117,23 @@
                         <span class="output-label">Redemption Fee:</span>
                         <span class="output-value" id="redemptionFee">-</span>
                     </div>
+                    <hr>
+                    <div class="output-row">
+                        <span class="output-label">TWAP Price:
+                            <span class="tooltip">
+                                <img src="info-icon.svg" alt="info" class="tooltip-icon">
+                                <span class="tooltip-text">The smart contract uses a Time-Weighted Average Price (TWAP) to determine redemption eligibility. This prevents flash loan attacks.</span>
+                            </span>
+                        </span>
+                        <span class="output-value" id="redeemTwapPrice">-</span>
+                    </div>
+                    <div class="output-row">
+                        <span class="output-label">Redeem Price Threshold:</span>
+                        <span class="output-value" id="redeemPriceThreshold">-</span>
+                    </div>
                 </div>
+
+                <div id="redeemTwapWarning" class="twap-warning" style="display: none;"></div>
 
                 <button type="submit" class="action-button" id="redeemButton" disabled>
                     Enter amount to continue

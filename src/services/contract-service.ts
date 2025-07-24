@@ -129,6 +129,30 @@ export class ContractService implements ContractReads, ContractWrites {
     }
 
     /**
+     * Get mint price threshold from the contract
+     */
+    async getMintPriceThreshold(): Promise<bigint> {
+        const publicClient = this.walletService.getPublicClient();
+        return await publicClient.readContract({
+            address: ADDRESSES.DIAMOND,
+            abi: DIAMOND_ABI,
+            functionName: 'mintPriceThreshold'
+        }) as bigint;
+    }
+
+    /**
+     * Get redeem price threshold from the contract
+     */
+    async getRedeemPriceThreshold(): Promise<bigint> {
+        const publicClient = this.walletService.getPublicClient();
+        return await publicClient.readContract({
+            address: ADDRESSES.DIAMOND,
+            abi: DIAMOND_ABI,
+            functionName: 'redeemPriceThreshold'
+        }) as bigint;
+    }
+
+    /**
      * Get current UUSD market price from Curve pool (not oracle price)
      */
     async getDollarPriceUsd(): Promise<bigint> {
@@ -298,13 +322,13 @@ export class ContractService implements ContractReads, ContractWrites {
                         mintingFee: Number(formatUnits(info.mintingFee, 6)),
                         redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
                         missingDecimals: Number(info.missingDecimals),
-                        isEnabled: info.isEnabled,
-                        isMintPaused: info.isMintPaused,
-                        isRedeemPaused: info.isRedeemPaused
+                        isEnabled: info.isEnabled ?? false,
+                        isMintPaused: info.isMintPaused ?? false,
+                        isRedeemPaused: info.isRedeemPaused ?? false
                     } as CollateralOption;
                 }
                 return null;
-            }).filter((o): o is CollateralOption => o !== null && o?.isEnabled && !o?.isMintPaused);
+            }).filter((o): o is CollateralOption => o !== null && o.isEnabled && !o.isMintPaused);
 
             console.log('✅ Page load data fetched successfully');
             return { uusdPrice, collateralOptions };

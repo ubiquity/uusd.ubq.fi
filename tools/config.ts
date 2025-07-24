@@ -3,13 +3,22 @@ import { mainnet } from 'viem/chains';
 
 // Environment-aware RPC URL configuration
 const getRpcUrl = (): string => {
+  // If running in Bun/Node (CLI), always use external endpoint
+  if (typeof process !== 'undefined' && (
+      typeof process.versions?.bun !== 'undefined' ||
+      typeof process.versions?.node !== 'undefined'
+    )) {
+    return 'https://rpc.ubq.fi/1';
+  }
+  // If running in browser, check for localhost
   if (typeof window !== 'undefined' &&
       (window.location.hostname === 'localhost' ||
        window.location.hostname === '127.0.0.1' ||
        window.location.hostname.includes('local'))) {
-    return 'https://rpc.ubq.fi/1'; // Development: external endpoint
+    return 'https://rpc.ubq.fi/1';
   }
-  return '/rpc/1'; // Production: same-domain endpoint (uusd.ubq.fi/rpc/1)
+  // Browser prod: use relative endpoint
+  return '/rpc/1';
 };
 
 // Network and contract configuration

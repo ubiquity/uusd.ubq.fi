@@ -25,7 +25,7 @@ interface MintServices {
  */
 export class MintComponent {
     private services: MintServices;
-    private debounceTimer: number | null = null;
+    private debounceTimer: any | null = null;
 
     constructor(services: MintServices) {
         this.services = services;
@@ -99,6 +99,9 @@ export class MintComponent {
             const ubqNeeded = document.getElementById('ubqNeeded');
             const mintingFee = document.getElementById('mintingFee');
             const totalMinted = document.getElementById('totalMinted');
+            const mintTwapPrice = document.getElementById('mintTwapPrice');
+            const mintPriceThreshold = document.getElementById('mintPriceThreshold');
+            const mintTwapWarning = document.getElementById('mintTwapWarning') as HTMLDivElement;
 
             if (collateralNeeded) {
                 collateralNeeded.textContent = `${formatUnits(result.collateralNeeded, 18 - LUSD_COLLATERAL.missingDecimals)} ${LUSD_COLLATERAL.name}`;
@@ -112,10 +115,25 @@ export class MintComponent {
             if (totalMinted) {
                 totalMinted.textContent = `${formatEther(result.totalDollarMint)} UUSD`;
             }
+            if (mintTwapPrice) {
+                mintTwapPrice.textContent = `$${formatUnits(result.twapPrice, 6)}`;
+            }
+            if (mintPriceThreshold) {
+                mintPriceThreshold.textContent = `$${formatUnits(result.mintPriceThreshold, 6)}`;
+            }
 
             // Update button text based on approval status
             if (this.services.walletService.isConnected()) {
                 await this.updateButton(LUSD_COLLATERAL, result);
+            }
+
+            if (mintTwapWarning) {
+                if (result.isMintingAllowed) {
+                    mintTwapWarning.style.display = 'none';
+                } else {
+                    mintTwapWarning.textContent = `Minting is disabled because the TWAP price is below the threshold.`;
+                    mintTwapWarning.style.display = 'block';
+                }
             }
         } catch (error) {
             console.error('Error updating mint output:', error);
@@ -131,6 +149,12 @@ export class MintComponent {
 
         if (!account) {
             button.textContent = 'Connect wallet first';
+            return;
+        }
+
+        if (!result.isMintingAllowed) {
+            button.textContent = 'Minting Disabled';
+            button.disabled = true;
             return;
         }
 
