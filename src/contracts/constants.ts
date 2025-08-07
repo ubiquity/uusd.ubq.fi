@@ -24,6 +24,7 @@ export const DIAMOND_ABI = [
     {
         name: 'mintDollar',
         type: 'function',
+        stateMutability: 'nonpayable',
         inputs: [
             { name: 'collateralIndex', type: 'uint256' },
             { name: 'dollarAmount', type: 'uint256' },
@@ -41,6 +42,7 @@ export const DIAMOND_ABI = [
     {
         name: 'redeemDollar',
         type: 'function',
+        stateMutability: 'nonpayable',
         inputs: [
             { name: 'collateralIndex', type: 'uint256' },
             { name: 'dollarAmount', type: 'uint256' },
@@ -55,6 +57,7 @@ export const DIAMOND_ABI = [
     {
         name: 'collectRedemption',
         type: 'function',
+        stateMutability: 'nonpayable',
         inputs: [{ name: 'collateralIndex', type: 'uint256' }],
         outputs: [
             { name: 'governanceAmount', type: 'uint256' },
@@ -134,20 +137,6 @@ export const DIAMOND_ABI = [
         ],
         outputs: [{ type: 'uint256' }]
     },
-    {
-        name: 'mintPriceThreshold',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'uint256' }]
-    },
-    {
-        name: 'redeemPriceThreshold',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'uint256' }]
-    }
 ] as const;
 
 export const ERC20_ABI = [

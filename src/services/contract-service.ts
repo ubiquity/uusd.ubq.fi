@@ -128,29 +128,6 @@ export class ContractService implements ContractReads, ContractWrites {
         }) as bigint;
     }
 
-    /**
-     * Get mint price threshold from the contract
-     */
-    async getMintPriceThreshold(): Promise<bigint> {
-        const publicClient = this.walletService.getPublicClient();
-        return await publicClient.readContract({
-            address: ADDRESSES.DIAMOND,
-            abi: DIAMOND_ABI,
-            functionName: 'mintPriceThreshold'
-        }) as bigint;
-    }
-
-    /**
-     * Get redeem price threshold from the contract
-     */
-    async getRedeemPriceThreshold(): Promise<bigint> {
-        const publicClient = this.walletService.getPublicClient();
-        return await publicClient.readContract({
-            address: ADDRESSES.DIAMOND,
-            abi: DIAMOND_ABI,
-            functionName: 'redeemPriceThreshold'
-        }) as bigint;
-    }
 
     /**
      * Get current UUSD market price from Curve pool (not oracle price)
@@ -322,13 +299,13 @@ export class ContractService implements ContractReads, ContractWrites {
                         mintingFee: Number(formatUnits(info.mintingFee, 6)),
                         redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
                         missingDecimals: Number(info.missingDecimals),
-                        isEnabled: info.isEnabled ?? false,
-                        isMintPaused: info.isMintPaused ?? false,
-                        isRedeemPaused: info.isRedeemPaused ?? false
+                        isEnabled: Boolean(info.isEnabled),
+                        isMintPaused: Boolean(info.isMintPaused),
+                        isRedeemPaused: Boolean(info.isRedeemPaused)
                     } as CollateralOption;
                 }
                 return null;
-            }).filter((o): o is CollateralOption => o !== null && o.isEnabled && !o.isMintPaused);
+            }).filter((o): o is CollateralOption => o !== null && Boolean(o.isEnabled) && !Boolean(o.isMintPaused));
 
             console.log('✅ Page load data fetched successfully');
             return { uusdPrice, collateralOptions };
@@ -358,13 +335,13 @@ export class ContractService implements ContractReads, ContractWrites {
                         mintingFee: Number(formatUnits(info.mintingFee, 6)),
                         redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
                         missingDecimals: Number(info.missingDecimals),
-                        isEnabled: info.isEnabled,
-                        isMintPaused: info.isMintPaused,
-                        isRedeemPaused: info.isRedeemPaused
+                        isEnabled: Boolean(info.isEnabled),
+                        isMintPaused: Boolean(info.isMintPaused),
+                        isRedeemPaused: Boolean(info.isRedeemPaused)
                     };
                 })
             );
-            const collateralOptions = options.filter(o => o.isEnabled && !o.isMintPaused);
+            const collateralOptions = options.filter(o => Boolean(o.isEnabled) && !Boolean(o.isMintPaused));
             return { uusdPrice, collateralOptions };
         }
     }
@@ -460,7 +437,7 @@ export class ContractService implements ContractReads, ContractWrites {
         const publicClient = this.walletService.getPublicClient();
         const account = this.walletService.getAccount()!;
 
-        const args = [
+        const args: readonly [bigint, bigint, bigint, bigint, bigint, boolean] = [
             BigInt(collateralIndex),
             dollarAmount,
             dollarOutMin,
@@ -545,7 +522,7 @@ export class ContractService implements ContractReads, ContractWrites {
         const publicClient = this.walletService.getPublicClient();
         const account = this.walletService.getAccount()!;
 
-        const args = [
+        const args: readonly [bigint, bigint, bigint, bigint] = [
             BigInt(collateralIndex),
             dollarAmount,
             governanceOutMin,

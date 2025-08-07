@@ -45,8 +45,8 @@
                     <label for="mintAmount">Amount</label>
                     <input type="number" id="mintAmount" step="0.01" placeholder="0.00" required>
                     <label>
-                        <input type="checkbox" id="forceCollateralOnly">
-                        Do not use UBQ
+                        <input type="checkbox" id="forceCollateralOnly" checked>
+                        Fully Collateralized
                     </label>
                 </div>
 
@@ -71,11 +71,12 @@
                     </div>
                     <hr>
                     <div class="output-row">
-                        <span class="output-label">TWAP Price:
+                        <span class="output-label">
                             <span class="tooltip">
-                                <img src="info-icon.svg" alt="info" class="tooltip-icon">
+                                ❔
                                 <span class="tooltip-text">The smart contract uses a Time-Weighted Average Price (TWAP) to determine redemption eligibility. This prevents flash loan attacks.</span>
                             </span>
+                            Average Price:
                         </span>
                         <span class="output-value" id="mintTwapPrice">-</span>
                     </div>
@@ -119,11 +120,11 @@
                     </div>
                     <hr>
                     <div class="output-row">
-                        <span class="output-label">TWAP Price:
-                            <span class="tooltip">
-                                <img src="info-icon.svg" alt="info" class="tooltip-icon">
+                        <span class="output-label">                            <span class="tooltip">
+                                ❔
                                 <span class="tooltip-text">The smart contract uses a Time-Weighted Average Price (TWAP) to determine redemption eligibility. This prevents flash loan attacks.</span>
                             </span>
+                            Average Price:
                         </span>
                         <span class="output-value" id="redeemTwapPrice">-</span>
                     </div>

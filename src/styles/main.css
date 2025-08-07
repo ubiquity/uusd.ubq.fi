@@ -40,7 +40,14 @@ input:focus, select:focus { outline: none; }
 .output-label { }
 .output-value { font-weight: 600; }
 .action-button {width: 100%;/* margin-top: 20px; */padding: 15px;font-size: 18px;}
-.error { margin-top: 10px; padding: 10px; border-radius: 6px; display: none; }
+.error { margin-top: 10px; padding: 10px; border-radius: 6px; display: none;
+
+        text-align: left;
+    white-space: pre;
+    font-family: monospace;
+    color: #ff4040;
+    overflow:scroll;
+}
 .success { margin-top: 10px; padding: 10px; border-radius: 6px; display: none; }
 .loading { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-left: 8px; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -557,4 +564,12 @@ input,button,select {
 .tooltip:hover .tooltip-text {
     visibility: visible;
     opacity: 1;
+}
+hr{border: 0.5px solid #ffffff40;margin-bottom: 10px;margin-left: 8px;margin: 20px 10px;}
+
+.token-symbol svg{
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+    margin-right: 4px;
 }

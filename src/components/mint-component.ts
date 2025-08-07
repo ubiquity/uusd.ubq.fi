@@ -131,7 +131,7 @@ export class MintComponent {
                 if (result.isMintingAllowed) {
                     mintTwapWarning.style.display = 'none';
                 } else {
-                    mintTwapWarning.textContent = `Minting is disabled because the TWAP price is below the threshold.`;
+                    mintTwapWarning.textContent = `Minting is disabled because the averaged price is below the threshold.`;
                     mintTwapWarning.style.display = 'block';
                 }
             }
@@ -345,11 +345,11 @@ export class MintComponent {
      * Setup balance update subscription
      */
     private setupBalanceSubscription(): void {
-        console.log('📋 [DEBUG] Setting up mint balance subscription');
+
 
         if (this.services.inventoryBar) {
             this.services.inventoryBar.onBalancesUpdated((balances) => {
-                console.log('🔔 [DEBUG] Mint component received balance update:', balances);
+
 
                 // Only auto-populate if mint tab is currently active and input is empty
                 const tabManager = (window as any).app?.tabManager;
@@ -358,7 +358,7 @@ export class MintComponent {
                 }
             });
         } else {
-            console.warn('❌ [DEBUG] No inventory bar service available for mint subscription');
+
         }
     }
 
@@ -367,43 +367,43 @@ export class MintComponent {
      * Called when mint tab becomes active
      */
     autoPopulateWithMaxBalance(): void {
-        console.log('🚀 [DEBUG] Mint auto-populate called');
+
 
         if (!this.services.walletService.isConnected()) {
-            console.log('💸 [DEBUG] Wallet not connected, skipping auto-populate');
+
             return;
         }
 
         const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
         if (!amountInput) {
-            console.warn('❌ [DEBUG] mintAmount input element not found');
+
             return;
         }
 
         // Only populate if input is empty (don't overwrite user input)
         if (amountInput.value && amountInput.value !== '0') {
-            console.log(`⏭️ [DEBUG] Input already has value: ${amountInput.value}, skipping auto-populate`);
+
             return;
         }
 
-        console.log('🔄 [DEBUG] Checking inventory bar service...');
-        console.log('📊 [DEBUG] inventoryBar service:', this.services.inventoryBar);
+
+
 
         try {
             const maxLusdBalance = getMaxTokenBalance(this.services.inventoryBar, 'LUSD');
-            console.log(`💰 [DEBUG] Max LUSD balance retrieved: ${maxLusdBalance}`);
+
 
             // Only populate if there's an available balance
             if (hasAvailableBalance(this.services.inventoryBar, 'LUSD')) {
-                console.log(`✅ [DEBUG] Setting mint input to: ${maxLusdBalance}`);
+
                 amountInput.value = maxLusdBalance;
                 // Trigger calculation update
                 this.updateOutput();
             } else {
-                console.log('🚫 [DEBUG] No available LUSD balance to populate');
+
             }
         } catch (error) {
-            console.error('❌ [DEBUG] Failed to auto-populate LUSD balance:', error);
+
             // Silently fail - don't disrupt user experience
         }
     }

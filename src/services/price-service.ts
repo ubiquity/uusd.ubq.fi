@@ -127,10 +127,9 @@ export class PriceService {
         const batchData = await this.contractService.batchFetchMintData(collateralIndex, dollarAmount);
         const { collateralRatio, governancePrice } = batchData;
 
-        const [twapPrice, mintPriceThreshold] = await Promise.all([
-            this.contractService.getLUSDOraclePrice(),
-            this.contractService.getMintPriceThreshold()
-        ]);
+        const twapPrice = await this.contractService.getLUSDOraclePrice();
+        // Note: mintPriceThreshold function doesn't exist on deployed contract
+        const mintPriceThreshold = 1000000n; // Default: $1.00 (6 decimal precision)
 
         // Calculate final collateral amount based on ratio mode - optimize to avoid extra RPC calls
         const collateralAmount = this.calculateCollateralAmountForMint(
@@ -182,12 +181,13 @@ export class PriceService {
         }
 
         // Get current blockchain prices
-        const [collateralRatio, governancePrice, twapPrice, redeemPriceThreshold] = await Promise.all([
+        const [collateralRatio, governancePrice, twapPrice] = await Promise.all([
             this.contractService.getCollateralRatio(),
             this.contractService.getGovernancePrice(),
-            this.contractService.getLUSDOraclePrice(),
-            this.contractService.getRedeemPriceThreshold()
+            this.contractService.getLUSDOraclePrice()
         ]);
+        // Note: redeemPriceThreshold function doesn't exist on deployed contract
+        const redeemPriceThreshold = 1000000n; // Default: $1.00 (6 decimal precision)
 
         // Get collateral amount based on fee-adjusted dollar amount
         const dollarAfterFee = calculateRedeemFeeOutput(dollarAmount, collateral.redemptionFee);

@@ -67,115 +67,19 @@ const SAMPLE_ADDRESSES = [
  * Parameter specifications for UUSD Diamond contract functions
  */
 const PARAMETER_SPECS: ParameterSpec[] = [
-    // getRoleAdmin - Add support for bytes32 role hash
+    // hasRole - Check if specific address has DEFAULT_ADMIN_ROLE
     {
-        selector: '0x248a9ca3',
-        name: 'getRoleAdmin',
+        selector: '0x91d14854',
+        name: 'hasRole',
         generator: {
             generate: async (context) => [
-                ['0x0000000000000000000000000000000000000000000000000000000000000000']
+                ['0x0000000000000000000000000000000000000000000000000000000000000000', '0xefC0e701A824943b469a694aC564Aa1efF7Ab7dd']
             ],
-            description: 'Admin role query for zero hash',
+            description: 'Check if address has DEFAULT_ADMIN_ROLE',
             maxCalls: 1
         },
-        description: 'Get admin role for a given role hash',
-        priority: 3
-    },
-    // Collateral Information - High Priority
-    {
-        selector: '0x82ae27cd',
-        name: 'collateralInformation',
-        generator: {
-            generate: async (context) => {
-                if (!context.allCollaterals?.length) return [];
-                return context.allCollaterals.map(addr => [addr]);
-            },
-            description: 'Query information for each discovered collateral',
-            maxCalls: 10
-        },
-        description: 'Detailed collateral configuration and status',
-        priority: 10
-    },
-
-    // Free Collateral Balance - High Priority
-    {
-        selector: '0x17b2bffa',
-        name: 'freeCollateralBalance',
-        generator: {
-            generate: async (context) => {
-                const count = context.collateralCount || context.allCollaterals?.length || 1;
-                return Array.from({ length: count }, (_, i) => [i]);
-            },
-            description: 'Free collateral balance for each collateral index',
-            maxCalls: 10
-        },
-        description: 'Available collateral for AMO operations',
-        priority: 9
-    },
-
-    // Dollar to Collateral Conversion - Medium Priority
-    {
-        selector: '0x87dcd5fb',
-        name: 'getDollarInCollateral',
-        generator: {
-            generate: async (context) => {
-                const count = context.collateralCount || context.allCollaterals?.length || 1;
-                const results: any[][] = [];
-
-                // Generate samples for each collateral index
-                for (let i = 0; i < count && i < 3; i++) {
-                    for (const amount of SAMPLE_AMOUNTS.slice(0, 2)) { // Limit to 2 amounts per collateral
-                        results.push([i, amount]);
-                    }
-                }
-
-                return results;
-            },
-            description: 'Dollar-to-collateral conversion for sample amounts',
-            maxCalls: 6
-        },
-        description: 'Calculate collateral needed for dollar amounts',
-        priority: 7
-    },
-
-    // User Redemption Balances - Lower Priority (requires real user addresses)
-    {
-        selector: '0x245cd973',
-        name: 'getRedeemCollateralBalance',
-        generator: {
-            generate: async (context) => {
-                const count = context.collateralCount || context.allCollaterals?.length || 1;
-                const results: any[][] = [];
-
-                // Only query with zero address for safety
-                for (let i = 0; i < count && i < 3; i++) {
-                    results.push([ZERO_ADDRESS, i]);
-                }
-
-                return results;
-            },
-            description: 'Redemption balances for zero address (safe query)',
-            maxCalls: 3
-        },
-        description: 'User collateral available for redemption',
-        priority: 5
-    },
-
-    // Governance Redemption Balance - Lower Priority
-    {
-        selector: '0x2287fe40',
-        name: 'getRedeemGovernanceBalance',
-        generator: {
-            generate: async (context) => {
-                return [
-                    [ZERO_ADDRESS], // Safe query with zero address
-                ];
-            },
-            description: 'Governance redemption balance for zero address',
-            maxCalls: 1
-        },
-        description: 'User governance tokens available for redemption',
-        priority: 4
+        description: 'Check if given address is admin',
+        priority: 11
     }
 ];
 
@@ -324,7 +228,7 @@ export function getParameterSpecsByPriority(): ParameterSpec[] {
  * Display summary of available parameter specs
  */
 export function displayParameterSpecsSummary(): void {
-    console.log('\n📋 Available Parameter Specifications:');
+    console.log('\n� Available Parameter Specifications:');
 
     for (const spec of getParameterSpecsByPriority()) {
         console.log(`   ✅ ${spec.name} (${spec.selector})`);
