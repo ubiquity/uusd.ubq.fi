@@ -43,7 +43,7 @@
             <form id="mintForm" onsubmit="window.app.handleMint(event)">
                 <div class="form-group">
                     <label for="mintAmount">Amount</label>
-                    <input type="number" id="mintAmount" step="0.01" placeholder="0.00" required>
+                    <input type="number" id="mintAmount" step="any" placeholder="0.00" required>
                     <label>
                         <input type="checkbox" id="forceCollateralOnly" checked>
                         Fully Collateralized
@@ -101,7 +101,7 @@
             <form id="redeemForm" onsubmit="window.app.handleRedeem(event)">
                 <div class="form-group">
                     <label for="redeemAmount">Amount</label>
-                    <input type="number" id="redeemAmount" step="0.01" placeholder="0.00" required>
+                    <input type="number" id="redeemAmount" step="any" placeholder="0.00" required>
                 </div>
 
                 <div id="redeemOutput" class="output-section" style="display: none;">
