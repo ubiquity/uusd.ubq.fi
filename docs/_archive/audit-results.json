@@ -1,0 +1,94 @@
+{
+  "totalMints": "82170040000000000000000",
+  "totalRedeems": "756820250000000000000",
+  "totalLusdDeposited": "56780901059048147451078",
+  "totalLusdWithdrawn": "2610547724070471423053",
+  "netUusdSupply": "81413219750000000000000",
+  "netLusdBalance": "54170353334977676028025",
+  "expectedBackingRatio": 66,
+  "actualBackingRatio": 68,
+  "deficit": "27242866415022323971975",
+  "events": [
+    {
+      "blockNumber": "19859050",
+      "txHash": "0x004c51852cc82e0db8d40b4baacf0290ef082f143ecd8f4dd0350e11467eab74",
+      "timestamp": 1715578643,
+      "user": "0xefC0e701A824943b469a694aC564Aa1efF7Ab7dd",
+      "uusdAmount": "25000000000000000000000",
+      "lusdAmount": "0",
+      "type": "mint"
+    },
+    {
+      "blockNumber": "20742942",
+      "txHash": "0x602b082bdd5906d0029b21456bbc4b4b5cf1717b13b0d484852ac7e271b4d262",
+      "timestamp": 1726245599,
+      "user": "0x336C033842FA316d470e820c81b742e62A0765DC",
+      "uusdAmount": "7000000000000000000",
+      "lusdAmount": "0",
+      "type": "mint"
+    },
+    {
+      "blockNumber": "21028528",
+      "txHash": "0x74e72d0b1686363271a9523355f4e08099363b5f2ed41d27ba40b71d86b8f579",
+      "timestamp": 1729689395,
+      "user": "0xefC0e701A824943b469a694aC564Aa1efF7Ab7dd",
+      "uusdAmount": "24933000000000000000000",
+      "lusdAmount": "0",
+      "type": "mint"
+    },
+    {
+      "blockNumber": "21110358",
+      "txHash": "0x8a6337ad9dadc500d3db6b113a8b2c8e8a64d9a934944024c229cd9c331b7bd5",
+      "timestamp": 1730675975,
+      "user": "0xB6595d187F2BDd3439bCA6e247C96F66723E433F",
+      "uusdAmount": "334773750000000000000",
+      "lusdAmount": "0",
+      "type": "redeem"
+    },
+    {
+      "blockNumber": "21208484",
+      "txHash": "0x873f9afe1744328ed122d99c4725e6758a7cb494f60d5bc30618ed651584a321",
+      "timestamp": 1731859235,
+      "user": "0xDAba6e01D15Db560b88C8F426b016801f79e1F69",
+      "uusdAmount": "417046500000000000000",
+      "lusdAmount": "0",
+      "type": "redeem"
+    },
+    {
+      "blockNumber": "21925272",
+      "txHash": "0x851aad5e8a920ed27f27f867e855bf2753a93f3b9e7796730d2aff454dacd9ab",
+      "timestamp": 1740509747,
+      "user": "0x9Ab4fd0Dae38888D7305fa81CB5A92E767B8fAa5",
+      "uusdAmount": "5000000000000000000",
+      "lusdAmount": "0",
+      "type": "redeem"
+    },
+    {
+      "blockNumber": "22982641",
+      "txHash": "0x844b8246e6e9c96c1520c8c234677590bf24c2874a1a359c2f3b809d95728609",
+      "timestamp": 1753283087,
+      "user": "0xefC0e701A824943b469a694aC564Aa1efF7Ab7dd",
+      "uusdAmount": "10000000000000000000000",
+      "lusdAmount": "0",
+      "type": "mint"
+    },
+    {
+      "blockNumber": "22982948",
+      "txHash": "0xd70acbefbd66fb26f1882fdb68cf6027373a634f21394da7dabcf94020b27629",
+      "timestamp": 1753286783,
+      "user": "0xefC0e701A824943b469a694aC564Aa1efF7Ab7dd",
+      "uusdAmount": "17230040000000000000000",
+      "lusdAmount": "0",
+      "type": "mint"
+    },
+    {
+      "blockNumber": "22983057",
+      "txHash": "0x94ce4055e5dee75ce8658dab916566d9af6630816ba77c0ab4f8af99cf0929e3",
+      "timestamp": 1753288103,
+      "user": "0xefC0e701A824943b469a694aC564Aa1efF7Ab7dd",
+      "uusdAmount": "5000000000000000000000",
+      "lusdAmount": "0",
+      "type": "mint"
+    }
+  ]
+}

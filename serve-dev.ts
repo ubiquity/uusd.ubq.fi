@@ -8,6 +8,7 @@ const mimeTypes: { [key: string]: string } = {
   '.css': 'text/css',
   '.json': 'application/json',
   '.map': 'application/json', // for source maps
+  '.svg': 'image/svg+xml',
 };
 
 // Store connected clients for hot reload
@@ -38,6 +39,9 @@ function getFilePath(url: string): string {
   if (url === '/') {
     // Serve public/index.html for root requests
     return new URL('./public/index.html', import.meta.url).pathname;
+  } else if (url === '/favicon.svg') {
+    // Serve favicon from public directory
+    return new URL('./public/favicon.svg', import.meta.url).pathname;
   } else if (url.startsWith('/.well-known/')) {
     // Serve .well-known files from public directory
     return new URL(`./public${url}`, import.meta.url).pathname;

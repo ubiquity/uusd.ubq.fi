@@ -131,7 +131,7 @@ export class MintComponent {
                 if (result.isMintingAllowed) {
                     mintTwapWarning.style.display = 'none';
                 } else {
-                    mintTwapWarning.textContent = `Minting is disabled because the averaged price is below the threshold.`;
+                    mintTwapWarning.textContent = `Minting is disabled because the time weighted average price is below the threshold.`;
                     mintTwapWarning.style.display = 'block';
                 }
             }

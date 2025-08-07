@@ -5,6 +5,7 @@ const mimeTypes: { [key: string]: string } = {
   '.js': 'text/javascript',
   '.css': 'text/css',
   '.json': 'application/json',
+  '.svg': 'image/svg+xml',
 };
 
 function getFilePath(url: string): string {
@@ -12,12 +13,15 @@ function getFilePath(url: string): string {
   if (url === '/') {
     // Serve public/index.html for root requests
     return new URL('./public/index.html', import.meta.url).pathname;
+  } else if (url === '/favicon.svg') {
+    // Serve favicon from public directory
+    return new URL('./public/favicon.svg', import.meta.url).pathname;
   } else if (url.startsWith('/.well-known/')) {
     // Serve .well-known files from public directory
     return new URL(`./public${url}`, import.meta.url).pathname;
   } else if (url === '/src/styles/main.css') {
-    // Serve CSS from public directory in production
-    return new URL('./public/main.css', import.meta.url).pathname;
+    // Serve CSS from src directory
+    return new URL('./src/styles/main.css', import.meta.url).pathname;
   } else if (url.startsWith('/src/')) {
     // Serve files from src/ directory
     return new URL(`.${url}`, import.meta.url).pathname;

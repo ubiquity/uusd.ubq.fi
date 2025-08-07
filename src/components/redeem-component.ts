@@ -106,7 +106,7 @@ export class RedeemComponent {
                 if (result.isRedeemingAllowed) {
                     redeemTwapWarning.style.display = 'none';
                 } else {
-                    redeemTwapWarning.textContent = `Redeeming is disabled because the averaged price is above the threshold.`;
+                    redeemTwapWarning.textContent = `Redeeming is disabled because the time weighted average price is above the threshold.`;
                     redeemTwapWarning.style.display = 'block';
                 }
             }
