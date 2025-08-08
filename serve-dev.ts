@@ -1,15 +1,5 @@
 import { generateDevtoolsJson } from "./src/utils/generate-devtools-json.ts";
-
-const __dirname = new URL('.', import.meta.url).pathname;
-
-const mimeTypes: { [key: string]: string } = {
-  '.html': 'text/html',
-  '.js': 'text/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
-  '.map': 'application/json', // for source maps
-  '.svg': 'image/svg+xml',
-};
+import { serveDir } from "https://deno.land/std@0.224.0/http/file_server.ts";
 
 // Store connected clients for hot reload
 const clients = new Set<ReadableStreamDefaultController>();
@@ -34,31 +24,9 @@ const hotReloadScript = `
 </script>
 `;
 
-function getFilePath(url: string): string {
-  // Route handling for the refactored structure
-  if (url === '/') {
-    // Serve public/index.html for root requests
-    return new URL('./public/index.html', import.meta.url).pathname;
-  } else if (url === '/favicon.svg') {
-    // Serve favicon from public directory
-    return new URL('./public/favicon.svg', import.meta.url).pathname;
-  } else if (url.startsWith('/.well-known/')) {
-    // Serve .well-known files from public directory
-    return new URL(`./public${url}`, import.meta.url).pathname;
-  } else if (url.startsWith('/src/')) {
-    // Serve files from src/ directory
-    return new URL(`.${url}`, import.meta.url).pathname;
-  } else if (url.startsWith('/public/')) {
-    // Serve files from public/ directory
-    return new URL(`.${url}`, import.meta.url).pathname;
-  } else {
-    // Serve files from root directory (like app.js)
-    return new URL(`.${url}`, import.meta.url).pathname;
-  }
-}
-
 async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
+  const path = url.pathname;
 
   // Add CORS headers for development
   const headers = new Headers({
@@ -68,7 +36,7 @@ async function handler(req: Request): Promise<Response> {
   });
 
   // Handle hot reload endpoint
-  if (url.pathname === '/hot-reload') {
+  if (path === '/hot-reload') {
     let controller: ReadableStreamDefaultController;
 
     const stream = new ReadableStream({
@@ -92,27 +60,43 @@ async function handler(req: Request): Promise<Response> {
     });
   }
 
-  const filePath = getFilePath(url.pathname);
-
-  try {
-    let content: Uint8Array | string = await Deno.readFile(filePath);
-    const ext = filePath.substring(filePath.lastIndexOf('.'));
+  // Serve static files from the "public" directory first
+  if (path === '/' || path.startsWith('/public/') || path === '/app.js' || path === '/favicon.svg' || path.startsWith('/styles/')) {
+    const response = await serveDir(req, {
+      fsRoot: 'public',
+      urlRoot: '',
+      enableCors: true,
+    });
 
     // Inject hot reload script into HTML files
-    if (ext === '.html') {
-      const textContent = new TextDecoder().decode(content);
-      content = textContent.replace('</body>', `${hotReloadScript}</body>`);
+    if (path === '/' && response.ok) {
+      const textContent = await response.text();
+      const modifiedContent = textContent.replace('</body>', `${hotReloadScript}</body>`);
+      return new Response(modifiedContent, {
+        headers: {
+          'Content-Type': 'text/html',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
     }
 
-    headers.set('Content-Type', mimeTypes[ext] || 'text/plain');
-
-    return new Response(content, { headers });
-  } catch (err: any) {
-    if (err instanceof Deno.errors.NotFound) {
-      return new Response('Not found', { status: 404, headers });
-    }
-    return new Response('Internal Server Error', { status: 500, headers });
+    return response;
   }
+
+  // Serve files from the "src" directory for development
+  if (path.startsWith('/src/')) {
+    return serveDir(req, {
+      fsRoot: 'src',
+      urlRoot: 'src',
+      enableCors: true,
+    });
+  }
+
+  // For any other request, return a 404 response
+  return new Response('Not Found', {
+    status: 404,
+    headers
+  });
 }
 
 // Function to notify all clients to reload
@@ -128,8 +112,8 @@ function notifyReload() {
   });
 }
 
-// Watch for changes to built files (excluding CSS for hot reload)
-const appJsPath = new URL('./app.js', import.meta.url).pathname;
+// Watch for changes to built files
+const appJsPath = new URL('./public/app.js', import.meta.url).pathname;
 
 // Start file watchers with debouncing
 async function startFileWatchers() {
