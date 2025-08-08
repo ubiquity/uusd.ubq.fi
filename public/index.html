@@ -27,9 +27,10 @@
             <p class="uusd-price">UUSD Price: <span id="uusdPrice">Loading...</span></p>
         </div>
 
-        <div class="tabs" style="display: none;">
-            <button class="tab active" onclick="window.app.switchTab('mint')">Mint UUSD</button>
-            <button class="tab" onclick="window.app.switchTab('redeem')">Redeem UUSD</button>
+        <!-- Direction Toggle -->
+        <div class="direction-toggle" style="display: none;">
+            <button id="depositButton" class="direction-button active">Deposit</button>
+            <button id="withdrawButton" class="direction-button">Withdraw</button>
         </div>
 
         <div class="wallet-section">
@@ -40,109 +41,53 @@
             </div>
         </div>
 
-        <div id="mintTab" class="tab-content active" style="display: none;">
-            <form id="mintForm" onsubmit="window.app.handleMint(event)">
+        <!-- Unified Exchange Form -->
+        <div id="exchangeForm" class="exchange-form" style="display: none;">
+            <form onsubmit="window.app.handleExchange(event)">
                 <div class="form-group">
-                    <label for="mintAmount">Amount</label>
-                    <input type="number" id="mintAmount" step="any" placeholder="0.00" required>
-                    <label>
-                        <input type="checkbox" id="forceCollateralOnly" checked>
-                        Fully Collateralized
-                    </label>
+                    <label id="amountLabel" for="exchangeAmount">Deposit Amount (LUSD)</label>
+                    <input type="number" id="exchangeAmount" step="any" placeholder="Enter LUSD amount" required>
                 </div>
 
+                <!-- Optimal Route Display -->
+                <div id="exchangeOutput" class="output-section" style="display: none;">
+                    <h3>Best Deal Available</h3>
 
-                <div id="mintOutput" class="output-section" style="display: none;">
-                    <h3>Summary</h3>
-                    <div class="output-row">
-                        <span class="output-label">Collateral Needed:</span>
-                        <span class="output-value" id="collateralNeeded">-</span>
+                    <div class="route-header">
+                        <div class="route-action">
+                            <span id="routeType">🔨 Minting</span>
+                            <span class="market-price">Market: <span id="marketPrice">$1.000000</span></span>
+                        </div>
+                        <div id="savingsAmount" class="savings-positive" style="display: none;">
+                            Save 2.5% (0.025 tokens)
+                        </div>
                     </div>
-                    <div class="output-row">
-                        <span class="output-label">UBQ Needed:</span>
-                        <span class="output-value" id="ubqNeeded">-</span>
+
+                    <div class="output-row main-output">
+                        <span class="output-label">You will receive:</span>
+                        <span class="output-value" id="expectedOutput">-</span>
                     </div>
-                    <div class="output-row">
-                        <span class="output-label">Minting Fee:</span>
-                        <span class="output-value" id="mintingFee">-</span>
+
+                    <div class="route-explanation">
+                        <div class="route-reason">
+                            <span id="routeReason">UUSD below peg ($0.985). Minting gives better rate.</span>
+                        </div>
                     </div>
-                    <div class="output-row">
-                        <span class="output-label">Total UUSD Minted:</span>
-                        <span class="output-value" id="totalMinted">-</span>
-                    </div>
-                    <hr>
-                    <div class="output-row">
-                        <span class="output-label">
-                            <span class="tooltip">
-                                ❔
-                                <span class="tooltip-text">The smart contract uses a Time-Weighted Average Price (TWAP) to determine redemption eligibility. This prevents flash loan attacks.</span>
-                            </span>
-                            Average Price:
-                        </span>
-                        <span class="output-value" id="mintTwapPrice">-</span>
-                    </div>
-                    <div class="output-row">
-                        <span class="output-label">Mint Price Threshold:</span>
-                        <span class="output-value" id="mintPriceThreshold">-</span>
+
+                    <div id="routeWarning" class="route-warning" style="display: none;">
+                        Action temporarily disabled due to market conditions.
                     </div>
                 </div>
 
-                <div id="mintTwapWarning" class="twap-warning" style="display: none;"></div>
-
-                <button type="submit" class="action-button" id="mintButton" disabled>
+                <button type="submit" class="action-button" id="exchangeButton" disabled>
                     Enter amount to continue
                 </button>
 
-                <div class="error" id="mintError"></div>
-                <div class="success" id="mintSuccess"></div>
-            </form>
-        </div>
-
-        <div id="redeemTab" class="tab-content" style="display: none;">
-            <form id="redeemForm" onsubmit="window.app.handleRedeem(event)">
-                <div class="form-group">
-                    <label for="redeemAmount">Amount</label>
-                    <input type="number" id="redeemAmount" step="any" placeholder="0.00" required>
+                <!-- Notification Areas -->
+                <div class="notification-container" data-type="exchange">
+                    <div class="error" id="exchangeError"></div>
+                    <div class="success" id="exchangeSuccess"></div>
                 </div>
-
-                <div id="redeemOutput" class="output-section" style="display: none;">
-                    <h3>You Will Receive</h3>
-                    <div class="output-row">
-                        <span class="output-label">Collateral:</span>
-                        <span class="output-value" id="collateralRedeemed">-</span>
-                    </div>
-                    <div class="output-row">
-                        <span class="output-label">UBQ:</span>
-                        <span class="output-value" id="ubqRedeemed">-</span>
-                    </div>
-                    <div class="output-row">
-                        <span class="output-label">Redemption Fee:</span>
-                        <span class="output-value" id="redemptionFee">-</span>
-                    </div>
-                    <hr>
-                    <div class="output-row">
-                        <span class="output-label">                            <span class="tooltip">
-                                ❔
-                                <span class="tooltip-text">The smart contract uses a Time-Weighted Average Price (TWAP) to determine redemption eligibility. This prevents flash loan attacks.</span>
-                            </span>
-                            Average Price:
-                        </span>
-                        <span class="output-value" id="redeemTwapPrice">-</span>
-                    </div>
-                    <div class="output-row">
-                        <span class="output-label">Redeem Price Threshold:</span>
-                        <span class="output-value" id="redeemPriceThreshold">-</span>
-                    </div>
-                </div>
-
-                <div id="redeemTwapWarning" class="twap-warning" style="display: none;"></div>
-
-                <button type="submit" class="action-button" id="redeemButton" disabled>
-                    Enter amount to continue
-                </button>
-
-                <div class="error" id="redeemError"></div>
-                <div class="success" id="redeemSuccess"></div>
             </form>
         </div>
     </div>
