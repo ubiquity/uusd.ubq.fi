@@ -33,13 +33,7 @@
             <button id="withdrawButton" class="direction-button">Withdraw</button>
         </div>
 
-        <div class="wallet-section">
-            <button id="connectWallet" onclick="window.app.connectWallet()">Connect Wallet</button>
-            <div id="walletInfo" style="display: none;">
-                <p>Connected: <span class="wallet-address" id="walletAddress"></span></p>
-                <p class="info-text">Network: <span id="networkName">Ethereum Mainnet</span></p>
-            </div>
-        </div>
+
 
         <!-- Unified Exchange Form -->
         <div id="exchangeForm" class="exchange-form" style="display: none;">
@@ -90,6 +84,17 @@
                 </div>
             </form>
         </div>
+
+
+
+        <div class="wallet-section">
+            <button id="connectWallet" onclick="window.app.connectWallet()">Connect Wallet</button>
+            <div id="walletInfo" style="display: none;">
+                <p>Connected: <span class="wallet-address" id="walletAddress"></span></p>
+                <p class="info-text">Network: <span id="networkName">Ethereum Mainnet</span></p>
+            </div>
+        </div>
+
     </div>
 
     <!-- Inventory Bar - Fixed at bottom -->

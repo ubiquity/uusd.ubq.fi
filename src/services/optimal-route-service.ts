@@ -58,20 +58,32 @@ export class OptimalRouteService {
      */
     async getOptimalDepositRoute(lusdAmount: bigint): Promise<OptimalRouteResult> {
         try {
-            // Get current market conditions
-            const [lusdPrice, marketPrice] = await Promise.all([
+            // Get current market conditions with timeout protection
+            const marketConditionsPromise = Promise.all([
                 this.contractService.getLUSDOraclePrice(),
                 this.curvePriceService.getUUSDMarketPrice(this.PEG_PRICE)
             ]);
 
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Market conditions timeout')), 10000);
+            });
+
+            const [lusdPrice, marketPrice] = await Promise.race([marketConditionsPromise, timeoutPromise]) as [bigint, bigint];
+
             const dollarAmount = parseEther(formatUnits(lusdAmount, 18));
 
-            // Calculate mint output
-            const mintResult = await this.priceService.calculateMintOutput({
+            // Calculate mint output with timeout protection
+            const mintPromise = this.priceService.calculateMintOutput({
                 dollarAmount,
                 collateralIndex: LUSD_COLLATERAL.index,
                 isForceCollateralOnly: false
             });
+
+            const mintTimeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Mint calculation timeout')), 10000);
+            });
+
+            const mintResult = await Promise.race([mintPromise, mintTimeoutPromise]) as any;
 
             // Calculate swap output (LUSD → UUSD via Curve)
             const swapOutputUUSD = await this.getSwapOutput(lusdAmount, 'LUSD', 'UUSD');
@@ -149,25 +161,76 @@ export class OptimalRouteService {
     /**
      * Get optimal route for withdrawing UUSD to get LUSD
      * Compares: redeem vs swap
+     * NOTE: For withdrawing, we should NEVER return 'mint' as a route type
      */
     async getOptimalWithdrawRoute(uusdAmount: bigint): Promise<OptimalRouteResult> {
-        try {
-            // Get current market conditions
-            const [lusdPrice, marketPrice] = await Promise.all([
-                this.contractService.getLUSDOraclePrice(),
-                this.curvePriceService.getUUSDMarketPrice(this.PEG_PRICE)
-            ]);
+        console.log('🔍 Calculating optimal withdraw route for', formatEther(uusdAmount), 'UUSD');
 
-            // Calculate redeem output
-            const redeemResult = await this.priceService.calculateRedeemOutput({
-                dollarAmount: uusdAmount,
-                collateralIndex: LUSD_COLLATERAL.index
+        try {
+            console.log('📝 Step 1: Getting market conditions...');
+            // Get current market conditions
+            let lusdPrice: bigint;
+            let marketPrice: bigint;
+
+            try {
+                console.log('📝 Step 1a: Getting LUSD oracle price...');
+                lusdPrice = await this.contractService.getLUSDOraclePrice();
+                console.log('📝 Step 1b: Getting UUSD market price...');
+                marketPrice = await this.curvePriceService.getUUSDMarketPrice(this.PEG_PRICE);
+            } catch (error) {
+                console.error('❌ Error getting market conditions:', error);
+                throw new Error(`Failed to get market conditions: ${error}`);
+            }
+
+            console.log('📊 Market conditions:', {
+                lusdPrice: formatUnits(lusdPrice, 6),
+                marketPrice: formatUnits(marketPrice, 6),
+                pegPrice: formatUnits(this.PEG_PRICE, 6)
             });
 
-            // Calculate swap output (UUSD → LUSD via Curve)
-            const swapOutputLUSD = await this.getSwapOutput(uusdAmount, 'UUSD', 'LUSD');
+            console.log('📝 Step 2: Calculating redeem output...');
 
-            // Determine optimal route
+            // Calculate redeem output with timeout
+            let redeemResult;
+            try {
+                console.log('📝 Step 2a: Calling calculateRedeemOutput...');
+
+                // Add timeout to prevent hanging
+                const redeemPromise = this.priceService.calculateRedeemOutput({
+                    dollarAmount: uusdAmount,
+                    collateralIndex: LUSD_COLLATERAL.index
+                });
+
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Redeem calculation timeout')), 10000);
+                });
+
+                redeemResult = await Promise.race([redeemPromise, timeoutPromise]) as any;
+                console.log('📝 Step 2b: Redeem calculation successful');
+            } catch (error) {
+                console.error('❌ Error calculating redeem output:', error);
+                throw new Error(`Failed to calculate redeem output: ${error}`);
+            }
+
+            // Calculate swap output (UUSD → LUSD via Curve)
+            let swapOutputLUSD;
+            try {
+                console.log('📝 Step 2c: Calculating swap output...');
+                swapOutputLUSD = await this.getSwapOutput(uusdAmount, 'UUSD', 'LUSD');
+                console.log('📝 Step 2d: Swap calculation successful');
+            } catch (error) {
+                console.error('❌ Error calculating swap output:', error);
+                throw new Error(`Failed to calculate swap output: ${error}`);
+            }
+
+            console.log('💰 Output comparison:', {
+                redeemLUSD: formatEther(redeemResult.collateralRedeemed),
+                redeemUBQ: formatEther(redeemResult.governanceRedeemed),
+                swapLUSD: formatEther(swapOutputLUSD),
+                isRedeemingAllowed: redeemResult.isRedeemingAllowed
+            });
+
+            // Determine optimal route - ONLY redeem or swap for withdrawals
             let routeType: RouteType;
             let expectedOutput: bigint;
             let reason: string;
@@ -179,33 +242,40 @@ export class OptimalRouteService {
                 routeType = 'swap';
                 expectedOutput = swapOutputLUSD;
                 reason = 'Redeeming disabled due to price conditions. Using Curve swap.';
+                console.log('🔄 Route: swap (redeeming disabled)');
             } else if (marketPrice > this.PEG_PRICE) {
                 // UUSD trading above peg - redeem is better (1:1 ratio)
                 routeType = 'redeem';
                 expectedOutput = redeemResult.collateralRedeemed;
                 reason = `UUSD above peg ($${formatUnits(marketPrice, 6)}). Redeeming gives better rate.`;
+                console.log('🔄 Route: redeem (above peg)');
             } else {
-                // UUSD trading below peg - compare outputs
+                // UUSD trading below peg - compare LUSD outputs only
+                // Note: Redeeming gives collateral (LUSD) + governance (UBQ) tokens
+                // We only compare the LUSD portion since user specifically wants LUSD
                 if (swapOutputLUSD > redeemResult.collateralRedeemed) {
                     routeType = 'swap';
                     expectedOutput = swapOutputLUSD;
                     reason = `UUSD below peg ($${formatUnits(marketPrice, 6)}). Curve swap gives more LUSD.`;
+                    console.log('🔄 Route: swap (below peg, swap better)');
                 } else {
                     routeType = 'redeem';
                     expectedOutput = redeemResult.collateralRedeemed;
-                    reason = 'Redeeming provides better rate than swap.';
+                    reason = 'Redeeming provides better LUSD rate than swap.';
+                    console.log('🔄 Route: redeem (below peg, redeem better)');
                 }
             }
+
 
             // Calculate alternative output for savings comparison
             const alternativeOutput = routeType === 'redeem' ? swapOutputLUSD : redeemResult.collateralRedeemed;
             const savings = this.calculateSavings(expectedOutput, alternativeOutput);
 
-            return {
+            const result = {
                 routeType,
                 expectedOutput,
                 inputAmount: uusdAmount,
-                direction: 'withdraw',
+                direction: 'withdraw' as const,
                 marketPrice,
                 pegPrice: this.PEG_PRICE,
                 savings,
@@ -214,12 +284,16 @@ export class OptimalRouteService {
                 disabledReason
             };
 
+            console.log('✅ Final withdraw route:', result);
+            return result;
+
         } catch (error) {
             console.error('Error calculating optimal withdraw route:', error);
 
             // Fallback to swap if calculations fail
             try {
                 const swapOutput = await this.getSwapOutput(uusdAmount, 'UUSD', 'LUSD');
+                console.log('🔄 Using fallback swap route');
                 return {
                     routeType: 'swap',
                     expectedOutput: swapOutput,

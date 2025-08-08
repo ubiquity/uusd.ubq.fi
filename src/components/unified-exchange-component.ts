@@ -134,11 +134,16 @@ export class UnifiedExchangeComponent {
 
             // Calculate optimal route
             let routeResult: OptimalRouteResult;
+            console.log('🔍 Current direction:', this.currentDirection);
             if (this.currentDirection === 'deposit') {
+                console.log('📈 Calling getOptimalDepositRoute');
                 routeResult = await this.optimalRouteService.getOptimalDepositRoute(inputAmount);
             } else {
+                console.log('📉 Calling getOptimalWithdrawRoute');
                 routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount);
             }
+
+            console.log('📊 Route result:', routeResult);
 
             // Update UI with route information
             await this.updateRouteDisplay(routeResult);
