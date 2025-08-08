@@ -4,13 +4,13 @@ import { type Address } from 'viem';
 import { WalletService } from './services/wallet-service.ts';
 import { ContractService } from './services/contract-service.ts';
 import { PriceService } from './services/price-service.ts';
+import { CurvePriceService } from './services/curve-price-service.ts';
+import { SwapService } from './services/swap-service.ts';
 import { TransactionService, TransactionOperation } from './services/transaction-service.ts';
 
 // Import components
 import { NotificationManager } from './components/notification-manager.ts';
-import { TabManager } from './components/tab-manager.ts';
-import { MintComponent } from './components/mint-component.ts';
-import { RedeemComponent } from './components/redeem-component.ts';
+import { UnifiedExchangeComponent } from './components/unified-exchange-component.ts';
 import { InventoryBarComponent } from './components/inventory-bar-component.ts';
 
 // Import utilities
@@ -31,13 +31,13 @@ class UUSDApp {
     private walletService: WalletService;
     private contractService: ContractService;
     private priceService: PriceService;
+    private curvePriceService: CurvePriceService;
+    private swapService: SwapService;
     private transactionService: TransactionService;
 
     // Components
     private notificationManager: NotificationManager;
-    private tabManager: TabManager;
-    private mintComponent: MintComponent;
-    private redeemComponent: RedeemComponent;
+    private unifiedExchangeComponent: UnifiedExchangeComponent;
     private inventoryBarComponent: InventoryBarComponent;
 
     constructor() {
@@ -45,6 +45,8 @@ class UUSDApp {
         this.walletService = new WalletService();
         this.contractService = new ContractService(this.walletService);
         this.priceService = new PriceService(this.contractService, this.walletService);
+        this.curvePriceService = new CurvePriceService(this.walletService);
+        this.swapService = new SwapService(this.walletService, this.contractService);
         this.transactionService = new TransactionService(
             this.walletService,
             this.contractService,
@@ -53,31 +55,30 @@ class UUSDApp {
 
         // Initialize components
         this.notificationManager = new NotificationManager();
-        this.tabManager = new TabManager();
 
         const services = {
             walletService: this.walletService,
             contractService: this.contractService,
             priceService: this.priceService,
+            curvePriceService: this.curvePriceService,
             transactionService: this.transactionService,
+            swapService: this.swapService,
             notificationManager: this.notificationManager
         };
 
-        // Create inventory bar component first (needed by mint/redeem components)
-        this.inventoryBarComponent = new InventoryBarComponent(services);
+        // Create inventory bar component first (needed by exchange component)
+        this.inventoryBarComponent = new InventoryBarComponent({
+            walletService: this.walletService,
+            contractService: this.contractService,
+            priceService: this.priceService,
+            notificationManager: this.notificationManager
+        });
 
-        // Create mint/redeem components with inventory bar reference
-        this.mintComponent = new MintComponent({
+        // Create unified exchange component
+        this.unifiedExchangeComponent = new UnifiedExchangeComponent({
             ...services,
             inventoryBar: this.inventoryBarComponent
         });
-        this.redeemComponent = new RedeemComponent({
-            ...services,
-            inventoryBar: this.inventoryBarComponent
-        });
-
-        // Register components with tab manager for auto-population
-        this.tabManager.setComponents(this.mintComponent, this.redeemComponent);
 
         this.setupServiceEventHandlers();
 
@@ -88,11 +89,11 @@ class UUSDApp {
     }
 
     private async init() {
-        // Initialize components immediately for fast UX
-        this.tabManager.initialize((tab) => this.handleTabChange(tab));
-
         // Initialize dynamic date labels for chart
         this.initializeDynamicDates();
+
+        // Show the exchange interface
+        this.showExchangeInterface();
 
         // RENDER CACHED SPARKLINE IMMEDIATELY (synchronous)
         this.renderCachedSparkline();
@@ -106,6 +107,32 @@ class UUSDApp {
         this.loadRealPriceHistory().catch(error => {
             console.warn('Failed to load price history:', error);
         });
+
+        // Initialize services for optimal route calculations
+        if (!this.priceService.isInitialized()) {
+            try {
+                await this.priceService.initialize();
+                console.log('✅ Price service initialized');
+            } catch (error) {
+                console.warn('Failed to initialize price service:', error);
+            }
+        }
+    }
+
+    /**
+     * Show the exchange interface elements
+     */
+    private showExchangeInterface(): void {
+        const directionToggle = document.querySelector('.direction-toggle') as HTMLElement;
+        const exchangeForm = document.getElementById('exchangeForm') as HTMLElement;
+
+        if (directionToggle) {
+            directionToggle.style.display = 'flex';
+        }
+
+        if (exchangeForm) {
+            exchangeForm.style.display = 'block';
+        }
     }
 
     /**
@@ -276,17 +303,12 @@ class UUSDApp {
         this.walletService.setEventHandlers({
             onConnect: (account: Address) => {
                 this.updateWalletUI(account);
-                this.tabManager.updateWalletConnection(true);
-                this.mintComponent.updateWalletConnection(true);
-                this.redeemComponent.updateWalletConnection(true);
-                this.redeemComponent.checkForPendingRedemptions(account);
+                this.unifiedExchangeComponent.updateWalletConnection(true);
                 this.inventoryBarComponent.handleWalletConnectionChange(account);
             },
             onDisconnect: () => {
                 this.updateWalletUI(null);
-                this.tabManager.updateWalletConnection(false);
-                this.mintComponent.updateWalletConnection(false);
-                this.redeemComponent.updateWalletConnection(false);
+                this.unifiedExchangeComponent.updateWalletConnection(false);
                 this.inventoryBarComponent.handleWalletConnectionChange(null);
             }
         });
@@ -294,61 +316,21 @@ class UUSDApp {
         // Transaction service event handlers
         this.transactionService.setEventHandlers({
             onTransactionStart: (operation: string) => {
-                if (operation === TransactionOperation.MINT) {
-                    this.mintComponent.handleTransactionStart();
-                } else {
-                    this.redeemComponent.handleTransactionStart();
-                }
+                this.unifiedExchangeComponent.handleTransactionStart();
             },
             onTransactionSuccess: (operation: string, hash: string) => {
-                if (operation === TransactionOperation.MINT) {
-                    this.mintComponent.handleTransactionSuccess();
-                } else {
-                    this.redeemComponent.handleTransactionSuccess(operation);
-                }
+                this.unifiedExchangeComponent.handleTransactionSuccess(operation);
             },
             onTransactionError: (operation: string, error: Error) => {
-                if (operation === TransactionOperation.MINT) {
-                    this.mintComponent.handleTransactionError(error);
-                } else {
-                    this.redeemComponent.handleTransactionError(error);
-                }
+                this.unifiedExchangeComponent.handleTransactionError(error);
             },
             onApprovalNeeded: (tokenSymbol: string) => {
-                const currentTab = this.tabManager.getCurrentTab();
-                if (currentTab === 'mint') {
-                    this.mintComponent.handleApprovalNeeded(tokenSymbol);
-                } else {
-                    this.redeemComponent.handleApprovalNeeded(tokenSymbol);
-                }
+                // Handled within the unified exchange component
             },
             onApprovalComplete: (tokenSymbol: string) => {
-                const currentTab = this.tabManager.getCurrentTab();
-                if (currentTab === 'mint') {
-                    this.mintComponent.handleApprovalComplete();
-                } else {
-                    this.redeemComponent.handleApprovalComplete();
-                }
+                // Handled within the unified exchange component
             }
         });
-    }
-
-    private async handleTabChange(tab: 'mint' | 'redeem') {
-        // Clear notifications when switching tabs
-        this.notificationManager.clearNotifications('mint');
-        this.notificationManager.clearNotifications('redeem');
-
-        // Lazy load collateral options when user first accesses mint/redeem
-        if (!this.priceService.isInitialized()) {
-            console.log(`🔄 User accessed ${tab} tab, loading collateral options...`);
-            try {
-                await this.priceService.initialize();
-                console.log('✅ Collateral options loaded');
-            } catch (error) {
-                console.warn('Failed to load collateral options:', error);
-                this.notificationManager.showError(tab, 'Failed to load collateral options. Please refresh the page.');
-            }
-        }
     }
 
     private updateWalletUI(account: Address | null) {
@@ -378,20 +360,12 @@ class UUSDApp {
             // Reset button state on error
             connectButton.textContent = originalText;
             connectButton.disabled = false;
-            this.notificationManager.showError('mint', error.message);
+            this.notificationManager.showError('exchange', error.message);
         }
     }
 
-    switchTab(tab: 'mint' | 'redeem') {
-        this.tabManager.switchTab(tab);
-    }
-
-    async handleMint(event: Event) {
-        await this.mintComponent.handleSubmit(event);
-    }
-
-    async handleRedeem(event: Event) {
-        await this.redeemComponent.handleSubmit(event);
+    async handleExchange(event: Event) {
+        await this.unifiedExchangeComponent.handleSubmit(event);
     }
 }
 
