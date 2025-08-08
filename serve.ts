@@ -1,53 +1,13 @@
-const __dirname = new URL('.', import.meta.url).pathname;
+import { serveDir } from "https://deno.land/std@0.224.0/http/file_server.ts";
 
-const mimeTypes: { [key: string]: string } = {
-  '.html': 'text/html',
-  '.js': 'text/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
-};
+const port = parseInt(Deno.env.get("PORT") || "3000");
 
-function getFilePath(url: string): string {
-  // Route handling for the refactored structure
-  if (url === '/') {
-    // Serve public/index.html for root requests
-    return new URL('./public/index.html', import.meta.url).pathname;
-  } else if (url.startsWith('/.well-known/')) {
-    // Serve .well-known files from public directory
-    return new URL(`./public${url}`, import.meta.url).pathname;
-  } else if (url === '/src/styles/main.css') {
-    // Serve CSS from public directory in production
-    return new URL('./public/main.css', import.meta.url).pathname;
-  } else if (url.startsWith('/src/')) {
-    // Serve files from src/ directory
-    return new URL(`.${url}`, import.meta.url).pathname;
-  } else if (url.startsWith('/public/')) {
-    // Serve files from public/ directory
-    return new URL(`.${url}`, import.meta.url).pathname;
-  } else {
-    // Serve files from root directory (like app.js)
-    return new URL(`.${url}`, import.meta.url).pathname;
-  }
-}
+console.log(`HTTP web server running. Access it at: http://localhost:${port}/`);
 
-async function handler(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const filePath = getFilePath(url.pathname);
-
-  try {
-    const content = await Deno.readFile(filePath);
-    const ext = filePath.substring(filePath.lastIndexOf('.'));
-    const contentType = mimeTypes[ext] || 'text/plain';
-
-    return new Response(content, {
-      headers: { 'Content-Type': contentType },
-    });
-  } catch (err) {
-    return new Response('Not found', { status: 404 });
-  }
-}
-
-const PORT = parseInt(Deno.env.get('PORT') || '3000');
-
-console.log(`Server running at http://localhost:${PORT}`);
-await Deno.serve({ port: PORT }, handler);
+Deno.serve({ port }, (req) => {
+  return serveDir(req, {
+    fsRoot: "public",
+    urlRoot: "",
+    enableCors: true,
+  });
+});

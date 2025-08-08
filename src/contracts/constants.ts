@@ -6,7 +6,6 @@ export const ADDRESSES: ContractAddresses = {
     DIAMOND: '0xED3084c98148e2528DaDCB53C56352e549C488fA' as Address,
     DOLLAR: '0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103' as Address,
     GOVERNANCE: '0x4e38d89362f7e5db0096ce44ebd021c3962aa9a0' as Address,
-    PERMIT2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address
 };
 
 // Hardcoded LUSD collateral configuration
@@ -19,11 +18,26 @@ export const LUSD_COLLATERAL = {
     missingDecimals: 0
 } as const;
 
+// Price threshold configuration - these are read dynamically from contract storage
+// No hardcoded values - the actual values are fetched at runtime from the deployed contract
+export const PRICE_THRESHOLD_CONFIG = {
+    // Storage position for UbiquityPoolStorage, calculated from:
+    // bytes32(uint256(keccak256("ubiquity.contracts.ubiquity.pool.storage")) - 1) & ~bytes32(uint256(0xff));
+    // The previous value was based on a miscalculation of the keccak256 hash. This is the correct value.
+    UBIQUITY_POOL_STORAGE_BASE: BigInt("0x2a1c4d9e43cc908458204ba8dd637dd73ede6adc739c3209ac617ae953246c00"),
+    // Expected value ranges for validation
+    MIN_VALID_THRESHOLD: 500000n, // $0.50
+    MAX_VALID_THRESHOLD: 1500000n, // $1.50
+    // Cache duration in milliseconds
+    CACHE_DURATION: 60000, // 1 minute
+} as const;
+
 // Minimal ABIs - only functions we need
 export const DIAMOND_ABI = [
     {
         name: 'mintDollar',
         type: 'function',
+        stateMutability: 'nonpayable',
         inputs: [
             { name: 'collateralIndex', type: 'uint256' },
             { name: 'dollarAmount', type: 'uint256' },
@@ -41,6 +55,7 @@ export const DIAMOND_ABI = [
     {
         name: 'redeemDollar',
         type: 'function',
+        stateMutability: 'nonpayable',
         inputs: [
             { name: 'collateralIndex', type: 'uint256' },
             { name: 'dollarAmount', type: 'uint256' },
@@ -55,6 +70,7 @@ export const DIAMOND_ABI = [
     {
         name: 'collectRedemption',
         type: 'function',
+        stateMutability: 'nonpayable',
         inputs: [{ name: 'collateralIndex', type: 'uint256' }],
         outputs: [
             { name: 'governanceAmount', type: 'uint256' },
@@ -133,7 +149,7 @@ export const DIAMOND_ABI = [
             { name: 'collateralIndex', type: 'uint256' }
         ],
         outputs: [{ type: 'uint256' }]
-    }
+    },
 ] as const;
 
 export const ERC20_ABI = [

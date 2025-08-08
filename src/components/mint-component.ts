@@ -25,7 +25,7 @@ interface MintServices {
  */
 export class MintComponent {
     private services: MintServices;
-    private debounceTimer: number | null = null;
+    private debounceTimer: any | null = null;
 
     constructor(services: MintServices) {
         this.services = services;
@@ -94,28 +94,46 @@ export class MintComponent {
                 isForceCollateralOnly
             });
 
-            // Update UI with LUSD hardcoded values
+            // Update UI with dynamic values
             const collateralNeeded = document.getElementById('collateralNeeded');
             const ubqNeeded = document.getElementById('ubqNeeded');
             const mintingFee = document.getElementById('mintingFee');
             const totalMinted = document.getElementById('totalMinted');
+            const mintTwapPrice = document.getElementById('mintTwapPrice');
+            const mintPriceThreshold = document.getElementById('mintPriceThreshold');
+            const mintTwapWarning = document.getElementById('mintTwapWarning') as HTMLDivElement;
 
             if (collateralNeeded) {
-                collateralNeeded.textContent = `${formatUnits(result.collateralNeeded, 18 - LUSD_COLLATERAL.missingDecimals)} ${LUSD_COLLATERAL.name}`;
+                collateralNeeded.textContent = `${formatUnits(result.collateralNeeded, 18 - result.collateral.missingDecimals)} ${result.collateral.name}`;
             }
             if (ubqNeeded) {
                 ubqNeeded.textContent = `${formatEther(result.governanceNeeded)} UBQ`;
             }
             if (mintingFee) {
-                mintingFee.textContent = `${LUSD_COLLATERAL.mintingFee}%`;
+                mintingFee.textContent = `${result.collateral.mintingFee}%`;
             }
             if (totalMinted) {
                 totalMinted.textContent = `${formatEther(result.totalDollarMint)} UUSD`;
+            }
+            if (mintTwapPrice) {
+                mintTwapPrice.textContent = `$${formatUnits(result.twapPrice, 6)}`;
+            }
+            if (mintPriceThreshold) {
+                mintPriceThreshold.textContent = `$${formatUnits(result.mintPriceThreshold, 6)}`;
             }
 
             // Update button text based on approval status
             if (this.services.walletService.isConnected()) {
                 await this.updateButton(LUSD_COLLATERAL, result);
+            }
+
+            if (mintTwapWarning) {
+                if (result.isMintingAllowed) {
+                    mintTwapWarning.style.display = 'none';
+                } else {
+                    mintTwapWarning.textContent = `Minting is disabled because the time weighted average price is below the threshold.`;
+                    mintTwapWarning.style.display = 'block';
+                }
             }
         } catch (error) {
             console.error('Error updating mint output:', error);
@@ -131,6 +149,12 @@ export class MintComponent {
 
         if (!account) {
             button.textContent = 'Connect wallet first';
+            return;
+        }
+
+        if (!result.isMintingAllowed) {
+            button.textContent = 'Minting Disabled';
+            button.disabled = true;
             return;
         }
 
@@ -321,11 +345,11 @@ export class MintComponent {
      * Setup balance update subscription
      */
     private setupBalanceSubscription(): void {
-        console.log('📋 [DEBUG] Setting up mint balance subscription');
+
 
         if (this.services.inventoryBar) {
             this.services.inventoryBar.onBalancesUpdated((balances) => {
-                console.log('🔔 [DEBUG] Mint component received balance update:', balances);
+
 
                 // Only auto-populate if mint tab is currently active and input is empty
                 const tabManager = (window as any).app?.tabManager;
@@ -334,7 +358,7 @@ export class MintComponent {
                 }
             });
         } else {
-            console.warn('❌ [DEBUG] No inventory bar service available for mint subscription');
+
         }
     }
 
@@ -343,43 +367,43 @@ export class MintComponent {
      * Called when mint tab becomes active
      */
     autoPopulateWithMaxBalance(): void {
-        console.log('🚀 [DEBUG] Mint auto-populate called');
+
 
         if (!this.services.walletService.isConnected()) {
-            console.log('💸 [DEBUG] Wallet not connected, skipping auto-populate');
+
             return;
         }
 
         const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
         if (!amountInput) {
-            console.warn('❌ [DEBUG] mintAmount input element not found');
+
             return;
         }
 
         // Only populate if input is empty (don't overwrite user input)
         if (amountInput.value && amountInput.value !== '0') {
-            console.log(`⏭️ [DEBUG] Input already has value: ${amountInput.value}, skipping auto-populate`);
+
             return;
         }
 
-        console.log('🔄 [DEBUG] Checking inventory bar service...');
-        console.log('📊 [DEBUG] inventoryBar service:', this.services.inventoryBar);
+
+
 
         try {
             const maxLusdBalance = getMaxTokenBalance(this.services.inventoryBar, 'LUSD');
-            console.log(`💰 [DEBUG] Max LUSD balance retrieved: ${maxLusdBalance}`);
+
 
             // Only populate if there's an available balance
             if (hasAvailableBalance(this.services.inventoryBar, 'LUSD')) {
-                console.log(`✅ [DEBUG] Setting mint input to: ${maxLusdBalance}`);
+
                 amountInput.value = maxLusdBalance;
                 // Trigger calculation update
                 this.updateOutput();
             } else {
-                console.log('🚫 [DEBUG] No available LUSD balance to populate');
+
             }
         } catch (error) {
-            console.error('❌ [DEBUG] Failed to auto-populate LUSD balance:', error);
+
             // Silently fail - don't disrupt user experience
         }
     }

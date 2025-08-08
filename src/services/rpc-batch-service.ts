@@ -1,4 +1,5 @@
 import { type PublicClient, type Address } from 'viem';
+import { getRpcUrl } from '../../tools/config';
 
 /**
  * RPC request structure for batching
@@ -91,7 +92,7 @@ export class RPCBatchService {
 
         try {
             // Get RPC URL from the public client
-            const rpcUrl = this.extractRpcUrl(publicClient);
+            const rpcUrl = getRpcUrl();
 
             // Execute batched request using standard JSON-RPC 2.0 batch format
             const response = await fetch(rpcUrl, {
@@ -164,27 +165,7 @@ export class RPCBatchService {
         }
     }
 
-    /**
-     * Extract RPC URL from viem public client
-     */
-    private extractRpcUrl(publicClient: PublicClient): string {
-        // Get the transport from the public client
-        const transport = publicClient.transport;
 
-        // For HTTP transport, try to get the URL
-        if ('url' in transport && typeof transport.url === 'string') {
-            return transport.url;
-        }
-
-        // Environment-aware fallback
-        if (typeof window !== 'undefined' &&
-            (window.location.hostname === 'localhost' ||
-             window.location.hostname === '127.0.0.1' ||
-             window.location.hostname.includes('local'))) {
-            return 'https://rpc.ubq.fi/1'; // Development: external endpoint
-        }
-        return 'rpc/1'; // Production: same-domain endpoint (uusd.ubq.fi/rpc/1)
-    }
 
     /**
      * Encode parameters for get_dy function call

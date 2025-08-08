@@ -77,6 +77,9 @@ export class RedeemComponent {
             const collateralRedeemed = document.getElementById('collateralRedeemed');
             const ubqRedeemed = document.getElementById('ubqRedeemed');
             const redemptionFee = document.getElementById('redemptionFee');
+            const redeemTwapPrice = document.getElementById('redeemTwapPrice');
+            const redeemPriceThreshold = document.getElementById('redeemPriceThreshold');
+            const redeemTwapWarning = document.getElementById('redeemTwapWarning') as HTMLDivElement;
 
             if (collateralRedeemed) {
                 collateralRedeemed.textContent = `${formatUnits(result.collateralRedeemed, 18 - LUSD_COLLATERAL.missingDecimals)} ${LUSD_COLLATERAL.name}`;
@@ -87,10 +90,25 @@ export class RedeemComponent {
             if (redemptionFee) {
                 redemptionFee.textContent = `${LUSD_COLLATERAL.redemptionFee}%`;
             }
+            if (redeemTwapPrice) {
+                redeemTwapPrice.textContent = `$${formatUnits(result.twapPrice, 6)}`;
+            }
+            if (redeemPriceThreshold) {
+                redeemPriceThreshold.textContent = `$${formatUnits(result.redeemPriceThreshold, 6)}`;
+            }
 
             // Update button text
             if (this.services.walletService.isConnected()) {
-                await this.updateButton(LUSD_COLLATERAL.index, dollarAmount);
+                await this.updateButton(LUSD_COLLATERAL.index, dollarAmount, result.isRedeemingAllowed);
+            }
+
+            if (redeemTwapWarning) {
+                if (result.isRedeemingAllowed) {
+                    redeemTwapWarning.style.display = 'none';
+                } else {
+                    redeemTwapWarning.textContent = `Redeeming is disabled because the time weighted average price is above the threshold.`;
+                    redeemTwapWarning.style.display = 'block';
+                }
             }
         } catch (error) {
             console.error('Error updating redeem output:', error);
@@ -100,12 +118,18 @@ export class RedeemComponent {
     /**
      * Update redeem button text based on approval status and pending redemptions
      */
-    private async updateButton(collateralIndex: number, amount: bigint): Promise<void> {
+    private async updateButton(collateralIndex: number, amount: bigint, isRedeemingAllowed: boolean): Promise<void> {
         const button = document.getElementById('redeemButton') as HTMLButtonElement;
         const account = this.services.walletService.getAccount();
 
         if (!account) {
             button.textContent = 'Connect wallet first';
+            return;
+        }
+
+        if (!isRedeemingAllowed) {
+            button.textContent = 'Redeeming Disabled';
+            button.disabled = true;
             return;
         }
 
@@ -117,6 +141,7 @@ export class RedeemComponent {
 
         if (redeemBalance > 0n) {
             button.textContent = 'Collect Redemption';
+            button.disabled = false;
             return;
         }
 
@@ -128,6 +153,7 @@ export class RedeemComponent {
         } else {
             button.textContent = 'Redeem UUSD';
         }
+        button.disabled = false;
     }
 
     /**
@@ -283,11 +309,11 @@ export class RedeemComponent {
      * Setup balance update subscription
      */
     private setupBalanceSubscription(): void {
-        console.log('📋 [DEBUG] Setting up redeem balance subscription');
+
 
         if (this.services.inventoryBar) {
             this.services.inventoryBar.onBalancesUpdated((balances) => {
-                console.log('🔔 [DEBUG] Redeem component received balance update:', balances);
+
 
                 // Only auto-populate if redeem tab is currently active and input is empty
                 const tabManager = (window as any).app?.tabManager;
@@ -296,7 +322,7 @@ export class RedeemComponent {
                 }
             });
         } else {
-            console.warn('❌ [DEBUG] No inventory bar service available for redeem subscription');
+
         }
     }
 
@@ -305,43 +331,43 @@ export class RedeemComponent {
      * Called when redeem tab becomes active
      */
     autoPopulateWithMaxBalance(): void {
-        console.log('🚀 [DEBUG] Redeem auto-populate called');
+
 
         if (!this.services.walletService.isConnected()) {
-            console.log('💸 [DEBUG] Wallet not connected, skipping auto-populate');
+
             return;
         }
 
         const amountInput = document.getElementById('redeemAmount') as HTMLInputElement;
         if (!amountInput) {
-            console.warn('❌ [DEBUG] redeemAmount input element not found');
+
             return;
         }
 
         // Only populate if input is empty (don't overwrite user input)
         if (amountInput.value && amountInput.value !== '0') {
-            console.log(`⏭️ [DEBUG] Input already has value: ${amountInput.value}, skipping auto-populate`);
+
             return;
         }
 
-        console.log('🔄 [DEBUG] Checking inventory bar service...');
-        console.log('📊 [DEBUG] inventoryBar service:', this.services.inventoryBar);
+
+
 
         try {
             const maxUusdBalance = getMaxTokenBalance(this.services.inventoryBar, 'UUSD');
-            console.log(`💰 [DEBUG] Max UUSD balance retrieved: ${maxUusdBalance}`);
+
 
             // Only populate if there's an available balance
             if (hasAvailableBalance(this.services.inventoryBar, 'UUSD')) {
-                console.log(`✅ [DEBUG] Setting redeem input to: ${maxUusdBalance}`);
+
                 amountInput.value = maxUusdBalance;
                 // Trigger calculation update
                 this.updateOutput();
             } else {
-                console.log('🚫 [DEBUG] No available UUSD balance to populate');
+
             }
         } catch (error) {
-            console.error('❌ [DEBUG] Failed to auto-populate UUSD balance:', error);
+
             // Silently fail - don't disrupt user experience
         }
     }

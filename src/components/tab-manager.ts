@@ -107,24 +107,24 @@ export class TabManager {
      * @param tab - The tab that was switched to
      */
     private triggerAutoPopulation(tab: 'mint' | 'redeem'): void {
-        console.log(`🔄 [DEBUG] triggerAutoPopulation called for ${tab} tab`);
-        console.log(`🔧 [DEBUG] mintComponent:`, this.mintComponent);
-        console.log(`🔧 [DEBUG] redeemComponent:`, this.redeemComponent);
+
+
+
 
         // Small delay to ensure tab content is fully visible
         setTimeout(() => {
             try {
                 if (tab === 'mint' && this.mintComponent) {
-                    console.log(`🎯 [DEBUG] Triggering mint auto-populate`);
+
                     this.mintComponent.autoPopulateWithMaxBalance();
                 } else if (tab === 'redeem' && this.redeemComponent) {
-                    console.log(`🎯 [DEBUG] Triggering redeem auto-populate`);
+
                     this.redeemComponent.autoPopulateWithMaxBalance();
                 } else {
-                    console.warn(`❌ [DEBUG] Component not found for ${tab} tab`);
+
                 }
             } catch (error) {
-                console.error('❌ [DEBUG] Failed to auto-populate balance on tab switch:', error);
+
                 // Silently fail - don't disrupt user experience
             }
         }, 100);

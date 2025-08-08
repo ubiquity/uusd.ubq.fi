@@ -13,6 +13,8 @@ import {
 } from '../utils/token-utils.ts';
 import { batchFetchTokenBalances } from '../utils/batch-request-utils.ts';
 
+import icons from "./icons.ts"
+
 /**
  * Service dependencies for InventoryBarComponent
  */
@@ -79,7 +81,6 @@ export class InventoryBarComponent {
      * Handle wallet connection
      */
     private async handleWalletConnect(account: Address): Promise<void> {
-        console.log('🔌 [INVENTORY-DEBUG] handleWalletConnect called');
         this.state.isConnected = true;
         this.updateConnectionState();
 
@@ -127,17 +128,13 @@ export class InventoryBarComponent {
         const account = this.services.walletService.getAccount();
         if (!account) return;
 
-        // 🔍 DEBUG: Track refresh triggers
-        console.log(`🔄 [INVENTORY-DEBUG] loadBalances called - isBackgroundRefresh: ${isBackgroundRefresh}, hasExistingBalances: ${this.state.balances.length > 0}, timestamp: ${new Date().toISOString()}`);
 
         this.state.isLoading = true;
 
         // Only show loading state if no existing balances OR if this is initial load
         if (!isBackgroundRefresh || this.state.balances.length === 0) {
-            console.log('🔄 [INVENTORY-DEBUG] Showing loading state - clearing displayed balances');
             this.renderLoadingState();
         } else {
-            console.log('🔄 [INVENTORY-DEBUG] Background refresh - keeping existing balances visible');
             this.showBackgroundRefreshIndicator();
         }
 
@@ -233,10 +230,8 @@ export class InventoryBarComponent {
     private startPeriodicUpdates(): void {
         this.stopPeriodicUpdates(); // Clear existing interval
         this.updateInterval = window.setInterval(() => {
-            console.log(`⏰ [INVENTORY-DEBUG] Periodic refresh triggered (every ${this.UPDATE_INTERVAL_MS / 1000}s)`);
             this.loadBalances(true); // Mark as background refresh
         }, this.UPDATE_INTERVAL_MS);
-        console.log(`⏰ [INVENTORY-DEBUG] Started periodic updates every ${this.UPDATE_INTERVAL_MS / 1000} seconds`);
     }
 
     /**
@@ -325,16 +320,27 @@ export class InventoryBarComponent {
             return;
         }
 
-        // Render individual token balances
-        const tokenElements = this.state.balances.map(balance => {
+        // Filter out zero balances and render individual token balances
+        const nonZeroBalances = this.state.balances.filter(balance =>
+            !isBalanceZero(balance.balance, balance.decimals)
+        );
+
+        if (nonZeroBalances.length === 0) {
+            tokensContainer.innerHTML = '<div class="no-balances-message">No token balances available</div>';
+            totalValueElement.textContent = '$0.00';
+            return;
+        }
+
+        const tokenElements = nonZeroBalances.map(balance => {
             const amount = formatTokenAmount(balance.balance, balance.decimals);
             const usdValue = balance.usdValue ? formatUsdValue(balance.usdValue) : '';
-            const isZero = isBalanceZero(balance.balance, balance.decimals);
 
             return `
-                <div class="token-balance ${isZero ? 'zero-balance' : ''}">
+                <div class="token-balance">
                     <div class="token-info">
-                        <div class="token-symbol">${balance.symbol}</div>
+                        <div class="token-symbol">${
+                        Object.keys(icons).includes(balance.symbol) ? icons[balance.symbol as keyof typeof icons] : balance.symbol
+                        }</div>
                         <div class="token-amount">${amount}</div>
                         ${usdValue ? `<div class="token-usd-value">${usdValue}</div>` : ''}
                     </div>
@@ -350,7 +356,6 @@ export class InventoryBarComponent {
      * Force refresh balances (public method)
      */
     public async refreshBalances(): Promise<void> {
-        console.log('🔄 [INVENTORY-DEBUG] Manual refresh called from external component');
         if (this.state.isConnected) {
             await this.loadBalances(false); // Manual refresh shows loading state
         }
@@ -367,7 +372,6 @@ export class InventoryBarComponent {
      * Handle wallet connection (called by main app)
      */
     public async handleWalletConnectionChange(account: Address | null): Promise<void> {
-        console.log(`🔌 [INVENTORY-DEBUG] Wallet connection change - account: ${account ? 'connected' : 'disconnected'}, timestamp: ${new Date().toISOString()}`);
         if (account) {
             await this.handleWalletConnect(account);
         } else {
@@ -396,7 +400,7 @@ export class InventoryBarComponent {
      * Notify all subscribers that balances have been updated
      */
     private notifyBalancesUpdated(): void {
-        console.log('📢 [DEBUG] Notifying balance update subscribers...', this.balanceUpdateCallbacks.length);
+
         this.balanceUpdateCallbacks.forEach(callback => {
             try {
                 callback(this.state.balances);
