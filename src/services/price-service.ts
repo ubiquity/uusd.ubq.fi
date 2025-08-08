@@ -12,6 +12,7 @@ import {
 import type { ContractService, CollateralOption } from './contract-service.ts';
 import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import { PriceHistoryService, type PriceDataPoint } from './price-history-service.ts';
+import { PriceThresholdService, type PriceThresholds } from './price-threshold-service.ts';
 
 /**
  * Interface for price calculation parameters
@@ -61,6 +62,7 @@ interface CacheEntry<T> {
 export class PriceService {
     private contractService: ContractService;
     private priceHistoryService: PriceHistoryService;
+    private priceThresholdService: PriceThresholdService;
     private collateralOptions: CollateralOption[] = [];
     private cache = new Map<string, CacheEntry<any>>();
     private initialized = false;
@@ -69,6 +71,7 @@ export class PriceService {
         this.contractService = contractService;
         // Create a new WalletService if not provided - we'll fix this in app.ts
         this.priceHistoryService = new PriceHistoryService(walletService || contractService);
+        this.priceThresholdService = new PriceThresholdService();
     }
 
     /**
@@ -127,9 +130,10 @@ export class PriceService {
         const batchData = await this.contractService.batchFetchMintData(collateralIndex, dollarAmount);
         const { collateralRatio, governancePrice } = batchData;
 
+        // Get price thresholds dynamically from contract storage
+        const priceThresholds = await this.priceThresholdService.getPriceThresholds();
         const twapPrice = await this.contractService.getLUSDOraclePrice();
-        // Note: mintPriceThreshold function doesn't exist on deployed contract
-        const mintPriceThreshold = 1000000n; // Default: $1.00 (6 decimal precision)
+        const mintPriceThreshold = priceThresholds.mintThreshold;
 
         // Calculate final collateral amount based on ratio mode - optimize to avoid extra RPC calls
         const collateralAmount = this.calculateCollateralAmountForMint(
@@ -180,14 +184,14 @@ export class PriceService {
             collateral = dynamicCollateral;
         }
 
-        // Get current blockchain prices
-        const [collateralRatio, governancePrice, twapPrice] = await Promise.all([
+        // Get current blockchain prices and thresholds
+        const [collateralRatio, governancePrice, twapPrice, priceThresholds] = await Promise.all([
             this.contractService.getCollateralRatio(),
             this.contractService.getGovernancePrice(),
-            this.contractService.getLUSDOraclePrice()
+            this.contractService.getLUSDOraclePrice(),
+            this.priceThresholdService.getPriceThresholds()
         ]);
-        // Note: redeemPriceThreshold function doesn't exist on deployed contract
-        const redeemPriceThreshold = 1000000n; // Default: $1.00 (6 decimal precision)
+        const redeemPriceThreshold = priceThresholds.redeemThreshold;
 
         // Get collateral amount based on fee-adjusted dollar amount
         const dollarAfterFee = calculateRedeemFeeOutput(dollarAmount, collateral.redemptionFee);

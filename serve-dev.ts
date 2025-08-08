@@ -107,8 +107,11 @@ async function handler(req: Request): Promise<Response> {
     headers.set('Content-Type', mimeTypes[ext] || 'text/plain');
 
     return new Response(content, { headers });
-  } catch (err) {
-    return new Response('Not found', { status: 404, headers });
+  } catch (err: any) {
+    if (err instanceof Deno.errors.NotFound) {
+      return new Response('Not found', { status: 404, headers });
+    }
+    return new Response('Internal Server Error', { status: 500, headers });
   }
 }
 
@@ -118,7 +121,8 @@ function notifyReload() {
   clients.forEach(client => {
     try {
       client.enqueue(new TextEncoder().encode('data: reload\n\n'));
-    } catch (err) {
+    } catch (err: any) {
+      console.error(`Hot reload client error: ${err.message}. Removing client.`);
       clients.delete(client);
     }
   });
@@ -153,7 +157,7 @@ async function startFileWatchers() {
         }, 100);
       }
     }
-  } catch (err) {
+  } catch (err: any) {
     console.log('⚠️  File watching not available:', err.message);
   }
 }

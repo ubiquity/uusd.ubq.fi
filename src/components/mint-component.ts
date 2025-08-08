@@ -94,7 +94,7 @@ export class MintComponent {
                 isForceCollateralOnly
             });
 
-            // Update UI with LUSD hardcoded values
+            // Update UI with dynamic values
             const collateralNeeded = document.getElementById('collateralNeeded');
             const ubqNeeded = document.getElementById('ubqNeeded');
             const mintingFee = document.getElementById('mintingFee');
@@ -104,13 +104,13 @@ export class MintComponent {
             const mintTwapWarning = document.getElementById('mintTwapWarning') as HTMLDivElement;
 
             if (collateralNeeded) {
-                collateralNeeded.textContent = `${formatUnits(result.collateralNeeded, 18 - LUSD_COLLATERAL.missingDecimals)} ${LUSD_COLLATERAL.name}`;
+                collateralNeeded.textContent = `${formatUnits(result.collateralNeeded, 18 - result.collateral.missingDecimals)} ${result.collateral.name}`;
             }
             if (ubqNeeded) {
                 ubqNeeded.textContent = `${formatEther(result.governanceNeeded)} UBQ`;
             }
             if (mintingFee) {
-                mintingFee.textContent = `${LUSD_COLLATERAL.mintingFee}%`;
+                mintingFee.textContent = `${result.collateral.mintingFee}%`;
             }
             if (totalMinted) {
                 totalMinted.textContent = `${formatEther(result.totalDollarMint)} UUSD`;
