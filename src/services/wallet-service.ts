@@ -51,6 +51,13 @@ export class WalletService {
             throw new Error('Please install a wallet extension');
         }
 
+        // Force wallet selection dialog by requesting permissions
+        // This ensures MetaMask shows account selection even after previous connections
+        await window.ethereum.request({
+            method: 'wallet_requestPermissions',
+            params: [{ eth_accounts: {} }]
+        });
+
         this.walletClient = createWalletClient({
             chain: mainnet,
             transport: custom(window.ethereum)

@@ -31,6 +31,9 @@ export interface OptimalRouteResult {
     reason: string;
     isEnabled: boolean;
     disabledReason?: string;
+    // UBQ-related information for mixed operations
+    ubqAmount?: bigint; // Amount of UBQ for mixed redemptions
+    isUbqOperation?: boolean; // Whether this involves UBQ
 }
 
 /**
@@ -110,44 +113,21 @@ export class OptimalRouteService {
                 expectedOutput = swapOutputUUSD;
                 reason = 'Minting disabled due to price conditions. Using Curve swap.';
             } else if (isForceCollateralOnly) {
-                // User chose LUSD-only mode - compare collateral-only mint vs swap
-                if (swapOutputUUSD > collateralOnlyMintResult.totalDollarMint) {
-                    routeType = 'swap';
-                    expectedOutput = swapOutputUUSD;
-                    reason = `LUSD-only mode: Curve swap gives more UUSD than minting.`;
-                } else {
-                    routeType = 'mint';
-                    expectedOutput = collateralOnlyMintResult.totalDollarMint;
-                    reason = 'LUSD-only mode: Minting gives better rate than swap.';
-                }
+                // User explicitly chose LUSD-only mode - always use collateral-only mint
+                routeType = 'mint';
+                expectedOutput = collateralOnlyMintResult.totalDollarMint;
+                reason = 'LUSD-only mode: Using 100% LUSD (no UBQ discount).';
             } else {
-                // User allows UBQ discount - compare mixed mint vs swap vs collateral-only mint
-                const outputs = [
-                    { type: 'mint' as const, output: mixedMintResult.totalDollarMint, description: 'Mixed mint (95% LUSD + 5% UBQ discount)' },
-                    { type: 'swap' as const, output: swapOutputUUSD, description: 'Curve swap' },
-                    { type: 'mint' as const, output: collateralOnlyMintResult.totalDollarMint, description: 'LUSD-only mint' }
-                ];
+                // User allows UBQ discount - always use mixed mint to show the discount
+                routeType = 'mint';
+                expectedOutput = mixedMintResult.totalDollarMint;
 
-                // Find the best option
-                const bestOption = outputs.reduce((best, current) =>
-                    current.output > best.output ? current : best
-                );
-
-                routeType = bestOption.type;
-                expectedOutput = bestOption.output;
-
-                if (bestOption.output === mixedMintResult.totalDollarMint) {
-                    // Calculate discount percentage: ((mixed - collateralOnly) / collateralOnly) * 100
-                    const mixedOutput = BigInt(mixedMintResult.totalDollarMint);
-                    const collateralOnlyOutput = BigInt(collateralOnlyMintResult.totalDollarMint);
-                    const discountBigInt = (mixedOutput - collateralOnlyOutput) * 10000n / collateralOnlyOutput;
-                    const discount = Number(discountBigInt) / 100;
-                    reason = `Mixed minting with ~${discount.toFixed(1)}% UBQ discount gives best rate.`;
-                } else if (bestOption.output === swapOutputUUSD) {
-                    reason = `UUSD above peg ($${formatUnits(marketPrice, 6)}). Curve swap gives more UUSD than minting.`;
-                } else {
-                    reason = 'LUSD-only minting provides best rate.';
-                }
+                // Calculate discount percentage: ((mixed - collateralOnly) / collateralOnly) * 100
+                const mixedOutput = BigInt(mixedMintResult.totalDollarMint);
+                const collateralOnlyOutput = BigInt(collateralOnlyMintResult.totalDollarMint);
+                const discountBigInt = (mixedOutput - collateralOnlyOutput) * 10000n / collateralOnlyOutput;
+                const discount = Number(discountBigInt) / 100;
+                reason = `Mixed minting with ~${discount.toFixed(1)}% protocol supporter discount (95% LUSD + 5% UBQ).`;
             }
 
             // Calculate alternative output for savings comparison
@@ -165,7 +145,10 @@ export class OptimalRouteService {
                 savings,
                 reason,
                 isEnabled,
-                disabledReason
+                disabledReason,
+                // Add UBQ information for mixed minting
+                ubqAmount: (routeType === 'mint' && !isForceCollateralOnly) ? mixedMintResult.governanceNeeded : undefined,
+                isUbqOperation: (routeType === 'mint' && !isForceCollateralOnly)
             };
 
         } catch (error) {
@@ -196,7 +179,7 @@ export class OptimalRouteService {
      * Compares: redeem vs swap
      * NOTE: For withdrawing, we should NEVER return 'mint' as a route type
      */
-    async getOptimalWithdrawRoute(uusdAmount: bigint): Promise<OptimalRouteResult> {
+    async getOptimalWithdrawRoute(uusdAmount: bigint, isLusdOnlyRedemption: boolean = false): Promise<OptimalRouteResult> {
         console.log('🔍 Calculating optimal withdraw route for', formatEther(uusdAmount), 'UUSD');
 
         try {
@@ -260,7 +243,8 @@ export class OptimalRouteService {
                 redeemLUSD: formatEther(redeemResult.collateralRedeemed),
                 redeemUBQ: formatEther(redeemResult.governanceRedeemed),
                 swapLUSD: formatEther(swapOutputLUSD),
-                isRedeemingAllowed: redeemResult.isRedeemingAllowed
+                isRedeemingAllowed: redeemResult.isRedeemingAllowed,
+                isLusdOnlyRedemption
             });
 
             // Determine optimal route - ONLY redeem or swap for withdrawals
@@ -276,27 +260,27 @@ export class OptimalRouteService {
                 expectedOutput = swapOutputLUSD;
                 reason = 'Redeeming disabled due to price conditions. Using Curve swap.';
                 console.log('🔄 Route: swap (redeeming disabled)');
-            } else if (marketPrice > this.PEG_PRICE) {
-                // UUSD trading above peg - redeem is better (1:1 ratio)
-                routeType = 'redeem';
-                expectedOutput = redeemResult.collateralRedeemed;
-                reason = `UUSD above peg ($${formatUnits(marketPrice, 6)}). Redeeming gives better rate.`;
-                console.log('🔄 Route: redeem (above peg)');
-            } else {
-                // UUSD trading below peg - compare LUSD outputs only
-                // Note: Redeeming gives collateral (LUSD) + governance (UBQ) tokens
-                // We only compare the LUSD portion since user specifically wants LUSD
+            } else if (isLusdOnlyRedemption) {
+                // User explicitly chose LUSD-only redemption
+                // Compare swap vs redeem for pure LUSD output
                 if (swapOutputLUSD > redeemResult.collateralRedeemed) {
                     routeType = 'swap';
                     expectedOutput = swapOutputLUSD;
-                    reason = `UUSD below peg ($${formatUnits(marketPrice, 6)}). Curve swap gives more LUSD.`;
-                    console.log('🔄 Route: swap (below peg, swap better)');
+                    reason = 'LUSD-only mode: Curve swap provides more LUSD than redemption.';
+                    console.log('🔄 Route: swap (LUSD-only, swap better)');
                 } else {
                     routeType = 'redeem';
                     expectedOutput = redeemResult.collateralRedeemed;
-                    reason = 'Redeeming provides better LUSD rate than swap.';
-                    console.log('🔄 Route: redeem (below peg, redeem better)');
+                    reason = 'LUSD-only mode: Redeeming gives better LUSD rate (100% LUSD).';
+                    console.log('🔄 Route: redeem (LUSD-only, redeem better)');
                 }
+            } else {
+                // User allows mixed redemption (95% LUSD + 5% UBQ) - PRIORITIZE REDEEM TO GET UBQ
+                // When user wants mixed redemption, we should prioritize redeem to give them the UBQ bonus
+                routeType = 'redeem';
+                expectedOutput = redeemResult.collateralRedeemed;
+                reason = `Mixed redemption: Get ${formatEther(redeemResult.collateralRedeemed)} LUSD + ${formatEther(redeemResult.governanceRedeemed)} UBQ bonus!`;
+                console.log('🔄 Route: redeem (mixed redemption prioritized for UBQ bonus)');
             }
 
 
@@ -314,7 +298,10 @@ export class OptimalRouteService {
                 savings,
                 reason,
                 isEnabled,
-                disabledReason
+                disabledReason,
+                // Add UBQ information for mixed redemptions
+                ubqAmount: (routeType === 'redeem' && !isLusdOnlyRedemption) ? redeemResult.governanceRedeemed : undefined,
+                isUbqOperation: (routeType === 'redeem' && !isLusdOnlyRedemption)
             };
 
             console.log('✅ Final withdraw route:', result);

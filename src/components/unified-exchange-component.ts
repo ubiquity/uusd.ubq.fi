@@ -45,9 +45,9 @@ export class UnifiedExchangeComponent {
             services.curvePriceService,
             services.contractService
         );
-        this.setupEventListeners();
         this.setupBalanceSubscription();
         this.registerTransactionButton();
+        this.setupEventListeners();
     }
 
     /**
@@ -108,16 +108,61 @@ export class UnifiedExchangeComponent {
      * Setup event listeners for the unified form
      */
     private setupEventListeners(): void {
-        const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
-        const depositButton = document.getElementById('depositButton') as HTMLButtonElement;
-        const withdrawButton = document.getElementById('withdrawButton') as HTMLButtonElement;
-        const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
+            const depositButton = document.getElementById('depositButton') as HTMLButtonElement;
+            const withdrawButton = document.getElementById('withdrawButton') as HTMLButtonElement;
+            const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
+            const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
 
-        amountInput?.addEventListener('input', () => this.updateOutput());
-        forceCollateralOnly?.addEventListener('change', () => this.updateOutput());
+            console.log('🔧 Setting up event listeners:');
+            console.log('  amountInput:', amountInput ? `Found (${amountInput.tagName})` : 'NOT FOUND');
+            console.log('  depositButton:', depositButton ? `Found (${depositButton.tagName})` : 'NOT FOUND');
+            console.log('  withdrawButton:', withdrawButton ? `Found (${withdrawButton.tagName})` : 'NOT FOUND');
+            console.log('  forceCollateralOnly:', forceCollateralOnly ? `Found (${forceCollateralOnly.tagName})` : 'NOT FOUND');
+            console.log('  redeemLusdOnly:', redeemLusdOnly ? `Found (${redeemLusdOnly.tagName})` : 'NOT FOUND');
 
-        depositButton?.addEventListener('click', () => this.switchDirection('deposit'));
-        withdrawButton?.addEventListener('click', () => this.switchDirection('withdraw'));
+            if (amountInput) {
+                // Try multiple event types
+                amountInput.addEventListener('input', () => {
+                    console.log('📝 INPUT event triggered');
+                    this.updateOutput();
+                });
+                amountInput.addEventListener('keyup', () => {
+                    console.log('⌨️ KEYUP event triggered');
+                    this.updateOutput();
+                });
+                amountInput.addEventListener('change', () => {
+                    console.log('🔄 CHANGE event triggered');
+                    this.updateOutput();
+                });
+                console.log('✅ Event listeners added to amountInput');
+            } else {
+                console.error('❌ amountInput not found!');
+            }
+
+            if (forceCollateralOnly) {
+                forceCollateralOnly.addEventListener('change', () => {
+                    console.log('☑️ Mint checkbox change event triggered');
+                    this.updateOutput();
+                });
+            }
+
+            if (redeemLusdOnly) {
+                redeemLusdOnly.addEventListener('change', () => {
+                    console.log('☑️ Redeem checkbox change event triggered');
+                    this.updateOutput();
+                });
+            }
+
+            if (depositButton) {
+                depositButton.addEventListener('click', () => this.switchDirection('deposit'));
+            }
+            if (withdrawButton) {
+                withdrawButton.addEventListener('click', () => this.switchDirection('withdraw'));
+            }
+        }, 100);
     }
 
     /**
@@ -155,6 +200,8 @@ export class UnifiedExchangeComponent {
      * Update exchange output with optimal route calculation
      */
     async updateOutput(): Promise<void> {
+        console.log('🔍 updateOutput called');
+
         // Clear existing timer
         if (this.debounceTimer) {
             clearTimeout(this.debounceTimer);
@@ -162,6 +209,7 @@ export class UnifiedExchangeComponent {
 
         // Debounce the calculation
         this.debounceTimer = setTimeout(async () => {
+            console.log('⏰ Debounce timer triggered, calling performCalculation');
             await this.performCalculation();
         }, 300);
     }
@@ -175,6 +223,7 @@ export class UnifiedExchangeComponent {
             const exchangeOutput = document.getElementById('exchangeOutput');
             const exchangeButton = document.getElementById('exchangeButton') as HTMLButtonElement;
             const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
+            const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
 
             if (!amountInput || !exchangeOutput || !exchangeButton) {
                 return;
@@ -186,7 +235,7 @@ export class UnifiedExchangeComponent {
                 exchangeOutput.style.display = 'none';
                 exchangeButton.textContent = 'Enter amount to continue';
                 exchangeButton.disabled = true;
-                this.updateMintOptionsVisibility(false);
+                this.updateOptionsVisibility(false);
                 return;
             }
 
@@ -203,7 +252,8 @@ export class UnifiedExchangeComponent {
                 routeResult = await this.optimalRouteService.getOptimalDepositRoute(inputAmount, isForceCollateralOnly);
             } else {
                 console.log('📉 Calling getOptimalWithdrawRoute');
-                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount);
+                const isLusdOnlyRedemption = redeemLusdOnly?.checked || false;
+                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount, isLusdOnlyRedemption);
             }
 
             console.log('📊 Route result:', routeResult);
@@ -211,10 +261,8 @@ export class UnifiedExchangeComponent {
             // Update UI with route information
             await this.updateRouteDisplay(routeResult);
 
-            // Show/hide mint options based on route
-            this.updateMintOptionsVisibility(
-                this.currentDirection === 'deposit' && routeResult.routeType === 'mint'
-            );
+            // Show appropriate options based on direction (mint options for deposits, redeem options for withdrawals)
+            this.updateOptionsVisibility(true);
 
             // Update button based on route and wallet connection
             if (this.services.walletService.isConnected()) {
@@ -255,10 +303,39 @@ export class UnifiedExchangeComponent {
             routeTypeElement.textContent = actionText;
         }
 
-        // Expected output
+        // Expected output with UBQ amounts when applicable
         if (expectedOutputElement) {
             const outputToken = result.direction === 'deposit' ? 'UUSD' : 'LUSD';
-            expectedOutputElement.textContent = `${formatEther(result.expectedOutput)} ${outputToken}`;
+            let outputText = `${formatEther(result.expectedOutput)} ${outputToken}`;
+
+            // Add UBQ amounts when it's a UBQ operation
+            if (result.isUbqOperation && result.ubqAmount) {
+                if (result.direction === 'deposit') {
+                    // For minting, show UBQ needed as input
+                    outputText += ` (using ${formatEther(result.ubqAmount)} UBQ)`;
+                } else {
+                    // For redeeming, show UBQ received as output
+                    outputText += ` + ${formatEther(result.ubqAmount)} UBQ`;
+                }
+            }
+
+            expectedOutputElement.textContent = outputText;
+        }
+
+        // Update UBQ amount display field for deposits
+        const ubqAmountDisplay = document.getElementById('ubqAmountDisplay') as HTMLInputElement;
+        const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
+
+        if (ubqAmountDisplay && result.direction === 'deposit') {
+            if (result.isUbqOperation && result.ubqAmount && !forceCollateralOnly?.checked) {
+                // Show required UBQ amount
+                ubqAmountDisplay.value = formatEther(result.ubqAmount);
+                ubqAmountDisplay.style.opacity = '1';
+            } else {
+                // Clear UBQ amount when not using UBQ
+                ubqAmountDisplay.value = '0';
+                ubqAmountDisplay.style.opacity = '0.5';
+            }
         }
 
         // Market price
@@ -373,6 +450,7 @@ export class UnifiedExchangeComponent {
     private async executeOptimalRoute(result: OptimalRouteResult): Promise<void> {
         const account = this.services.walletService.getAccount()!;
         const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
+        const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
 
         switch (result.routeType) {
             case 'mint':
@@ -384,9 +462,14 @@ export class UnifiedExchangeComponent {
                 break;
 
             case 'redeem':
+                // For redemption, we need to handle the UBQ selection
+                // Note: The transaction service should handle the UBQ redemption preference
+                // but for now we pass the standard redeem parameters
                 await this.services.transactionService.executeRedeem({
                     collateralIndex: LUSD_COLLATERAL.index,
-                    dollarAmount: result.inputAmount
+                    dollarAmount: result.inputAmount,
+                    // Future enhancement: pass isLusdOnlyRedemption flag when transaction service supports it
+                    // isLusdOnlyRedemption: redeemLusdOnly?.checked || false
                 });
                 break;
 
@@ -451,6 +534,8 @@ export class UnifiedExchangeComponent {
         if (oracleAnalysis.isOracleIssue) {
             this.services.notificationManager.showError('exchange', oracleAnalysis.userMessage);
             this.showOracleHelpButton();
+        } else if (errorMessage.includes('Wrong network')) {
+            this.services.notificationManager.showError('exchange', 'Wrong network. Please switch to Ethereum mainnet.');
         } else {
             this.services.notificationManager.showError('exchange', errorMessage);
         }
@@ -464,6 +549,7 @@ export class UnifiedExchangeComponent {
      */
     handleApprovalNeeded(tokenSymbol: string): void {
         this.transactionStateService.startApproval('exchangeButton', tokenSymbol);
+        this.updateOutput();
     }
 
     /**
@@ -576,13 +662,43 @@ export class UnifiedExchangeComponent {
     }
 
     /**
-     * Update visibility of mint options (UBQ + LUSD checkbox)
+     * Update visibility of options (UBQ + LUSD checkbox for mint, UBQ redemption for redeem)
+     */
+    private updateOptionsVisibility(shouldShow: boolean): void {
+        const mintOptionsGroup = document.getElementById('mintOptionsGroup');
+        const redeemOptionsGroup = document.getElementById('redeemOptionsGroup');
+        const ubqAmountGroup = document.getElementById('ubqAmountGroup');
+
+        if (this.currentDirection === 'deposit') {
+            // Show mint options and UBQ amount for deposits
+            if (mintOptionsGroup) {
+                mintOptionsGroup.style.display = shouldShow ? 'block' : 'none';
+            }
+            if (ubqAmountGroup) {
+                ubqAmountGroup.style.display = shouldShow ? 'block' : 'none';
+            }
+            if (redeemOptionsGroup) {
+                redeemOptionsGroup.style.display = 'none';
+            }
+        } else {
+            // Show redeem options for withdrawals
+            if (mintOptionsGroup) {
+                mintOptionsGroup.style.display = 'none';
+            }
+            if (ubqAmountGroup) {
+                ubqAmountGroup.style.display = 'none';
+            }
+            if (redeemOptionsGroup) {
+                redeemOptionsGroup.style.display = shouldShow ? 'block' : 'none';
+            }
+        }
+    }
+
+    /**
+     * Legacy method for backward compatibility
      */
     private updateMintOptionsVisibility(shouldShow: boolean): void {
-        const mintOptionsGroup = document.getElementById('mintOptionsGroup');
-        if (mintOptionsGroup) {
-            mintOptionsGroup.style.display = shouldShow ? 'block' : 'none';
-        }
+        this.updateOptionsVisibility(shouldShow);
     }
 
     /**

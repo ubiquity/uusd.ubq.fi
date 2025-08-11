@@ -15,6 +15,7 @@ import { InventoryBarComponent } from './components/inventory-bar-component.ts';
 
 // Import utilities
 import { formatAddress } from './utils/format-utils.ts';
+import { TransactionButtonUtils } from './utils/transaction-button-utils.ts';
 
 declare global {
     interface Window {
@@ -117,6 +118,9 @@ class UUSDApp {
                 console.warn('Failed to initialize price service:', error);
             }
         }
+
+        // Auto-register transaction buttons for enhanced UX
+        TransactionButtonUtils.autoRegisterCommonButtons();
     }
 
     /**
@@ -337,12 +341,20 @@ class UUSDApp {
     }
 
     private updateWalletUI(account: Address | null) {
+        const connectButton = document.getElementById('connectWallet') as HTMLButtonElement;
+
         if (account) {
-            document.getElementById('connectWallet')!.style.display = 'none';
-            document.getElementById('walletInfo')!.style.display = 'block';
+            // When connected, show disconnect button and wallet info
+            connectButton.textContent = 'Disconnect';
+            connectButton.disabled = false;
+            connectButton.style.display = 'unset';
+            document.getElementById('walletInfo')!.style.display = 'unset';
             document.getElementById('walletAddress')!.textContent = formatAddress(account);
         } else {
-            document.getElementById('connectWallet')!.style.display = 'block';
+            // When disconnected, show connect button and hide wallet info
+            connectButton.textContent = 'Connect Wallet';
+            connectButton.disabled = false;
+            connectButton.style.display = 'unset';
             document.getElementById('walletInfo')!.style.display = 'none';
         }
     }
@@ -353,12 +365,23 @@ class UUSDApp {
         const originalText = connectButton.textContent;
 
         try {
-            // Set loading state
-            connectButton.textContent = 'Connecting...';
-            connectButton.disabled = true;
+            // Check if wallet is already connected
+            if (this.walletService.isConnected()) {
+                // Set disconnecting state
+                connectButton.textContent = 'Disconnecting...';
+                connectButton.disabled = true;
 
-            await this.walletService.connect();
-            // UI updates are handled by event handlers
+                // Disconnect wallet
+                this.walletService.disconnect();
+                // UI updates are handled by event handlers
+            } else {
+                // Set connecting state
+                connectButton.textContent = 'Connecting...';
+                connectButton.disabled = true;
+
+                await this.walletService.connect();
+                // UI updates are handled by event handlers
+            }
         } catch (error: any) {
             // Reset button state on error
             connectButton.textContent = originalText;
@@ -369,6 +392,30 @@ class UUSDApp {
 
     async handleExchange(event: Event) {
         await this.unifiedExchangeComponent.handleSubmit(event);
+    }
+
+    /**
+     * Demo transaction button UX - can be called from browser console
+     * Usage: app.demoTransactionUX('exchangeButton')
+     */
+    async demoTransactionUX(buttonId: string = 'exchangeButton') {
+        console.log(`🧪 Starting transaction UX demo for button: ${buttonId}`);
+        await TransactionButtonUtils.demoTransactionFlow(buttonId);
+    }
+
+    /**
+     * Get transaction button status - can be called from browser console
+     * Usage: app.getTransactionStatus()
+     */
+    getTransactionStatus() {
+        const active = TransactionButtonUtils.getActiveTransactions();
+        const hasActive = TransactionButtonUtils.hasActiveTransaction();
+
+        console.log('📊 Transaction Status:');
+        console.log('  Has active transactions:', hasActive);
+        console.log('  Active transactions:', active);
+
+        return { hasActive, active };
     }
 }
 

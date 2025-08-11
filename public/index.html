@@ -43,23 +43,42 @@
                     <input type="number" id="exchangeAmount" step="any" placeholder="Enter LUSD amount" required>
                 </div>
 
-                <!-- UBQ + LUSD Option (only shown for deposits) -->
+                <!-- UBQ Amount Display for deposits -->
+                <div id="ubqAmountGroup" class="form-group" style="display: none;">
+                    <label for="ubqAmountDisplay">UBQ Required (5% collateral)</label>
+                    <input type="number" id="ubqAmountDisplay" step="any" placeholder="0.0" disabled readonly>
+                </div>
+
+                <!-- UBQ + LUSD Option for deposits (protocol supporter benefit) -->
                 <div id="mintOptionsGroup" class="form-group" style="display: none;">
                     <div class="checkbox-group">
                         <input type="checkbox" id="forceCollateralOnly" />
-                        <label for="forceCollateralOnly">Use LUSD only (disable UBQ discount)</label>
+                        <label for="forceCollateralOnly">Use LUSD only (disable protocol supporter discount)</label>
                     </div>
                     <div class="option-explanation">
                         <span class="explanation-text">
-                            Unchecked: Use ~95% LUSD + ~5% UBQ for 5% discount<br>
-                            Checked: Use 100% LUSD only
+                            ✨ Unchecked: Use ~95% LUSD + ~5% UBQ for 5% protocol supporter discount<br>
+                            📝 Checked: Use 100% LUSD only (standard rate)
+                        </span>
+                    </div>
+                </div>
+
+                <!-- UBQ redemption options for withdrawals -->
+                <div id="redeemOptionsGroup" class="form-group" style="display: none;">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="redeemLusdOnly" />
+                        <label for="redeemLusdOnly">Redeem LUSD only (no UBQ tokens)</label>
+                    </div>
+                    <div class="option-explanation">
+                        <span class="explanation-text">
+                            ✨ Unchecked: Redeem ~95% LUSD + ~5% UBQ (get both tokens)<br>
+                            📝 Checked: Redeem 100% LUSD only (single token)
                         </span>
                     </div>
                 </div>
 
                 <!-- Optimal Route Display -->
                 <div id="exchangeOutput" class="output-section" style="display: none;">
-                    <h3>Optimal Route</h3>
 
                     <div class="route-header">
                         <div class="route-action">
