@@ -318,6 +318,9 @@ class UUSDApp {
             onTransactionStart: (operation: string) => {
                 this.unifiedExchangeComponent.handleTransactionStart();
             },
+            onTransactionSubmitted: (operation: string, hash: string) => {
+                this.unifiedExchangeComponent.handleTransactionSubmitted(hash);
+            },
             onTransactionSuccess: (operation: string, hash: string) => {
                 this.unifiedExchangeComponent.handleTransactionSuccess(operation);
             },

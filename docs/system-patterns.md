@@ -17,7 +17,10 @@
 -   **Proxy Pattern (Diamond Standard):** Enables upgradeability and modularity of smart contracts.
 -   **Facet Pattern:** A core part of the Diamond Standard, where different functionalities are separated into distinct "facets" that can be added or removed from the main Diamond contract.
 -   **Strategy Pattern (for AMOs):** Different AMO strategies can be implemented and integrated into the protocol to manage liquidity and maintain the peg.
--   **Service-Oriented Architecture (Frontend):** The frontend application is structured with distinct services (e.g., `contract-service`, `price-service`) to manage interactions with the blockchain and external APIs.
+-   **Strategy Pattern (for Route Selection):** OptimalRouteService implements intelligent routing strategies, automatically selecting between mint/redeem and swap based on market conditions.
+-   **Service-Oriented Architecture (Frontend):** The frontend application is structured with distinct services (e.g., `contract-service`, `price-service`, `optimal-route-service`) to manage interactions with the blockchain and external APIs.
+-   **Observer Pattern:** Components subscribe to balance updates and market condition changes for real-time UI updates.
+-   **Command Pattern:** UnifiedExchangeComponent encapsulates different transaction types (mint, redeem, swap) behind a unified interface.
 
 ## Component Relationships:
 

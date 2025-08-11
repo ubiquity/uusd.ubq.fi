@@ -117,3 +117,68 @@ const maxCollateralIn = mintResult.collateralNeeded * (basisPointsDivisor + slip
 - **New Services**: Implement clear interfaces and event emissions
 
 This intelligence document grows as we work on the project and discover new patterns and preferences.
+
+DO NOT USE `0x0F644658510c95CB46955e55D7BA9DDa9E9fBEc6` because it is a deprecated address. Use `0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103` for the UUSD contract.
+
+## Optimal Route Selection Intelligence
+
+### Core UX Philosophy
+- Users should NEVER need to understand mint/redeem mechanics
+- Always provide the best available deal automatically
+- Use bank-like terminology: "Deposit" (LUSD → UUSD) and "Withdraw" (UUSD → LUSD)
+- Transparency through clear explanations of route selection reasoning
+
+### Market Logic Patterns
+- Protocol-controlled minting: Route selection based on `isMintingAllowed` flag from protocol calculations
+- Protocol-controlled redeeming: Route selection based on `isRedeemingAllowed` flag from protocol calculations
+- Dynamic comparisons: Always compare actual calculated outputs between mint/redeem vs Curve swap
+- Market-responsive: Use real-time oracle prices and Curve market data for route decisions
+- Always compare rates and show savings to users
+
+### Service Architecture Patterns
+```typescript
+// OptimalRouteService pattern for intelligent routing
+interface OptimalRouteResult {
+    routeType: 'mint' | 'redeem' | 'swap';
+    expectedOutput: bigint;
+    marketPrice: bigint;
+    savings: { amount: bigint; percentage: number };
+    reason: string;
+    isEnabled: boolean;
+}
+```
+
+### Component Communication Pattern
+```typescript
+// UnifiedExchangeComponent pattern for bank-like UX
+private switchDirection(direction: ExchangeDirection): void {
+    // Clear form and recalculate on direction switch
+    this.clearForm();
+    this.autoPopulateWithMaxBalance();
+    this.updateOutput();
+}
+```
+
+### User Experience Priorities
+- **Best Deal Guarantee**: Always provide most favorable available rate
+- **Real-time Calculations**: 300ms debounced updates for smooth UX
+- **Clear Visual Feedback**: Route type icons (🔨 Minting, 🔄 Redeeming, 🔀 Swapping)
+- **Savings Display**: Highlight percentage savings when available
+- **Form Intelligence**: Auto-populate with max balance, smart clearing
+
+### Route Selection Workflow
+1. **Input Analysis**: Parse user input amount and direction
+2. **Market Data Fetch**: Get current UUSD oracle price and Curve rates
+3. **Route Comparison**: Calculate outputs for all available routes
+4. **Best Deal Selection**: Choose route with highest output for user
+5. **User Communication**: Display route choice, expected output, and reasoning
+6. **Transaction Preparation**: Set up optimal route for execution
+
+### Critical Implementation Details
+- **Debounce Timing**: 300ms prevents excessive API calls while feeling responsive
+- **Error Handling**: Graceful fallbacks when route calculations fail
+- **Token Symbol Display**: Must show correct output token (UUSD for deposits, LUSD for withdrawals)
+- **Protocol-Dynamic Decisions**: Route decisions based on real-time protocol calculations, not fixed thresholds
+- **Direction Switching**: Always clear form and recalculate when user changes deposit/withdraw
+
+This represents a major UX paradigm shift from technical protocol exposure to intuitive financial service interface.

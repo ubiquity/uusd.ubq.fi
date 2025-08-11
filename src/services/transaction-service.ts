@@ -11,6 +11,7 @@ import type { PriceService, MintPriceResult, RedeemPriceResult } from './price-s
  */
 export interface TransactionEvents {
     onTransactionStart?: (operation: string) => void;
+    onTransactionSubmitted?: (operation: string, hash: string) => void;
     onTransactionSuccess?: (operation: string, hash: string) => void;
     onTransactionError?: (operation: string, error: Error) => void;
     onApprovalNeeded?: (tokenSymbol: string) => void;
@@ -157,18 +158,19 @@ export class TransactionService {
             // Check for oracle staleness before attempting transaction
             const errorMessage = '';
             try {
-                const hash = await this.contractService.mintDollar(
-                    collateralIndex,
-                    dollarAmount,
-                    dollarOutMin, // Minimum acceptable output (with slippage)
-                    maxCollateralIn, // Maximum collateral to spend (with slippage)
-                    maxGovernanceIn, // Maximum governance to spend (with slippage)
-                    isForceCollateralOnly
-                );
+            const hash = await this.contractService.mintDollar(
+                collateralIndex,
+                dollarAmount,
+                dollarOutMin, // Minimum acceptable output (with slippage)
+                maxCollateralIn, // Maximum collateral to spend (with slippage)
+                maxGovernanceIn, // Maximum governance to spend (with slippage)
+                isForceCollateralOnly
+            );
 
-                console.log('✅ Mint transaction successful, hash:', hash);
-                this.events.onTransactionSuccess?.(TransactionOperation.MINT, hash);
-                return hash;
+            console.log('✅ Mint transaction successful, hash:', hash);
+            this.events.onTransactionSubmitted?.(TransactionOperation.MINT, hash);
+            this.events.onTransactionSuccess?.(TransactionOperation.MINT, hash);
+            return hash;
 
             } catch (contractError: any) {
                 console.error('❌ Mint transaction failed:', contractError);

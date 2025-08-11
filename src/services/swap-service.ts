@@ -67,7 +67,7 @@ export class SwapService {
 
     // Token addresses
     private readonly LUSD_ADDRESS: Address = '0x5f98805A4E8be255a32880FDeC7F6728C6568bA0';
-    private readonly UUSD_ADDRESS: Address = '0x0F644658510c95CB46955e55D7BA9DDa9E9fBEc6';
+    private readonly UUSD_ADDRESS: Address = '0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103';
 
     private readonly DEFAULT_SLIPPAGE = 0.005; // 0.5%
 

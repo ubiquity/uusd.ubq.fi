@@ -56,7 +56,7 @@ export class OptimalRouteService {
      * Get optimal route for depositing LUSD to get UUSD
      * Compares: mint vs swap
      */
-    async getOptimalDepositRoute(lusdAmount: bigint): Promise<OptimalRouteResult> {
+    async getOptimalDepositRoute(lusdAmount: bigint, isForceCollateralOnly: boolean = false): Promise<OptimalRouteResult> {
         try {
             // Get current market conditions with timeout protection
             const marketConditionsPromise = Promise.all([
@@ -72,54 +72,87 @@ export class OptimalRouteService {
 
             const dollarAmount = parseEther(formatUnits(lusdAmount, 18));
 
-            // Calculate mint output with timeout protection
-            const mintPromise = this.priceService.calculateMintOutput({
+            // Calculate both mint options with timeout protection
+            const mixedMintPromise = this.priceService.calculateMintOutput({
                 dollarAmount,
                 collateralIndex: LUSD_COLLATERAL.index,
                 isForceCollateralOnly: false
+            });
+
+            const collateralOnlyMintPromise = this.priceService.calculateMintOutput({
+                dollarAmount,
+                collateralIndex: LUSD_COLLATERAL.index,
+                isForceCollateralOnly: true
             });
 
             const mintTimeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('Mint calculation timeout')), 10000);
             });
 
-            const mintResult = await Promise.race([mintPromise, mintTimeoutPromise]) as any;
+            const [mixedMintResult, collateralOnlyMintResult] = await Promise.race([
+                Promise.all([mixedMintPromise, collateralOnlyMintPromise]),
+                mintTimeoutPromise
+            ]) as [any, any];
 
             // Calculate swap output (LUSD → UUSD via Curve)
             const swapOutputUUSD = await this.getSwapOutput(lusdAmount, 'LUSD', 'UUSD');
 
-            // Determine optimal route
+            // Determine optimal route based on user preference and market conditions
             let routeType: RouteType;
             let expectedOutput: bigint;
             let reason: string;
             let isEnabled = true;
             let disabledReason: string | undefined;
 
-            if (!mintResult.isMintingAllowed) {
+            if (!mixedMintResult.isMintingAllowed) {
                 // Minting disabled, use swap
                 routeType = 'swap';
                 expectedOutput = swapOutputUUSD;
                 reason = 'Minting disabled due to price conditions. Using Curve swap.';
-            } else if (marketPrice < this.PEG_PRICE) {
-                // UUSD trading below peg - mint is better (1:1 ratio)
-                routeType = 'mint';
-                expectedOutput = mintResult.totalDollarMint;
-                reason = `UUSD below peg ($${formatUnits(marketPrice, 6)}). Minting gives better rate.`;
-            } else {
-                // UUSD trading above peg - compare outputs
-                if (swapOutputUUSD > mintResult.totalDollarMint) {
+            } else if (isForceCollateralOnly) {
+                // User chose LUSD-only mode - compare collateral-only mint vs swap
+                if (swapOutputUUSD > collateralOnlyMintResult.totalDollarMint) {
                     routeType = 'swap';
                     expectedOutput = swapOutputUUSD;
-                    reason = `UUSD above peg ($${formatUnits(marketPrice, 6)}). Curve swap gives more UUSD.`;
+                    reason = `LUSD-only mode: Curve swap gives more UUSD than minting.`;
                 } else {
                     routeType = 'mint';
-                    expectedOutput = mintResult.totalDollarMint;
-                    reason = 'Minting provides better rate than swap.';
+                    expectedOutput = collateralOnlyMintResult.totalDollarMint;
+                    reason = 'LUSD-only mode: Minting gives better rate than swap.';
+                }
+            } else {
+                // User allows UBQ discount - compare mixed mint vs swap vs collateral-only mint
+                const outputs = [
+                    { type: 'mint' as const, output: mixedMintResult.totalDollarMint, description: 'Mixed mint (95% LUSD + 5% UBQ discount)' },
+                    { type: 'swap' as const, output: swapOutputUUSD, description: 'Curve swap' },
+                    { type: 'mint' as const, output: collateralOnlyMintResult.totalDollarMint, description: 'LUSD-only mint' }
+                ];
+
+                // Find the best option
+                const bestOption = outputs.reduce((best, current) =>
+                    current.output > best.output ? current : best
+                );
+
+                routeType = bestOption.type;
+                expectedOutput = bestOption.output;
+
+                if (bestOption.output === mixedMintResult.totalDollarMint) {
+                    // Calculate discount percentage: ((mixed - collateralOnly) / collateralOnly) * 100
+                    const mixedOutput = BigInt(mixedMintResult.totalDollarMint);
+                    const collateralOnlyOutput = BigInt(collateralOnlyMintResult.totalDollarMint);
+                    const discountBigInt = (mixedOutput - collateralOnlyOutput) * 10000n / collateralOnlyOutput;
+                    const discount = Number(discountBigInt) / 100;
+                    reason = `Mixed minting with ~${discount.toFixed(1)}% UBQ discount gives best rate.`;
+                } else if (bestOption.output === swapOutputUUSD) {
+                    reason = `UUSD above peg ($${formatUnits(marketPrice, 6)}). Curve swap gives more UUSD than minting.`;
+                } else {
+                    reason = 'LUSD-only minting provides best rate.';
                 }
             }
 
             // Calculate alternative output for savings comparison
-            const alternativeOutput = routeType === 'mint' ? swapOutputUUSD : mintResult.totalDollarMint;
+            const allOutputs = [swapOutputUUSD, mixedMintResult.totalDollarMint, collateralOnlyMintResult.totalDollarMint];
+            const alternativeOutput = allOutputs.filter(output => output !== expectedOutput).reduce((max, current) => current > max ? current : max, 0n);
             const savings = this.calculateSavings(expectedOutput, alternativeOutput);
 
             return {

@@ -3,6 +3,7 @@ import type { WalletService } from '../services/wallet-service.ts';
 import type { ContractService } from '../services/contract-service.ts';
 import type { PriceService } from '../services/price-service.ts';
 import type { TransactionService, TransactionOperation } from '../services/transaction-service.ts';
+import { TransactionStateService } from '../services/transaction-state-service.ts';
 import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import type { NotificationManager } from './notification-manager.ts';
 import type { InventoryBarComponent } from './inventory-bar-component.ts';
@@ -26,11 +27,64 @@ interface MintServices {
 export class MintComponent {
     private services: MintServices;
     private debounceTimer: any | null = null;
+    private transactionStateService: TransactionStateService;
 
     constructor(services: MintServices) {
         this.services = services;
+        this.transactionStateService = TransactionStateService.getInstance();
         this.setupEventListeners();
         this.setupBalanceSubscription();
+        this.registerTransactionButton();
+    }
+
+    /**
+     * Register the mint button with transaction state service
+     */
+    private registerTransactionButton(): void {
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            const button = document.getElementById('mintButton') as HTMLButtonElement;
+            if (button) {
+                this.transactionStateService.registerButton('mintButton', {
+                    buttonElement: button,
+                    originalText: button.textContent || 'Mint UUSD',
+                    pendingText: 'Minting...',
+                    onTransactionClick: () => this.executeTransaction()
+                });
+            }
+        }, 100);
+    }
+
+    /**
+     * Execute the mint transaction
+     */
+    private async executeTransaction(): Promise<void> {
+        if (!this.services.walletService.isConnected()) {
+            this.services.notificationManager.showError('mint', 'Please connect wallet first');
+            return;
+        }
+
+        try {
+            const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
+            const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
+
+            if (!amountInput?.value) {
+                this.services.notificationManager.showError('mint', 'Please enter a valid amount');
+                return;
+            }
+
+            const amount = parseEther(amountInput.value);
+
+            await this.services.transactionService.executeMint({
+                collateralIndex: LUSD_COLLATERAL.index,
+                dollarAmount: amount,
+                isForceCollateralOnly: forceCollateralOnly.checked
+            });
+
+        } catch (error: any) {
+            console.error('Mint transaction failed:', error);
+            // Error is handled by the transaction handlers
+        }
     }
 
     /**
@@ -144,17 +198,15 @@ export class MintComponent {
      * Update mint button text based on approval status
      */
     private async updateButton(collateral: typeof LUSD_COLLATERAL, result: any): Promise<void> {
-        const button = document.getElementById('mintButton') as HTMLButtonElement;
         const account = this.services.walletService.getAccount();
 
         if (!account) {
-            button.textContent = 'Connect wallet first';
+            this.transactionStateService.updateButtonText('mintButton', 'Connect wallet first');
             return;
         }
 
         if (!result.isMintingAllowed) {
-            button.textContent = 'Minting Disabled';
-            button.disabled = true;
+            this.transactionStateService.updateButtonText('mintButton', 'Minting Disabled');
             return;
         }
 
@@ -165,92 +217,46 @@ export class MintComponent {
             result
         );
 
+        let buttonText = 'Mint UUSD';
         if (approvalStatus.needsCollateralApproval) {
-            button.textContent = `Approve ${collateral.name}`;
+            buttonText = `Approve ${collateral.name}`;
         } else if (approvalStatus.needsGovernanceApproval) {
-            button.textContent = 'Approve UBQ';
-        } else {
-            button.textContent = 'Mint UUSD';
+            buttonText = 'Approve UBQ';
         }
 
-        // Re-enable the button after updating text (it may have been disabled during transaction)
-        button.disabled = false;
+        this.transactionStateService.updateButtonText('mintButton', buttonText);
     }
 
     /**
-     * Handle mint form submission
+     * Handle mint form submission - prevent default, let button handle transaction
      */
     async handleSubmit(event: Event): Promise<void> {
         event.preventDefault();
-
-        if (!this.services.walletService.isConnected()) {
-            this.services.notificationManager.showError('mint', 'Please connect wallet first');
-            return;
-        }
-
-        try {
-            const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
-            const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
-
-            if (!amountInput?.value) {
-                this.services.notificationManager.showError('mint', 'Please enter a valid amount');
-                return;
-            }
-
-            const amount = parseEther(amountInput.value);
-
-            await this.services.transactionService.executeMint({
-                collateralIndex: LUSD_COLLATERAL.index,
-                dollarAmount: amount,
-                isForceCollateralOnly: forceCollateralOnly.checked
-            });
-
-        } catch (error: any) {
-            console.error('Mint transaction failed:', error);
-
-            // Re-enable the button and show error
-            const button = document.getElementById('mintButton') as HTMLButtonElement;
-            if (button) {
-                button.disabled = false;
-                // Reset button text based on current state
-                this.updateOutput();
-            }
-
-            // Analyze error for oracle issues and provide enhanced messaging
-            const errorMessage = error.message || 'Transaction failed. Please try again.';
-            const oracleAnalysis = analyzeOracleError(errorMessage);
-
-            if (oracleAnalysis.isOracleIssue) {
-                // Show oracle-specific error with help button
-                this.services.notificationManager.showError('mint', oracleAnalysis.userMessage);
-                this.showOracleHelpButton();
-            } else {
-                this.services.notificationManager.showError('mint', errorMessage);
-            }
-        }
+        // Form submission is now handled by button click through transaction state service
+        // This prevents double execution
     }
 
     /**
      * Handle transaction start
      */
     handleTransactionStart(): void {
-        const button = document.getElementById('mintButton') as HTMLButtonElement;
-        if (button) {
-            button.disabled = true;
-            button.innerHTML = `Minting...<span class="loading"></span>`;
-        }
+        this.transactionStateService.startTransaction('mintButton');
+    }
+
+    /**
+     * Handle transaction hash received
+     */
+    handleTransactionSubmitted(hash: string): void {
+        this.transactionStateService.updateTransactionHash('mintButton', hash);
     }
 
     /**
      * Handle transaction success
      */
     handleTransactionSuccess(): void {
-        const button = document.getElementById('mintButton') as HTMLButtonElement;
         const amountInput = document.getElementById('mintAmount') as HTMLInputElement;
 
-        if (button) {
-            button.disabled = false;
-        }
+        this.transactionStateService.completeTransaction('mintButton', '✅ Minted!');
 
         if (amountInput) {
             this.services.notificationManager.showSuccess('mint', `Successfully minted ${amountInput.value} UUSD!`);
@@ -263,28 +269,33 @@ export class MintComponent {
      * Handle transaction error
      */
     handleTransactionError(error: Error): void {
-        const button = document.getElementById('mintButton') as HTMLButtonElement;
-        if (button) {
-            button.disabled = false;
-        }
+        this.transactionStateService.errorTransaction('mintButton', error.message, '❌ Try Again');
 
-        this.services.notificationManager.showError('mint', error.message);
+        // Analyze error for oracle issues and provide enhanced messaging
+        const errorMessage = error.message || 'Transaction failed. Please try again.';
+        const oracleAnalysis = analyzeOracleError(errorMessage);
+
+        if (oracleAnalysis.isOracleIssue) {
+            // Show oracle-specific error with help button
+            this.services.notificationManager.showError('mint', oracleAnalysis.userMessage);
+            this.showOracleHelpButton();
+        } else {
+            this.services.notificationManager.showError('mint', errorMessage);
+        }
     }
 
     /**
      * Handle approval needed event
      */
     handleApprovalNeeded(tokenSymbol: string): void {
-        const button = document.getElementById('mintButton') as HTMLButtonElement;
-        if (button) {
-            button.innerHTML = `Approving ${tokenSymbol}...<span class="loading"></span>`;
-        }
+        this.transactionStateService.startApproval('mintButton', tokenSymbol);
     }
 
     /**
      * Handle approval complete event
      */
     handleApprovalComplete(): void {
+        this.transactionStateService.completeApproval('mintButton');
         this.updateOutput();
     }
 
@@ -308,14 +319,11 @@ export class MintComponent {
      * Update wallet connection state
      */
     updateWalletConnection(isConnected: boolean): void {
-        const button = document.getElementById('mintButton') as HTMLButtonElement;
-        if (button) {
-            button.disabled = !isConnected;
-            if (!isConnected) {
-                button.textContent = 'Connect wallet first';
-            } else {
-                this.updateOutput();
-            }
+        if (!isConnected) {
+            this.transactionStateService.updateButtonText('mintButton', 'Connect wallet first');
+            this.transactionStateService.resetAllButtons();
+        } else {
+            this.updateOutput();
         }
     }
 

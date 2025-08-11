@@ -22,9 +22,26 @@
 -   **Gas Optimization:** Smart contracts are developed with gas efficiency in mind to minimize transaction costs for users.
 -   **Security:** Adherence to best practices for smart contract security, including reentrancy guards, access control, and thorough auditing (as indicated by `ubiquity-audit-report-sherlock.pdf`).
 
+## Key Services and Components:
+
+-   **OptimalRouteService:** Core service that analyzes market conditions and determines the best exchange route (mint/redeem vs Curve swap)
+-   **UnifiedExchangeComponent:** Main UI component providing bank-like "Deposit/Withdraw" interface that abstracts protocol complexity
+-   **CurvePriceService:** Handles real-time price fetching from Curve pools for swap rate calculations
+-   **PriceService:** Manages oracle price feeds and mint/redeem rate calculations
+-   **SwapService:** Handles Curve swap execution and pool interactions
+
+## Route Selection Logic:
+
+-   **Market Analysis:** Real-time comparison of mint/redeem rates vs Curve swap rates
+-   **Protocol-Controlled Routing:** Uses `isMintingAllowed` and `isRedeemingAllowed` flags from dynamic protocol calculations
+-   **Dynamic Output Comparison:** Always chooses route with highest calculated output for user
+-   **User Transparency:** Clear explanations of route selection with savings calculations
+
 ## Dependencies:
 
 -   **OpenZeppelin Contracts:** Widely used library for secure smart contract development (e.g., ERC20, Ownable, UUPSUpgradeable).
 -   **Uniswap V2/V3:** Libraries for interacting with Uniswap decentralized exchanges for liquidity provision and price oracle functionalities.
 -   **Aave V3 Core/Periphery:** Libraries for interacting with the Aave lending protocol, potentially for AMO strategies.
+-   **Curve Finance:** Integration for UUSD/LUSD swap functionality and real-time price discovery
+-   **Viem:** Modern TypeScript library for Ethereum interactions, replacing ethers.js for better performance
 -   **Chainlink:** Potentially used for decentralized oracles, though not explicitly detailed in the file list.

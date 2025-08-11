@@ -29,8 +29,8 @@
 
         <!-- Direction Toggle -->
         <div class="direction-toggle" style="display: none;">
-            <button id="depositButton" class="direction-button active">Deposit</button>
-            <button id="withdrawButton" class="direction-button">Withdraw</button>
+            <button id="depositButton" class="direction-button active">Get UUSD</button>
+            <button id="withdrawButton" class="direction-button">Redeem UUSD</button>
         </div>
 
 
@@ -43,17 +43,31 @@
                     <input type="number" id="exchangeAmount" step="any" placeholder="Enter LUSD amount" required>
                 </div>
 
+                <!-- UBQ + LUSD Option (only shown for deposits) -->
+                <div id="mintOptionsGroup" class="form-group" style="display: none;">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="forceCollateralOnly" />
+                        <label for="forceCollateralOnly">Use LUSD only (disable UBQ discount)</label>
+                    </div>
+                    <div class="option-explanation">
+                        <span class="explanation-text">
+                            Unchecked: Use ~95% LUSD + ~5% UBQ for 5% discount<br>
+                            Checked: Use 100% LUSD only
+                        </span>
+                    </div>
+                </div>
+
                 <!-- Optimal Route Display -->
                 <div id="exchangeOutput" class="output-section" style="display: none;">
-                    <h3>Best Deal Available</h3>
+                    <h3>Optimal Route</h3>
 
                     <div class="route-header">
                         <div class="route-action">
                             <span id="routeType">🔨 Minting</span>
-                            <span class="market-price">Market: <span id="marketPrice">$1.000000</span></span>
+                            <span class="market-price">Rate: <span id="marketPrice">$1.000000</span></span>
                         </div>
                         <div id="savingsAmount" class="savings-positive" style="display: none;">
-                            Save 2.5% (0.025 tokens)
+                            Save 0.0% (0.000 tokens)
                         </div>
                     </div>
 
@@ -79,8 +93,8 @@
 
                 <!-- Notification Areas -->
                 <div class="notification-container" data-type="exchange">
-                    <div class="error" id="exchangeError"></div>
-                    <div class="success" id="exchangeSuccess"></div>
+                    <div class="error" id="exchangeError" style="display:none"></div>
+                    <div class="success" id="exchangeSuccess" style="display:none"></div>
                 </div>
             </form>
         </div>

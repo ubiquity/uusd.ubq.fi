@@ -11,11 +11,16 @@ The `uusd.ubq.fi` project addresses the need for a decentralized, censorship-res
 
 ## How It Should Work:
 The Ubiquity Dollar protocol operates through a combination of smart contracts and economic incentives:
-- **Minting and Redeeming:** Users can mint UUSD when its price is above peg and redeem UUSD for underlying assets when its price is below peg, leveraging arbitrage opportunities to maintain stability.
+- **Optimal Route Selection:** The system automatically analyzes market conditions and provides users with the best available exchange rate, whether through mint/redeem or Curve swap
+- **Bank-like Interface:** Users interact through simple "Deposit" (LUSD → UUSD) and "Withdraw" (UUSD → LUSD) operations, abstracting complex protocol mechanics
+- **Intelligent Routing:** The system uses protocol-controlled availability flags and dynamic output comparison to select the most advantageous route (mint/redeem vs swap)
 - **Algorithmic Market Operations (AMOs):** Automated strategies (e.g., lending, liquidity provision) are employed to manage UUSD supply and demand, dynamically adjusting to market conditions to maintain the peg.
 
 ## User Experience Goals:
 
-- **Transparency:** Clearly display all relevant protocol metrics, transaction history, and governance proposals.
-- **Security:** Ensure a secure environment for user funds and interactions through rigorous smart contract audits and best practices.
-- **Responsiveness:** Offer a fast and responsive application that provides real-time updates on market conditions and protocol status.
+- **Simplicity:** Users don't need to understand mint/redeem mechanics - they just get the best deal automatically
+- **Transparency:** Clearly display optimal routes, expected outputs, savings, and reasons for route selection
+- **Best Deal Guarantee:** Always provide the most favorable exchange rate available across all protocol options
+- **Clear Communication:** Explain why specific routes are chosen (e.g., "UUSD below peg, redeeming gives better rate")
+- **Security:** Ensure a secure environment for user funds and interactions through rigorous smart contract audits and best practices
+- **Responsiveness:** Offer a fast and responsive application that provides real-time updates on market conditions and optimal routes

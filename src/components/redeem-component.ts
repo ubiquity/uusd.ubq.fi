@@ -4,6 +4,7 @@ import type { ContractService } from '../services/contract-service.ts';
 import type { PriceService } from '../services/price-service.ts';
 import type { TransactionService } from '../services/transaction-service.ts';
 import { TransactionOperation } from '../services/transaction-service.ts';
+import { TransactionStateService } from '../services/transaction-state-service.ts';
 import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import type { NotificationManager } from './notification-manager.ts';
 import type { InventoryBarComponent } from './inventory-bar-component.ts';
@@ -24,11 +25,67 @@ interface RedeemServices {
  */
 export class RedeemComponent {
     private services: RedeemServices;
+    private transactionStateService: TransactionStateService;
 
     constructor(services: RedeemServices) {
         this.services = services;
+        this.transactionStateService = TransactionStateService.getInstance();
         this.setupEventListeners();
         this.setupBalanceSubscription();
+        this.registerTransactionButton();
+    }
+
+    /**
+     * Register the redeem button with transaction state service
+     */
+    private registerTransactionButton(): void {
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            const button = document.getElementById('redeemButton') as HTMLButtonElement;
+            if (button) {
+                this.transactionStateService.registerButton('redeemButton', {
+                    buttonElement: button,
+                    originalText: button.textContent || 'Redeem UUSD',
+                    pendingText: 'Processing...',
+                    onTransactionClick: () => this.executeTransaction()
+                });
+            }
+        }, 100);
+    }
+
+    /**
+     * Execute the redeem transaction
+     */
+    private async executeTransaction(): Promise<void> {
+        if (!this.services.walletService.isConnected()) {
+            this.services.notificationManager.showError('redeem', 'Please connect wallet first');
+            return;
+        }
+
+        try {
+            const amountInput = document.getElementById('redeemAmount') as HTMLInputElement;
+
+            if (!amountInput?.value) {
+                this.services.notificationManager.showError('redeem', 'Please enter a valid amount');
+                return;
+            }
+
+            const amount = parseEther(amountInput.value);
+
+            console.log('Starting redeem transaction:', {
+                amount: amountInput.value,
+                collateralIndex: LUSD_COLLATERAL.index
+            });
+
+            await this.services.transactionService.executeRedeem({
+                collateralIndex: LUSD_COLLATERAL.index,
+                dollarAmount: amount
+            });
+
+        } catch (error: any) {
+            console.error('Redeem transaction failed:', error);
+            // Error is handled by the transaction handlers
+        }
     }
 
     /**
@@ -119,17 +176,15 @@ export class RedeemComponent {
      * Update redeem button text based on approval status and pending redemptions
      */
     private async updateButton(collateralIndex: number, amount: bigint, isRedeemingAllowed: boolean): Promise<void> {
-        const button = document.getElementById('redeemButton') as HTMLButtonElement;
         const account = this.services.walletService.getAccount();
 
         if (!account) {
-            button.textContent = 'Connect wallet first';
+            this.transactionStateService.updateButtonText('redeemButton', 'Connect wallet first');
             return;
         }
 
         if (!isRedeemingAllowed) {
-            button.textContent = 'Redeeming Disabled';
-            button.disabled = true;
+            this.transactionStateService.updateButtonText('redeemButton', 'Redeeming Disabled');
             return;
         }
 
@@ -140,97 +195,57 @@ export class RedeemComponent {
         );
 
         if (redeemBalance > 0n) {
-            button.textContent = 'Collect Redemption';
-            button.disabled = false;
+            this.transactionStateService.updateButtonText('redeemButton', 'Collect Redemption');
             return;
         }
 
         // Check approval status
         const approvalStatus = await this.services.transactionService.getRedeemApprovalStatus(account, amount);
 
+        let buttonText = 'Redeem UUSD';
         if (approvalStatus.needsApproval) {
-            button.textContent = 'Approve UUSD';
-        } else {
-            button.textContent = 'Redeem UUSD';
+            buttonText = 'Approve UUSD';
         }
-        button.disabled = false;
+
+        this.transactionStateService.updateButtonText('redeemButton', buttonText);
     }
 
     /**
-     * Handle redeem form submission
+     * Handle redeem form submission - prevent default, let button handle transaction
      */
     async handleSubmit(event: Event): Promise<void> {
         event.preventDefault();
-
-        if (!this.services.walletService.isConnected()) {
-            this.services.notificationManager.showError('redeem', 'Please connect wallet first');
-            return;
-        }
-
-        try {
-            const amountInput = document.getElementById('redeemAmount') as HTMLInputElement;
-
-            if (!amountInput?.value) {
-                this.services.notificationManager.showError('redeem', 'Please enter a valid amount');
-                return;
-            }
-
-            const amount = parseEther(amountInput.value);
-
-            console.log('Starting redeem transaction:', {
-                amount: amountInput.value,
-                collateralIndex: LUSD_COLLATERAL.index
-            });
-
-            await this.services.transactionService.executeRedeem({
-                collateralIndex: LUSD_COLLATERAL.index,
-                dollarAmount: amount
-            });
-
-        } catch (error: any) {
-            console.error('Redeem transaction failed:', error);
-
-            // Re-enable the button and show error
-            const button = document.getElementById('redeemButton') as HTMLButtonElement;
-            if (button) {
-                button.disabled = false;
-                // Reset button text based on current state
-                this.updateOutput();
-            }
-
-            // Show error message to user
-            const errorMessage = error.message || 'Transaction failed. Please try again.';
-            this.services.notificationManager.showError('redeem', errorMessage);
-        }
+        // Form submission is now handled by button click through transaction state service
+        // This prevents double execution
     }
 
     /**
      * Handle transaction start
      */
     handleTransactionStart(): void {
-        const button = document.getElementById('redeemButton') as HTMLButtonElement;
-        if (button) {
-            button.disabled = true;
-            button.innerHTML = `Redeeming...<span class="loading"></span>`;
-        }
+        this.transactionStateService.startTransaction('redeemButton');
+    }
+
+    /**
+     * Handle transaction hash received
+     */
+    handleTransactionSubmitted(hash: string): void {
+        this.transactionStateService.updateTransactionHash('redeemButton', hash);
     }
 
     /**
      * Handle transaction success
      */
     handleTransactionSuccess(operation: string): void {
-        const button = document.getElementById('redeemButton') as HTMLButtonElement;
         const amountInput = document.getElementById('redeemAmount') as HTMLInputElement;
 
-        if (button) {
-            button.disabled = false;
-        }
-
         if (operation === TransactionOperation.REDEEM && amountInput) {
+            this.transactionStateService.completeTransaction('redeemButton', '✅ Redeemed!');
             this.services.notificationManager.showSuccess('redeem', `Successfully redeemed ${amountInput.value} UUSD! Collect your redemption to receive tokens.`);
             amountInput.value = '';
             this.updateOutput();
         } else if (operation === TransactionOperation.COLLECT_REDEMPTION) {
+            this.transactionStateService.completeTransaction('redeemButton', '✅ Collected!');
             this.services.notificationManager.showSuccess('redeem', 'Successfully collected redemption!');
             this.updateOutput();
         }
@@ -240,11 +255,7 @@ export class RedeemComponent {
      * Handle transaction error
      */
     handleTransactionError(error: Error): void {
-        const button = document.getElementById('redeemButton') as HTMLButtonElement;
-        if (button) {
-            button.disabled = false;
-        }
-
+        this.transactionStateService.errorTransaction('redeemButton', error.message, '❌ Try Again');
         this.services.notificationManager.showError('redeem', error.message);
     }
 
@@ -252,16 +263,14 @@ export class RedeemComponent {
      * Handle approval needed event
      */
     handleApprovalNeeded(tokenSymbol: string): void {
-        const button = document.getElementById('redeemButton') as HTMLButtonElement;
-        if (button) {
-            button.innerHTML = `Approving ${tokenSymbol}...<span class="loading"></span>`;
-        }
+        this.transactionStateService.startApproval('redeemButton', tokenSymbol);
     }
 
     /**
      * Handle approval complete event
      */
     handleApprovalComplete(): void {
+        this.transactionStateService.completeApproval('redeemButton');
         this.updateOutput();
     }
 

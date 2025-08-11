@@ -5,6 +5,7 @@ import type { PriceService } from '../services/price-service.ts';
 import type { CurvePriceService } from '../services/curve-price-service.ts';
 import type { TransactionService } from '../services/transaction-service.ts';
 import type { SwapService } from '../services/swap-service.ts';
+import { TransactionStateService } from '../services/transaction-state-service.ts';
 import { OptimalRouteService, type OptimalRouteResult, type ExchangeDirection } from '../services/optimal-route-service.ts';
 import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import type { NotificationManager } from './notification-manager.ts';
@@ -34,9 +35,11 @@ export class UnifiedExchangeComponent {
     private optimalRouteService: OptimalRouteService;
     private debounceTimer: any | null = null;
     private currentDirection: ExchangeDirection = 'deposit';
+    private transactionStateService: TransactionStateService;
 
     constructor(services: UnifiedExchangeServices) {
         this.services = services;
+        this.transactionStateService = TransactionStateService.getInstance();
         this.optimalRouteService = new OptimalRouteService(
             services.priceService,
             services.curvePriceService,
@@ -44,6 +47,61 @@ export class UnifiedExchangeComponent {
         );
         this.setupEventListeners();
         this.setupBalanceSubscription();
+        this.registerTransactionButton();
+    }
+
+    /**
+     * Register the exchange button with transaction state service
+     */
+    private registerTransactionButton(): void {
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            const button = document.getElementById('exchangeButton') as HTMLButtonElement;
+            if (button) {
+                this.transactionStateService.registerButton('exchangeButton', {
+                    buttonElement: button,
+                    originalText: button.textContent || 'Exchange',
+                    pendingText: 'Processing...',
+                    onTransactionClick: () => this.executeTransaction()
+                });
+            }
+        }, 100);
+    }
+
+    /**
+     * Execute the exchange transaction
+     */
+    private async executeTransaction(): Promise<void> {
+        if (!this.services.walletService.isConnected()) {
+            this.services.notificationManager.showError('exchange', 'Please connect wallet first');
+            return;
+        }
+
+        try {
+            const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
+
+            if (!amountInput?.value) {
+                this.services.notificationManager.showError('exchange', 'Please enter a valid amount');
+                return;
+            }
+
+            const amount = parseEther(amountInput.value);
+
+            // Calculate optimal route
+            let routeResult: OptimalRouteResult;
+            if (this.currentDirection === 'deposit') {
+                routeResult = await this.optimalRouteService.getOptimalDepositRoute(amount);
+            } else {
+                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(amount);
+            }
+
+            // Execute the optimal route
+            await this.executeOptimalRoute(routeResult);
+
+        } catch (error: any) {
+            console.error('Exchange transaction failed:', error);
+            // Error is handled by the transaction handlers
+        }
     }
 
     /**
@@ -53,8 +111,10 @@ export class UnifiedExchangeComponent {
         const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
         const depositButton = document.getElementById('depositButton') as HTMLButtonElement;
         const withdrawButton = document.getElementById('withdrawButton') as HTMLButtonElement;
+        const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
 
         amountInput?.addEventListener('input', () => this.updateOutput());
+        forceCollateralOnly?.addEventListener('change', () => this.updateOutput());
 
         depositButton?.addEventListener('click', () => this.switchDirection('deposit'));
         withdrawButton?.addEventListener('click', () => this.switchDirection('withdraw'));
@@ -114,6 +174,7 @@ export class UnifiedExchangeComponent {
             const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
             const exchangeOutput = document.getElementById('exchangeOutput');
             const exchangeButton = document.getElementById('exchangeButton') as HTMLButtonElement;
+            const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
 
             if (!amountInput || !exchangeOutput || !exchangeButton) {
                 return;
@@ -125,6 +186,7 @@ export class UnifiedExchangeComponent {
                 exchangeOutput.style.display = 'none';
                 exchangeButton.textContent = 'Enter amount to continue';
                 exchangeButton.disabled = true;
+                this.updateMintOptionsVisibility(false);
                 return;
             }
 
@@ -137,7 +199,8 @@ export class UnifiedExchangeComponent {
             console.log('🔍 Current direction:', this.currentDirection);
             if (this.currentDirection === 'deposit') {
                 console.log('📈 Calling getOptimalDepositRoute');
-                routeResult = await this.optimalRouteService.getOptimalDepositRoute(inputAmount);
+                const isForceCollateralOnly = forceCollateralOnly?.checked || false;
+                routeResult = await this.optimalRouteService.getOptimalDepositRoute(inputAmount, isForceCollateralOnly);
             } else {
                 console.log('📉 Calling getOptimalWithdrawRoute');
                 routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount);
@@ -147,6 +210,11 @@ export class UnifiedExchangeComponent {
 
             // Update UI with route information
             await this.updateRouteDisplay(routeResult);
+
+            // Show/hide mint options based on route
+            this.updateMintOptionsVisibility(
+                this.currentDirection === 'deposit' && routeResult.routeType === 'mint'
+            );
 
             // Update button based on route and wallet connection
             if (this.services.walletService.isConnected()) {
@@ -271,7 +339,7 @@ export class UnifiedExchangeComponent {
             const fromToken = result.direction === 'deposit' ? 'LUSD' : 'UUSD';
             const tokenAddress = fromToken === 'LUSD'
                 ? '0x5f98805A4E8be255a32880FDeC7F6728C6568bA0' as Address
-                : '0x0F644658510c95CB46955e55D7BA9DDa9E9fBEc6' as Address;
+                : '0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103' as Address;
             const poolAddress = this.services.swapService.getPoolAddress();
 
             const allowance = await this.services.contractService.getAllowance(tokenAddress, account, poolAddress);
@@ -291,41 +359,12 @@ export class UnifiedExchangeComponent {
     }
 
     /**
-     * Handle form submission
+     * Handle form submission - prevent default, let button handle transaction
      */
     async handleSubmit(event: Event): Promise<void> {
         event.preventDefault();
-
-        if (!this.services.walletService.isConnected()) {
-            this.services.notificationManager.showError('exchange', 'Please connect wallet first');
-            return;
-        }
-
-        try {
-            const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
-
-            if (!amountInput?.value) {
-                this.services.notificationManager.showError('exchange', 'Please enter a valid amount');
-                return;
-            }
-
-            const amount = parseEther(amountInput.value);
-
-            // Calculate optimal route
-            let routeResult: OptimalRouteResult;
-            if (this.currentDirection === 'deposit') {
-                routeResult = await this.optimalRouteService.getOptimalDepositRoute(amount);
-            } else {
-                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(amount);
-            }
-
-            // Execute the optimal route
-            await this.executeOptimalRoute(routeResult);
-
-        } catch (error: any) {
-            console.error('Exchange transaction failed:', error);
-            this.handleTransactionError(error);
-        }
+        // Form submission is now handled by button click through transaction state service
+        // This prevents double execution
     }
 
     /**
@@ -333,13 +372,14 @@ export class UnifiedExchangeComponent {
      */
     private async executeOptimalRoute(result: OptimalRouteResult): Promise<void> {
         const account = this.services.walletService.getAccount()!;
+        const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
 
         switch (result.routeType) {
             case 'mint':
                 await this.services.transactionService.executeMint({
                     collateralIndex: LUSD_COLLATERAL.index,
                     dollarAmount: result.inputAmount,
-                    isForceCollateralOnly: false
+                    isForceCollateralOnly: forceCollateralOnly?.checked || false
                 });
                 break;
 
@@ -372,26 +412,26 @@ export class UnifiedExchangeComponent {
      * Handle transaction start
      */
     handleTransactionStart(): void {
-        const button = document.getElementById('exchangeButton') as HTMLButtonElement;
-        if (button) {
-            button.disabled = true;
-            button.innerHTML = `Processing...<span class="loading"></span>`;
-        }
+        this.transactionStateService.startTransaction('exchangeButton');
+    }
+
+    /**
+     * Handle transaction submitted (hash received)
+     */
+    handleTransactionSubmitted(hash: string): void {
+        this.transactionStateService.updateTransactionHash('exchangeButton', hash);
     }
 
     /**
      * Handle transaction success
      */
     handleTransactionSuccess(operation: string): void {
-        const button = document.getElementById('exchangeButton') as HTMLButtonElement;
         const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
 
-        if (button) {
-            button.disabled = false;
-        }
+        const direction = this.currentDirection === 'deposit' ? 'Deposited' : 'Withdrew';
+        this.transactionStateService.completeTransaction('exchangeButton', `✅ ${direction}!`);
 
         if (amountInput) {
-            const direction = this.currentDirection === 'deposit' ? 'Deposited' : 'Withdrew';
             this.services.notificationManager.showSuccess('exchange', `Successfully ${direction.toLowerCase()} ${amountInput.value} ${this.currentDirection === 'deposit' ? 'LUSD' : 'UUSD'}!`);
             amountInput.value = '';
             this.updateOutput();
@@ -402,10 +442,7 @@ export class UnifiedExchangeComponent {
      * Handle transaction error
      */
     handleTransactionError(error: Error): void {
-        const button = document.getElementById('exchangeButton') as HTMLButtonElement;
-        if (button) {
-            button.disabled = false;
-        }
+        this.transactionStateService.errorTransaction('exchangeButton', error.message, '❌ Try Again');
 
         // Analyze error for oracle issues
         const errorMessage = error.message || 'Transaction failed. Please try again.';
@@ -419,6 +456,21 @@ export class UnifiedExchangeComponent {
         }
 
         // Update button state
+        this.updateOutput();
+    }
+
+    /**
+     * Handle approval needed event
+     */
+    handleApprovalNeeded(tokenSymbol: string): void {
+        this.transactionStateService.startApproval('exchangeButton', tokenSymbol);
+    }
+
+    /**
+     * Handle approval complete event
+     */
+    handleApprovalComplete(): void {
+        this.transactionStateService.completeApproval('exchangeButton');
         this.updateOutput();
     }
 
@@ -520,6 +572,16 @@ export class UnifiedExchangeComponent {
             }
         } catch (error) {
             // Silently fail - don't disrupt user experience
+        }
+    }
+
+    /**
+     * Update visibility of mint options (UBQ + LUSD checkbox)
+     */
+    private updateMintOptionsVisibility(shouldShow: boolean): void {
+        const mintOptionsGroup = document.getElementById('mintOptionsGroup');
+        if (mintOptionsGroup) {
+            mintOptionsGroup.style.display = shouldShow ? 'block' : 'none';
         }
     }
 
