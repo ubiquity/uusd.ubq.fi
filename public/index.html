@@ -29,8 +29,8 @@
 
         <!-- Direction Toggle -->
         <div class="direction-toggle" style="display: none;">
-            <button id="depositButton" class="direction-button active">Get UUSD</button>
-            <button id="withdrawButton" class="direction-button">Redeem UUSD</button>
+            <button id="depositButton" class="direction-button active">Buy UUSD</button>
+            <button id="withdrawButton" class="direction-button">Sell UUSD</button>
         </div>
 
 
@@ -39,7 +39,7 @@
         <div id="exchangeForm" class="exchange-form" style="display: none;">
             <form onsubmit="window.app.handleExchange(event)">
                 <div class="form-group">
-                    <label id="amountLabel" for="exchangeAmount">Deposit Amount (LUSD)</label>
+                    <label id="amountLabel" for="exchangeAmount">LUSD</label>
                     <input type="number" id="exchangeAmount" step="any" placeholder="Enter LUSD amount" required>
                 </div>
 
@@ -57,7 +57,7 @@
                     </div>
                     <div class="option-explanation">
                         <span class="explanation-text">
-                            ✨ Unchecked: Use 95% LUSD + 5% UBQ<br>
+                            Unchecked: Use 95% LUSD + 5% UBQ<br>
                         </span>
                     </div>
                 </div>
@@ -66,12 +66,11 @@
                 <div id="redeemOptionsGroup" class="form-group" style="display: none;">
                     <div class="checkbox-group">
                         <input type="checkbox" id="redeemLusdOnly" />
-                        <label for="redeemLusdOnly">Redeem LUSD only (no UBQ tokens)</label>
+                        <label for="redeemLusdOnly">LUSD</label>
                     </div>
                     <div class="option-explanation">
                         <span class="explanation-text">
-                            ✨ Unchecked: Redeem ~95% LUSD + ~5% UBQ (get both tokens)<br>
-                            📝 Checked: Redeem 100% LUSD only (single token)
+                            Hybrid, 95% LUSD + 5% UBQ
                         </span>
                     </div>
                 </div>
@@ -79,15 +78,15 @@
                 <!-- Optimal Route Display -->
                 <div id="exchangeOutput" class="output-section" style="display: none;">
 
-                    <div class="route-header">
-                        <div class="route-action">
-                            <span id="routeType">🔨 Minting</span>
-                            <span class="market-price">Rate: <span id="marketPrice">$1.000000</span></span>
-                        </div>
-                        <div id="savingsAmount" class="savings-positive" style="display: none;">
-                            Save 0.0% (0.000 tokens)
-                        </div>
-                    </div>
+                    <!-- <div class="route-header"> -->
+                        <!-- <div class="route-action"> -->
+                            <!-- <span id="routeType">🔨 Minting</span> -->
+                            <!-- <span class="market-price">Rate: <span id="marketPrice">$1.000000</span></span> -->
+                        <!-- </div> -->
+                        <!-- <div id="savingsAmount" class="savings-positive" style="display: none;"> -->
+                            <!-- Save 0.0% (0.000 tokens) -->
+                        <!-- </div> -->
+                    <!-- </div> -->
 
                     <div class="output-row main-output">
                         <span class="output-label">You will receive:</span>

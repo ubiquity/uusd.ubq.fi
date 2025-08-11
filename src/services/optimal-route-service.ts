@@ -127,7 +127,7 @@ export class OptimalRouteService {
                 const collateralOnlyOutput = BigInt(collateralOnlyMintResult.totalDollarMint);
                 const discountBigInt = (mixedOutput - collateralOnlyOutput) * 10000n / collateralOnlyOutput;
                 const discount = Number(discountBigInt) / 100;
-                reason = `Mixed minting with ~${discount.toFixed(1)}% protocol supporter discount (95% LUSD + 5% UBQ).`;
+                reason = `Minting with 95% LUSD + 5% UBQ.`;
             }
 
             // Calculate alternative output for savings comparison
@@ -413,9 +413,9 @@ export class OptimalRouteService {
                 break;
         }
 
-        const savingsText = result.savings.percentage > 0
-            ? ` (Save ${result.savings.percentage.toFixed(2)}%)`
-            : '';
+        // const savingsText = result.savings.percentage > 0
+            // ? ` (Save ${result.savings.percentage.toFixed(2)}%)`
+            // : '';
 
         return `${direction}: ${actionText} ${inputAmount} ${inputToken} → ${outputAmount} ${outputToken}${savingsText}`;
     }

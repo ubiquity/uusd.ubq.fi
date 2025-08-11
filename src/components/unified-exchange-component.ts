@@ -6,6 +6,7 @@ import type { CurvePriceService } from '../services/curve-price-service.ts';
 import type { TransactionService } from '../services/transaction-service.ts';
 import type { SwapService } from '../services/swap-service.ts';
 import { TransactionStateService } from '../services/transaction-state-service.ts';
+import { TransactionButtonUtils } from '../utils/transaction-button-utils.ts';
 import { OptimalRouteService, type OptimalRouteResult, type ExchangeDirection } from '../services/optimal-route-service.ts';
 import { LUSD_COLLATERAL } from '../contracts/constants.ts';
 import type { NotificationManager } from './notification-manager.ts';
@@ -183,7 +184,7 @@ export class UnifiedExchangeComponent {
         }
 
         if (amountLabel) {
-            amountLabel.textContent = direction === 'deposit' ? 'Deposit Amount (LUSD)' : 'Withdraw Amount (UUSD)';
+            amountLabel.textContent = direction === 'deposit' ? 'LUSD' : 'UUSD';
         }
 
         if (amountInput) {
@@ -287,21 +288,21 @@ export class UnifiedExchangeComponent {
         const routeWarningElement = document.getElementById('routeWarning');
 
         // Route type and action
-        if (routeTypeElement) {
-            let actionText = '';
-            switch (result.routeType) {
-                case 'mint':
-                    actionText = '🔨 Minting';
-                    break;
-                case 'redeem':
-                    actionText = '🔄 Redeeming';
-                    break;
-                case 'swap':
-                    actionText = '🔀 Swapping';
-                    break;
-            }
-            routeTypeElement.textContent = actionText;
-        }
+        // if (routeTypeElement) {
+        //     let actionText = '';
+        //     switch (result.routeType) {
+        //         case 'mint':
+        //             actionText = '🔨 Minting';
+        //             break;
+        //         case 'redeem':
+        //             actionText = '🔄 Redeeming';
+        //             break;
+        //         case 'swap':
+        //             actionText = '🔀 Swapping';
+        //             break;
+        //     }
+        //     routeTypeElement.textContent = actionText;
+        // }
 
         // Expected output with UBQ amounts when applicable
         if (expectedOutputElement) {
@@ -343,15 +344,15 @@ export class UnifiedExchangeComponent {
         }
 
         // Savings display
-        if (savingsElement) {
-            if (result.savings.percentage > 0) {
-                savingsElement.textContent = `Save ${result.savings.percentage.toFixed(2)}% (${formatEther(result.savings.amount)} tokens)`;
-                savingsElement.style.display = 'block';
-                savingsElement.className = 'savings-positive';
-            } else {
-                savingsElement.style.display = 'none';
-            }
-        }
+        // if (savingsElement) {
+            // if (result.savings.percentage > 0) {
+                // savingsElement.textContent = `Save ${result.savings.percentage.toFixed(2)}% (${formatEther(result.savings.amount)} tokens)`;
+                // savingsElement.style.display = 'block';
+                // savingsElement.className = 'savings-positive';
+            // } else {
+                // savingsElement.style.display = 'none';
+            // }
+        // }
 
         // Route reason
         if (routeReasonElement) {
@@ -547,7 +548,8 @@ export class UnifiedExchangeComponent {
      * Handle approval needed event
      */
     handleApprovalNeeded(tokenSymbol: string): void {
-        this.transactionStateService.startApproval('exchangeButton', tokenSymbol);
+        const handlers = TransactionButtonUtils.createTransactionHandlers('exchangeButton');
+        handlers.handleApprovalNeeded(tokenSymbol);
         this.updateOutput();
     }
 
@@ -555,7 +557,8 @@ export class UnifiedExchangeComponent {
      * Handle approval complete event
      */
     handleApprovalComplete(): void {
-        this.transactionStateService.completeApproval('exchangeButton');
+        const handlers = TransactionButtonUtils.createTransactionHandlers('exchangeButton');
+        handlers.handleApprovalComplete();
         this.updateOutput();
     }
 

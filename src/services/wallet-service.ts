@@ -115,6 +115,13 @@ export class WalletService {
     }
 
     /**
+     * Get the current chain from wallet client
+     */
+    getChain() {
+        return this.walletClient?.chain || mainnet;
+    }
+
+    /**
      * Validate current wallet connection state
      */
     validateConnection() {

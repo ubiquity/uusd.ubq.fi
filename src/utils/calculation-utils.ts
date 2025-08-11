@@ -90,21 +90,23 @@ export function calculateMintAmounts(input: MintCalculationInput): MintCalculati
  */
 export function calculateRedeemAmounts(input: RedeemCalculationInput): RedeemCalculationOutput {
     const poolPricePrecision = 1000000n;
-    const dollarAfterFee = calculateRedeemFeeOutput(input.dollarAmount, input.redemptionFee);
 
     let collateralRedeemed: bigint;
     let governanceRedeemed: bigint;
 
     if (input.collateralRatio >= poolPricePrecision) {
         // 100% collateral mode
+        const dollarAfterFee = calculateRedeemFeeOutput(input.dollarAmount, input.redemptionFee);
         collateralRedeemed = input.collateralAmount;
         governanceRedeemed = 0n;
     } else if (input.collateralRatio === 0n) {
-        // 100% governance mode
+        // 100% governance mode - apply bonus since only UBQ is redeemed
+        const dollarAfterFee = calculateRedeemFeeOutputWithBonus(input.dollarAmount, input.redemptionFee, true);
         collateralRedeemed = 0n;
         governanceRedeemed = (dollarAfterFee * poolPricePrecision) / input.governancePrice;
     } else {
-        // Mixed mode
+        // Mixed mode - apply bonus since UBQ is part of redemption
+        const dollarAfterFee = calculateRedeemFeeOutputWithBonus(input.dollarAmount, input.redemptionFee, true);
         collateralRedeemed = (input.collateralAmount * input.collateralRatio) / poolPricePrecision;
         governanceRedeemed = (dollarAfterFee * (poolPricePrecision - input.collateralRatio)) / input.governancePrice;
     }
@@ -145,6 +147,23 @@ export function calculateRedeemFeeOutput(dollarAmount: bigint, redemptionFeePerc
     const poolPricePrecision = 1000000n;
     const redemptionFee = parseUnits(redemptionFeePercent.toString(), 6);
     return (dollarAmount * (poolPricePrecision - redemptionFee)) / poolPricePrecision;
+}
+
+/**
+ * Pure function to calculate redeem fee output with protocol supporter bonus
+ */
+export function calculateRedeemFeeOutputWithBonus(dollarAmount: bigint, redemptionFeePercent: number, hasGovernanceRedemption: boolean): bigint {
+    const poolPricePrecision = 1000000n;
+    const redemptionFee = parseUnits(redemptionFeePercent.toString(), 6);
+    let feeAdjustedAmount = (dollarAmount * (poolPricePrecision - redemptionFee)) / poolPricePrecision;
+
+    // Apply 5% protocol supporter bonus if receiving governance (UBQ) tokens
+    if (hasGovernanceRedemption) {
+        const protocolSupporterBonus = 50000n; // 5% in basis points (5 * 10000)
+        feeAdjustedAmount = (feeAdjustedAmount * (poolPricePrecision + protocolSupporterBonus)) / poolPricePrecision;
+    }
+
+    return feeAdjustedAmount;
 }
 
 /**
