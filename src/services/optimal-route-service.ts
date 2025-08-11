@@ -28,7 +28,7 @@ export interface OptimalRouteResult {
         amount: bigint;
         percentage: number;
     };
-    reason: string;
+    // reason: string;
     isEnabled: boolean;
     disabledReason?: string;
     // UBQ-related information for mixed operations
@@ -103,7 +103,7 @@ export class OptimalRouteService {
             // Determine optimal route based on user preference and market conditions
             let routeType: RouteType;
             let expectedOutput: bigint;
-            let reason: string;
+            // let reason: string;
             let isEnabled = true;
             let disabledReason: string | undefined;
 
@@ -111,12 +111,12 @@ export class OptimalRouteService {
                 // Minting disabled, use swap
                 routeType = 'swap';
                 expectedOutput = swapOutputUUSD;
-                reason = 'Minting disabled due to price conditions. Using Curve swap.';
+                // reason = 'Minting disabled due to price conditions. Using Curve swap.';
             } else if (isForceCollateralOnly) {
                 // User explicitly chose LUSD-only mode - always use collateral-only mint
                 routeType = 'mint';
                 expectedOutput = collateralOnlyMintResult.totalDollarMint;
-                reason = 'LUSD-only mode: Using 100% LUSD (no UBQ discount).';
+                // reason = 'LUSD-only mode: Using 100% LUSD (no UBQ discount).';
             } else {
                 // User allows UBQ discount - always use mixed mint to show the discount
                 routeType = 'mint';
@@ -127,7 +127,7 @@ export class OptimalRouteService {
                 const collateralOnlyOutput = BigInt(collateralOnlyMintResult.totalDollarMint);
                 const discountBigInt = (mixedOutput - collateralOnlyOutput) * 10000n / collateralOnlyOutput;
                 const discount = Number(discountBigInt) / 100;
-                reason = `Minting with 95% LUSD + 5% UBQ.`;
+                // reason = `Minting with 95% LUSD + 5% UBQ.`;
             }
 
             // Calculate alternative output for savings comparison
@@ -143,7 +143,7 @@ export class OptimalRouteService {
                 marketPrice,
                 pegPrice: this.PEG_PRICE,
                 savings,
-                reason,
+                // reason,
                 isEnabled,
                 disabledReason,
                 // Add UBQ information for mixed minting
@@ -165,7 +165,7 @@ export class OptimalRouteService {
                     marketPrice: this.PEG_PRICE,
                     pegPrice: this.PEG_PRICE,
                     savings: { amount: 0n, percentage: 0 },
-                    reason: 'Using Curve swap (fallback due to calculation error).',
+                    // reason: 'Using Curve swap (fallback due to calculation error).',
                     isEnabled: true
                 };
             } catch (swapError) {
@@ -250,7 +250,7 @@ export class OptimalRouteService {
             // Determine optimal route - ONLY redeem or swap for withdrawals
             let routeType: RouteType;
             let expectedOutput: bigint;
-            let reason: string;
+            // let reason: string;
             let isEnabled = true;
             let disabledReason: string | undefined;
 
@@ -258,7 +258,7 @@ export class OptimalRouteService {
                 // Redeeming disabled, use swap
                 routeType = 'swap';
                 expectedOutput = swapOutputLUSD;
-                reason = 'Redeeming disabled due to price conditions. Using Curve swap.';
+                // reason = 'Redeeming disabled due to price conditions. Using Curve swap.';
                 console.log('🔄 Route: swap (redeeming disabled)');
             } else if (isLusdOnlyRedemption) {
                 // User explicitly chose LUSD-only redemption
@@ -266,12 +266,12 @@ export class OptimalRouteService {
                 if (swapOutputLUSD > redeemResult.collateralRedeemed) {
                     routeType = 'swap';
                     expectedOutput = swapOutputLUSD;
-                    reason = 'LUSD-only mode: Curve swap provides more LUSD than redemption.';
+                    // reason = 'LUSD-only mode: Curve swap provides more LUSD than redemption.';
                     console.log('🔄 Route: swap (LUSD-only, swap better)');
                 } else {
                     routeType = 'redeem';
                     expectedOutput = redeemResult.collateralRedeemed;
-                    reason = 'LUSD-only mode: Redeeming gives better LUSD rate (100% LUSD).';
+                    // reason = 'LUSD-only mode: Redeeming gives better LUSD rate (100% LUSD).';
                     console.log('🔄 Route: redeem (LUSD-only, redeem better)');
                 }
             } else {
@@ -279,7 +279,7 @@ export class OptimalRouteService {
                 // When user wants mixed redemption, we should prioritize redeem to give them the UBQ bonus
                 routeType = 'redeem';
                 expectedOutput = redeemResult.collateralRedeemed;
-                reason = `Mixed redemption: Get ${formatEther(redeemResult.collateralRedeemed)} LUSD + ${formatEther(redeemResult.governanceRedeemed)} UBQ bonus!`;
+                // reason = `Mixed redemption: Get ${formatEther(redeemResult.collateralRedeemed)} LUSD + ${formatEther(redeemResult.governanceRedeemed)} UBQ bonus!`;
                 console.log('🔄 Route: redeem (mixed redemption prioritized for UBQ bonus)');
             }
 
@@ -296,7 +296,7 @@ export class OptimalRouteService {
                 marketPrice,
                 pegPrice: this.PEG_PRICE,
                 savings,
-                reason,
+                // reason,
                 isEnabled,
                 disabledReason,
                 // Add UBQ information for mixed redemptions
@@ -322,7 +322,7 @@ export class OptimalRouteService {
                     marketPrice: this.PEG_PRICE,
                     pegPrice: this.PEG_PRICE,
                     savings: { amount: 0n, percentage: 0 },
-                    reason: 'Using Curve swap (fallback due to calculation error).',
+                    // reason: 'Using Curve swap (fallback due to calculation error).',
                     isEnabled: true
                 };
             } catch (swapError) {
@@ -417,6 +417,6 @@ export class OptimalRouteService {
             // ? ` (Save ${result.savings.percentage.toFixed(2)}%)`
             // : '';
 
-        return `${direction}: ${actionText} ${inputAmount} ${inputToken} → ${outputAmount} ${outputToken}${savingsText}`;
+        return `${direction}: ${actionText} ${inputAmount} ${inputToken} → ${outputAmount} ${outputToken}`;
     }
 }
