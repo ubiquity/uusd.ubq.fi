@@ -74,11 +74,13 @@ export function calculateMintAmounts(input: MintCalculationInput): MintCalculati
         const dollarForCollateral = (input.dollarAmount * input.collateralRatio) / poolPricePrecision;
         const dollarForGovernance = input.dollarAmount - dollarForCollateral;
 
-        collateralNeeded = input.collateralAmount;
+        collateralNeeded = (input.collateralAmount * input.collateralRatio) / poolPricePrecision;
         governanceNeeded = (dollarForGovernance * poolPricePrecision) / input.governancePrice;
     }
 
-    const totalDollarMint = calculateMintFeeOutput(input.dollarAmount, input.mintingFee);
+    // Check if governance collateral is being used (indicates mixed mode with UBQ)
+    const hasGovernanceCollateral = governanceNeeded > 0n;
+    const totalDollarMint = calculateMintFeeOutputWithBonus(input.dollarAmount, input.mintingFee, hasGovernanceCollateral);
 
     return { totalDollarMint, collateralNeeded, governanceNeeded };
 }
@@ -117,6 +119,23 @@ export function calculateMintFeeOutput(dollarAmount: bigint, mintingFeePercent: 
     const poolPricePrecision = 1000000n;
     const mintingFee = parseUnits(mintingFeePercent.toString(), 6);
     return (dollarAmount * (poolPricePrecision - mintingFee)) / poolPricePrecision;
+}
+
+/**
+ * Pure function to calculate mint fee output with protocol supporter bonus
+ */
+export function calculateMintFeeOutputWithBonus(dollarAmount: bigint, mintingFeePercent: number, hasGovernanceCollateral: boolean): bigint {
+    const poolPricePrecision = 1000000n;
+    const mintingFee = parseUnits(mintingFeePercent.toString(), 6);
+    let feeAdjustedAmount = (dollarAmount * (poolPricePrecision - mintingFee)) / poolPricePrecision;
+
+    // Apply 5% protocol supporter bonus if using governance (UBQ) collateral
+    if (hasGovernanceCollateral) {
+        const protocolSupporterBonus = 50000n; // 5% in basis points (5 * 10000)
+        feeAdjustedAmount = (feeAdjustedAmount * (poolPricePrecision + protocolSupporterBonus)) / poolPricePrecision;
+    }
+
+    return feeAdjustedAmount;
 }
 
 /**

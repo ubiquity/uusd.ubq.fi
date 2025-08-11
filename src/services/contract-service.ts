@@ -412,7 +412,7 @@ export class ContractService implements ContractReads, ContractWrites {
             functionName: 'approve',
             args,
             account,
-            chain: walletClient.chain,
+            chain: this.walletService.getChain(),
             gas: gasLimit
         });
 
@@ -499,7 +499,7 @@ export class ContractService implements ContractReads, ContractWrites {
             functionName: 'mintDollar',
             args,
             account,
-            chain: walletClient.chain,
+            chain: this.walletService.getChain(),
             gas: gasLimit
         });
 
@@ -600,7 +600,7 @@ export class ContractService implements ContractReads, ContractWrites {
             functionName: 'redeemDollar',
             args,
             account,
-            chain: walletClient.chain,
+            chain: this.walletService.getChain(),
             gas: gasLimit
         });
 
@@ -624,7 +624,7 @@ export class ContractService implements ContractReads, ContractWrites {
             functionName: 'collectRedemption',
             args: [BigInt(collateralIndex)],
             account,
-            chain: walletClient.chain
+            chain: this.walletService.getChain()
         });
 
         await publicClient.waitForTransactionReceipt({ hash });

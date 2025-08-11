@@ -312,7 +312,6 @@ export class UnifiedExchangeComponent {
             if (result.isUbqOperation && result.ubqAmount) {
                 if (result.direction === 'deposit') {
                     // For minting, show UBQ needed as input
-                    outputText += ` (using ${formatEther(result.ubqAmount)} UBQ)`;
                 } else {
                     // For redeeming, show UBQ received as output
                     outputText += ` + ${formatEther(result.ubqAmount)} UBQ`;

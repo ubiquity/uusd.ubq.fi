@@ -108,7 +108,7 @@ export class SwapService {
                 functionName: 'exchange',
                 args: [fromIndex, toIndex, params.amountIn, minAmountOut],
                 account,
-                chain: undefined
+                chain: this.walletService.getChain()
             });
 
             // Get actual output amount from transaction receipt
@@ -128,6 +128,9 @@ export class SwapService {
 
         } catch (error: any) {
             console.error('Swap transaction failed:', error);
+            if (error.message.includes('ChainMismatchError')) {
+                throw new Error('Wrong network. Please switch to Ethereum mainnet.');
+            }
             throw new Error(`Swap failed: ${error.message || 'Unknown error'}`);
         }
     }
