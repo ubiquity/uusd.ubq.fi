@@ -28,7 +28,7 @@ export class TransactionButtonUtils {
                     pendingText: config.pendingText,
                     onTransactionClick: config.onTransactionClick
                 });
-                console.log(`✅ Registered transaction button: ${config.buttonId}`);
+
             } else {
                 console.warn(`⚠️ Transaction button not found: ${config.buttonId}`);
             }
@@ -116,11 +116,11 @@ export class TransactionButtonUtils {
                         originalText,
                         pendingText,
                         onTransactionClick: () => {
-                            console.log(`🔄 Auto-registered button clicked: ${id}`);
+
                             // The button's existing onclick should handle the transaction
                         }
                     });
-                    console.log(`🤖 Auto-registered transaction button: ${id}`);
+
                 }
             });
         }, 500); // Wait a bit longer for all components to initialize
@@ -132,7 +132,7 @@ export class TransactionButtonUtils {
     static async demoTransactionFlow(buttonId: string): Promise<void> {
         const handlers = this.createTransactionHandlers(buttonId);
 
-        console.log(`🧪 Demo: Starting transaction flow for ${buttonId}`);
+
 
         // Start transaction
         handlers.handleTransactionStart();
@@ -153,7 +153,7 @@ export class TransactionButtonUtils {
         await new Promise(resolve => setTimeout(resolve, 3000));
         handlers.handleTransactionSuccess('✅ Demo Complete!');
 
-        console.log(`🧪 Demo: Transaction flow completed for ${buttonId}`);
+
     }
 }
 

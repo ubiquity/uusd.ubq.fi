@@ -162,12 +162,12 @@ export class ContractService implements ContractReads, ContractWrites {
                 functionName: 'getDollarPriceUsd'
             }) as bigint;
 
-            console.log(`📊 LUSD oracle price: $${Number(lusdOraclePrice) / 1000000}`);
+
 
             // Calculate actual UUSD market price using Curve pool
             const uusdMarketPrice = await this.curvePriceService.getUUSDMarketPrice(lusdOraclePrice);
 
-            console.log(`🎯 UUSD market price: $${Number(uusdMarketPrice) / 1000000}`);
+
 
             return uusdMarketPrice;
         } catch (error) {
@@ -203,7 +203,7 @@ export class ContractService implements ContractReads, ContractWrites {
     async batchFetchMintData(collateralIndex: number, dollarAmount: bigint): Promise<BatchMintData> {
         const publicClient = this.walletService.getPublicClient();
 
-        console.log('🔄 Batching mint data fetch...');
+
 
         try {
             const results = await publicClient.multicall({
@@ -242,7 +242,7 @@ export class ContractService implements ContractReads, ContractWrites {
                 });
             }
 
-            console.log('✅ Batch data fetched successfully');
+
 
             return {
                 collateralRatio,
@@ -272,7 +272,7 @@ export class ContractService implements ContractReads, ContractWrites {
      */
     async batchFetchPageLoadData(): Promise<BatchPageLoadData> {
         const publicClient = this.walletService.getPublicClient();
-        console.log('🔄 Batching page load data fetch...');
+
 
         try {
             const initialResults = await publicClient.multicall({
@@ -326,7 +326,7 @@ export class ContractService implements ContractReads, ContractWrites {
                 return null;
             }).filter((o): o is CollateralOption => o !== null && Boolean(o.isEnabled) && !Boolean(o.isMintPaused));
 
-            console.log('✅ Page load data fetched successfully');
+
             return { uusdPrice, collateralOptions };
 
         } catch (error) {
@@ -402,7 +402,7 @@ export class ContractService implements ContractReads, ContractWrites {
 
         const args = [spender, amount];
 
-        console.log('🔄 Estimating gas for approval transaction...');
+
 
         // Estimate gas with fallback handling
         let gasEstimate: bigint;
@@ -414,16 +414,16 @@ export class ContractService implements ContractReads, ContractWrites {
                 args,
                 account
             });
-            console.log('✅ Approval gas estimated:', gasEstimate.toString());
+
         } catch (estimationError) {
-            console.log('⚠️ Approval gas estimation failed, using fallback:', estimationError);
+
             // Fallback gas limit for approval operations
             gasEstimate = 100000n;
         }
 
         // Add 20% buffer to gas estimate
         const gasLimit = gasEstimate + (gasEstimate * 20n / 100n);
-        console.log('🔄 Using approval gas limit with buffer:', gasLimit.toString());
+
 
         const hash = await walletClient.writeContract({
             address: tokenAddress,
@@ -435,7 +435,7 @@ export class ContractService implements ContractReads, ContractWrites {
             gas: gasLimit
         });
 
-        console.log('✅ Approval transaction submitted:', hash);
+
         await publicClient.waitForTransactionReceipt({ hash });
         return hash;
     }
@@ -465,7 +465,7 @@ export class ContractService implements ContractReads, ContractWrites {
             isOneToOne
         ];
 
-        console.log('🔄 Estimating gas for mint transaction...');
+
 
         // Estimate gas with oracle error detection
         let gasEstimate: bigint;
@@ -477,16 +477,16 @@ export class ContractService implements ContractReads, ContractWrites {
                 args,
                 account
             });
-            console.log('✅ Gas estimated:', gasEstimate.toString());
+
         } catch (estimationError: any) {
-            console.log('⚠️ Gas estimation failed:', estimationError);
+
 
             // Analyze oracle error with enhanced messaging
             const errorMessage = estimationError.message || estimationError.toString();
             const oracleAnalysis = analyzeOracleError(errorMessage);
 
             if (oracleAnalysis.isOracleIssue) {
-                console.log('❌ Oracle data is stale, aborting transaction');
+
                 const refreshEstimate = getOracleRefreshEstimate();
                 const alternatives = getAlternativeActions();
 
@@ -504,13 +504,13 @@ export class ContractService implements ContractReads, ContractWrites {
             }
 
             // For other gas estimation failures, use fallback
-            console.log('🔄 Using fallback gas limit for non-oracle error');
+
             gasEstimate = 500000n;
         }
 
         // Add 20% buffer to gas estimate
         const gasLimit = gasEstimate + (gasEstimate * 20n / 100n);
-        console.log('🔄 Using gas limit with buffer:', gasLimit.toString());
+
 
         const hash = await walletClient.writeContract({
             address: ADDRESSES.DIAMOND,
@@ -522,7 +522,7 @@ export class ContractService implements ContractReads, ContractWrites {
             gas: gasLimit
         });
 
-        console.log('✅ Mint transaction submitted:', hash);
+
         await publicClient.waitForTransactionReceipt({ hash });
         return hash;
     }
@@ -548,7 +548,7 @@ export class ContractService implements ContractReads, ContractWrites {
             collateralOutMin
         ];
 
-        console.log('🔄 Estimating gas for redeem transaction...');
+
 
         // Estimate gas with oracle error detection
         let gasEstimate: bigint;
@@ -560,26 +560,26 @@ export class ContractService implements ContractReads, ContractWrites {
                 args,
                 account
             });
-            console.log('✅ Redeem gas estimated:', gasEstimate.toString());
+
         } catch (estimationError: any) {
-            console.log('⚠️ Redeem gas estimation failed:', estimationError);
+
 
             // Analyze error message for specific contract errors
             const errorMessage = estimationError.message || estimationError.toString();
 
             // Check for specific contract errors first
             if (errorMessage.includes('Dollar price too high')) {
-                console.log('❌ Contract rejected redeem: Dollar price too high');
+
                 throw new Error('Cannot redeem at this time: The current UUSD price is too high relative to collateral prices. This is a safety mechanism to protect the protocol. Please try again later.');
             }
 
             if (errorMessage.includes('Collateral disabled')) {
-                console.log('❌ Contract rejected redeem: Collateral disabled');
+
                 throw new Error('Redemptions are temporarily disabled for this collateral type. Please try again later or use a different collateral.');
             }
 
             if (errorMessage.includes('Insufficient collateral')) {
-                console.log('❌ Contract rejected redeem: Insufficient collateral');
+
                 throw new Error('Insufficient collateral in the protocol to fulfill this redemption. Please try a smaller amount.');
             }
 
@@ -587,7 +587,7 @@ export class ContractService implements ContractReads, ContractWrites {
             const oracleAnalysis = analyzeOracleError(errorMessage);
 
             if (oracleAnalysis.isOracleIssue) {
-                console.log('❌ Oracle data is stale, aborting redeem transaction');
+
                 const refreshEstimate = getOracleRefreshEstimate();
                 const alternatives = getAlternativeActions();
 
@@ -605,13 +605,13 @@ export class ContractService implements ContractReads, ContractWrites {
             }
 
             // For other gas estimation failures, use fallback
-            console.log('🔄 Using fallback gas limit for non-oracle redeem error');
+
             gasEstimate = 400000n;
         }
 
         // Add 20% buffer to gas estimate
         const gasLimit = gasEstimate + (gasEstimate * 20n / 100n);
-        console.log('🔄 Using redeem gas limit with buffer:', gasLimit.toString());
+
 
         const hash = await walletClient.writeContract({
             address: ADDRESSES.DIAMOND,
@@ -623,7 +623,7 @@ export class ContractService implements ContractReads, ContractWrites {
             gas: gasLimit
         });
 
-        console.log('✅ Redeem transaction submitted:', hash);
+
         await publicClient.waitForTransactionReceipt({ hash });
         return hash;
     }

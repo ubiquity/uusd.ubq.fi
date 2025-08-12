@@ -114,7 +114,7 @@ class UUSDApp {
         if (!this.priceService.isInitialized()) {
             try {
                 await this.priceService.initialize();
-                console.log('✅ Price service initialized');
+
 
                 // Warm cache with essential data for better responsiveness
                 await cacheService.warmCache(this.contractService);
@@ -163,7 +163,7 @@ class UUSDApp {
         try {
             const cachedHistory = this.priceService.getCachedUUSDPriceHistory();
             if (cachedHistory.length > 0) {
-                console.log('⚡ Immediate sparkline render with', cachedHistory.length, 'cached points');
+
                 this.generateRealSparkline(cachedHistory);
             }
         } catch (error: any) {
@@ -183,12 +183,12 @@ class UUSDApp {
 
             // STEP 2: Fetch fresh data and update if different
             const freshHistory = await this.priceService.getUUSDPriceHistory();
-            console.log('📊 Fresh price history loaded:', freshHistory.length, 'points');
+
 
             // Only re-render if we got more/different data
             if (freshHistory.length > cachedHistory.length ||
                 (freshHistory.length > 0 && cachedHistory.length === 0)) {
-                console.log('🔄 Updating with fresh data');
+
                 this.generateRealSparkline(freshHistory);
             }
         } catch (error: any) {
@@ -258,10 +258,10 @@ class UUSDApp {
         chartElement.classList.add('ready');
         strokeElement.classList.add('ready');
 
-        console.log('📈 Dynamic sparkline generated with', points.length - 2, 'data points');
-        console.log('💰 Actual price range: $' + minPrice.toFixed(6), '→ $' + maxPrice.toFixed(6));
-        console.log('📊 Chart mapping: $0.99 → 80%, $1.01 → 20%');
-        console.log('📍 First few points:', points.slice(0, 3));
+
+
+
+
     }
 
     /**
@@ -403,7 +403,7 @@ class UUSDApp {
      * Usage: app.demoTransactionUX('exchangeButton')
      */
     async demoTransactionUX(buttonId: string = 'exchangeButton') {
-        console.log(`🧪 Starting transaction UX demo for button: ${buttonId}`);
+
         await TransactionButtonUtils.demoTransactionFlow(buttonId);
     }
 
@@ -415,9 +415,9 @@ class UUSDApp {
         const active = TransactionButtonUtils.getActiveTransactions();
         const hasActive = TransactionButtonUtils.hasActiveTransaction();
 
-        console.log('📊 Transaction Status:');
-        console.log('  Has active transactions:', hasActive);
-        console.log('  Active transactions:', active);
+
+
+
 
         return { hasActive, active };
     }

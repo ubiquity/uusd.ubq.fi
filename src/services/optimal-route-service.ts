@@ -180,18 +180,18 @@ export class OptimalRouteService {
      * NOTE: For withdrawing, we should NEVER return 'mint' as a route type
      */
     async getOptimalWithdrawRoute(uusdAmount: bigint, isLusdOnlyRedemption: boolean = false): Promise<OptimalRouteResult> {
-        console.log('🔍 Calculating optimal withdraw route for', formatEther(uusdAmount), 'UUSD');
+
 
         try {
-            console.log('📝 Step 1: Getting market conditions...');
+
             // Get current market conditions
             let lusdPrice: bigint;
             let marketPrice: bigint;
 
             try {
-                console.log('📝 Step 1a: Getting LUSD oracle price...');
+
                 lusdPrice = await this.contractService.getLUSDOraclePrice();
-                console.log('📝 Step 1b: Getting UUSD market price...');
+
                 marketPrice = await this.curvePriceService.getUUSDMarketPrice(this.PEG_PRICE);
             } catch (error) {
                 console.error('❌ Error getting market conditions:', error);
@@ -204,12 +204,12 @@ export class OptimalRouteService {
                 pegPrice: formatUnits(this.PEG_PRICE, 6)
             });
 
-            console.log('📝 Step 2: Calculating redeem output...');
+
 
             // Calculate redeem output with oracle error handling
             let redeemResult;
             try {
-                console.log('📝 Step 2a: Calling calculateRedeemOutput...');
+
 
                 // For LUSD-only redemption, we can skip governance price entirely
                 const skipGovernancePrice = isLusdOnlyRedemption;
@@ -228,19 +228,19 @@ export class OptimalRouteService {
                 });
 
                 redeemResult = await Promise.race([redeemPromise, timeoutPromise]) as any;
-                console.log('📝 Step 2b: Redeem calculation successful');
+
             } catch (error) {
                 console.error('❌ Error calculating redeem output:', error);
 
                 // Check if it's an oracle error and we can fall back to swap-only
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 if (errorMessage.includes('Stale data') || errorMessage.includes('oracle')) {
-                    console.log('🔮 Oracle stale, falling back to swap route for calculations');
+
 
                     // Calculate swap output and return swap-only result
                     try {
                         const swapOutputLUSD = await this.getSwapOutput(uusdAmount, 'UUSD', 'LUSD');
-                        console.log('🔄 Using swap fallback due to oracle issues');
+
 
                         return {
                             routeType: 'swap' as const,
@@ -265,9 +265,9 @@ export class OptimalRouteService {
             // Calculate swap output (UUSD → LUSD via Curve)
             let swapOutputLUSD;
             try {
-                console.log('📝 Step 2c: Calculating swap output...');
+
                 swapOutputLUSD = await this.getSwapOutput(uusdAmount, 'UUSD', 'LUSD');
-                console.log('📝 Step 2d: Swap calculation successful');
+
             } catch (error) {
                 console.error('❌ Error calculating swap output:', error);
                 throw new Error(`Failed to calculate swap output: ${error}`);
@@ -293,7 +293,7 @@ export class OptimalRouteService {
                 routeType = 'swap';
                 expectedOutput = swapOutputLUSD;
                 // reason = 'Redeeming disabled due to price conditions. Using Curve swap.';
-                console.log('🔄 Route: swap (redeeming disabled)');
+
             } else if (isLusdOnlyRedemption) {
                 // User explicitly chose LUSD-only redemption
                 // Compare swap vs redeem for pure LUSD output
@@ -301,12 +301,12 @@ export class OptimalRouteService {
                     routeType = 'swap';
                     expectedOutput = swapOutputLUSD;
                     // reason = 'LUSD-only mode: Curve swap provides more LUSD than redemption.';
-                    console.log('🔄 Route: swap (LUSD-only, swap better)');
+
                 } else {
                     routeType = 'redeem';
                     expectedOutput = redeemResult.collateralRedeemed;
                     // reason = 'LUSD-only mode: Redeeming gives better LUSD rate (100% LUSD).';
-                    console.log('🔄 Route: redeem (LUSD-only, redeem better)');
+
                 }
             } else {
                 // User allows mixed redemption (95% LUSD + 5% UBQ) - PRIORITIZE REDEEM TO GET UBQ
@@ -314,7 +314,7 @@ export class OptimalRouteService {
                 routeType = 'redeem';
                 expectedOutput = redeemResult.collateralRedeemed;
                 // reason = `Mixed redemption: Get ${formatEther(redeemResult.collateralRedeemed)} LUSD + ${formatEther(redeemResult.governanceRedeemed)} UBQ bonus!`;
-                console.log('🔄 Route: redeem (mixed redemption prioritized for UBQ bonus)');
+
             }
 
 
@@ -338,7 +338,7 @@ export class OptimalRouteService {
                 isUbqOperation: (routeType === 'redeem' && !isLusdOnlyRedemption)
             };
 
-            console.log('✅ Final withdraw route:', result);
+
             return result;
 
         } catch (error) {
@@ -347,7 +347,7 @@ export class OptimalRouteService {
             // Fallback to swap if calculations fail
             try {
                 const swapOutput = await this.getSwapOutput(uusdAmount, 'UUSD', 'LUSD');
-                console.log('🔄 Using fallback swap route');
+
                 return {
                     routeType: 'swap',
                     expectedOutput: swapOutput,

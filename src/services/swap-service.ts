@@ -168,7 +168,7 @@ export class SwapService {
         );
 
         if (currentAllowance < amount) {
-            console.log(`Approving ${tokenAddress} for Curve pool...`);
+
 
             const approvalHash = await this.contractService.approveToken(
                 tokenAddress,
@@ -180,7 +180,7 @@ export class SwapService {
             const publicClient = this.walletService.getPublicClient();
             await publicClient.waitForTransactionReceipt({ hash: approvalHash as Hash });
 
-            console.log(`✅ Token approval confirmed: ${approvalHash}`);
+
         }
     }
 

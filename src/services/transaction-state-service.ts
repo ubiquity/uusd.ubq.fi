@@ -69,7 +69,7 @@ export class TransactionStateService {
       }
     };
 
-    console.log(`✅ Registered transaction button: ${buttonId}`);
+
   }
 
   /**
@@ -95,7 +95,7 @@ export class TransactionStateService {
     // Don't disable the button - keep it clickable but change behavior
     button.disabled = false;
 
-    console.log(`🔄 Started transaction for button: ${buttonId}`);
+
   }
 
   /**
@@ -117,7 +117,7 @@ export class TransactionStateService {
     button.classList.add('transaction-pending');
     button.disabled = false;
 
-    console.log(`🔄 Started approval for button: ${buttonId} - ${tokenSymbol}`);
+
   }
 
   /**
@@ -131,7 +131,7 @@ export class TransactionStateService {
     const button = state.buttonElement;
     button.innerHTML = `Processing...<span class="loading"></span>`;
 
-    console.log(`✅ Completed approval for button: ${buttonId}`);
+
   }
 
   /**
@@ -157,7 +157,7 @@ export class TransactionStateService {
     button.disabled = false;
     button.title = `Click to view transaction: ${hash}`;
 
-    console.log(`🔗 Updated transaction hash for button: ${buttonId} - ${hash}`);
+
   }
 
   /**
@@ -190,7 +190,7 @@ export class TransactionStateService {
       }, 2000);
     }
 
-    console.log(`✅ Completed transaction for button: ${buttonId}`);
+
   }
 
   /**
@@ -223,7 +223,7 @@ export class TransactionStateService {
       }
     }, 3000);
 
-    console.log(`❌ Transaction error for button: ${buttonId} - ${error}`);
+
   }
 
   /**
@@ -276,7 +276,7 @@ export class TransactionStateService {
     const explorerUrl = `https://etherscan.io/tx/${hash}`;
     window.open(explorerUrl, '_blank', 'noopener,noreferrer');
 
-    console.log(`🔗 Opened transaction in explorer: ${hash}`);
+
   }
 
   /**
@@ -290,7 +290,7 @@ export class TransactionStateService {
     }
 
     this.transactions.delete(buttonId);
-    console.log(`🗑️ Unregistered transaction button: ${buttonId}`);
+
   }
 
   /**
@@ -311,6 +311,6 @@ export class TransactionStateService {
       }
     }
 
-    console.log(`🔄 Reset all transaction buttons`);
+
   }
 }

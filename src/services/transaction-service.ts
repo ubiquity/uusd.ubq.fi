@@ -88,14 +88,14 @@ export class TransactionService {
         // Validate wallet connection
         try {
             this.walletService.validateConnection();
-            console.log('✅ Wallet connection validated');
+
         } catch (error) {
             console.error('❌ Wallet validation failed:', error);
             throw error;
         }
 
         const account = this.walletService.getAccount()!;
-        console.log('✅ Account retrieved:', account);
+
 
         // Validate transaction parameters
         const validation = validateTransactionParams(dollarAmount, collateralIndex, account);
@@ -103,11 +103,11 @@ export class TransactionService {
             console.error('❌ Parameter validation failed:', validation.error);
             throw new Error(validation.error);
         }
-        console.log('✅ Parameters validated');
+
 
         try {
             this.events.onTransactionStart?.(TransactionOperation.MINT);
-            console.log('✅ Transaction start event fired');
+
 
             // Get collateral info and calculate mint amounts
             const collateral = this.priceService.getCollateralByIndex(collateralIndex);
@@ -115,9 +115,9 @@ export class TransactionService {
                 console.error('❌ Collateral not found for index:', collateralIndex);
                 throw new Error(`Collateral with index ${collateralIndex} not found`);
             }
-            console.log('✅ Collateral found:', collateral);
 
-            console.log('🔄 Calculating mint output...');
+
+
             const mintResult = await this.priceService.calculateMintOutput({
                 dollarAmount,
                 collateralIndex,
@@ -130,9 +130,9 @@ export class TransactionService {
             });
 
             // Handle approvals if needed
-            console.log('🔄 Checking and handling approvals...');
+
             await this.handleMintApprovals(collateral, account, mintResult);
-            console.log('✅ Approvals handled');
+
 
             // Execute mint transaction with slippage tolerance
             // Add 0.5% slippage tolerance
@@ -167,7 +167,7 @@ export class TransactionService {
                 isForceCollateralOnly
             );
 
-            console.log('✅ Mint transaction successful, hash:', hash);
+
             this.events.onTransactionSubmitted?.(TransactionOperation.MINT, hash);
             this.events.onTransactionSuccess?.(TransactionOperation.MINT, hash);
             return hash;
@@ -179,7 +179,7 @@ export class TransactionService {
                 if (contractError.message?.includes('💡 Oracle Price Feed Issue Detected') ||
                     contractError.message?.includes('Oracle keepers will update') ||
                     contractError.message?.includes('Alternative actions:')) {
-                    console.log('🔄 Oracle error already enhanced by ContractService, passing through');
+
                     this.events.onTransactionError?.(TransactionOperation.MINT, contractError);
                     throw contractError;
                 }
@@ -187,7 +187,7 @@ export class TransactionService {
                 // Check if this is a raw stale oracle data error
                 if (contractError.message?.toLowerCase().includes('stale stable/usd data') ||
                     contractError.message?.toLowerCase().includes('stale') && contractError.message?.toLowerCase().includes('data')) {
-                    console.log('🔄 Raw oracle data is stale, creating enhanced error...');
+
                     const oracleError = new Error(`Price oracle data is outdated. The LUSD price feed needs to be updated by oracle keepers. This usually resolves within a few minutes. Please try again later, or consider using a different collateral type if available.`);
                     this.events.onTransactionError?.(TransactionOperation.MINT, oracleError);
                     throw oracleError;
@@ -220,14 +220,14 @@ export class TransactionService {
         // Validate wallet connection
         try {
             this.walletService.validateConnection();
-            console.log('✅ Wallet connection validated');
+
         } catch (error) {
             console.error('❌ Wallet validation failed:', error);
             throw error;
         }
 
         const account = this.walletService.getAccount()!;
-        console.log('✅ Account retrieved:', account);
+
 
         // Validate transaction parameters
         const validation = validateTransactionParams(dollarAmount, collateralIndex, account);
@@ -235,28 +235,28 @@ export class TransactionService {
             console.error('❌ Parameter validation failed:', validation.error);
             throw new Error(validation.error);
         }
-        console.log('✅ Parameters validated');
+
 
         try {
             this.events.onTransactionStart?.(TransactionOperation.REDEEM);
-            console.log('✅ Transaction start event fired');
+
 
             // Check if there's a pending redemption to collect first
-            console.log('🔄 Checking for pending redemptions...');
+
             const redeemBalance = await this.contractService.getRedeemCollateralBalance(
                 account,
                 collateralIndex
             );
 
             if (redeemBalance > 0n) {
-                console.log('🔄 Found pending redemption, collecting first...');
+
                 // Collect existing redemption first
                 return this.executeCollectRedemption(collateralIndex);
             }
-            console.log('✅ No pending redemptions');
+
 
             // Calculate redeem output for slippage protection
-            console.log('🔄 Calculating redeem output...');
+
             const redeemResult = await this.priceService.calculateRedeemOutput({
                 dollarAmount,
                 collateralIndex
@@ -267,9 +267,9 @@ export class TransactionService {
             });
 
             // Handle UUSD approval if needed
-            console.log('🔄 Checking and handling approvals...');
+
             await this.handleRedeemApproval(account, dollarAmount);
-            console.log('✅ Approvals handled');
+
 
             // Execute redeem transaction with slippage tolerance
             // Add 0.5% slippage tolerance
@@ -294,7 +294,7 @@ export class TransactionService {
                 collateralOutMin  // Minimum collateral expected (with slippage)
             );
 
-            console.log('✅ Redeem transaction successful, hash:', hash);
+
             this.events.onTransactionSuccess?.(TransactionOperation.REDEEM, hash);
             return hash;
 
@@ -309,7 +309,7 @@ export class TransactionService {
                 errorMessage.includes('💡 Oracle Price Feed Issue Detected') ||
                 errorMessage.includes('Oracle keepers will update') ||
                 errorMessage.includes('Alternative actions:')) {
-                console.log('🔄 Error already enhanced by ContractService, passing through');
+
                 this.events.onTransactionError?.(TransactionOperation.REDEEM, error as Error);
                 throw error;
             }

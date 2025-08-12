@@ -56,13 +56,13 @@ export class CacheService {
 
         // Return fresh cached data
         if (cached && now - cached.timestamp < cached.ttl) {
-            console.log(`📦 Cache hit (fresh): ${key}`);
+
             return cached.data;
         }
 
         // Check if we have a pending request for this key
         if (this.pendingRequests.has(key)) {
-            console.log(`⏳ Waiting for pending request: ${key}`);
+
             return this.pendingRequests.get(key)!;
         }
 
@@ -90,12 +90,12 @@ export class CacheService {
         const now = Date.now();
 
         try {
-            console.log(`🔄 Fetching fresh data: ${key}`);
+
             const data = await fetchFn();
 
             // Store fresh data in cache
             this.setCache(key, data, options);
-            console.log(`✅ Fresh data cached: ${key}`);
+
             return data;
 
         } catch (error) {
@@ -107,7 +107,7 @@ export class CacheService {
                 const maxAge = options.maxAge || 600000; // Default 10 min max age
 
                 if (age < maxAge) {
-                    console.log(`📦 Using stale data (${Math.round(age/1000)}s old): ${key}`);
+
                     // Mark as stale for UI indicators
                     cached.isStale = true;
                     return cached.data;
@@ -116,11 +116,11 @@ export class CacheService {
 
             // If oracle-specific error, provide better error message
             if (this.isOracleError(error)) {
-                console.log(`🔮 Oracle error detected for ${key}, checking for alternatives`);
+
 
                 // For oracle errors, we might want to use alternative calculation methods
                 if (key.includes('governance-price') && cached) {
-                    console.log(`📦 Using cached governance price due to oracle staleness`);
+
                     cached.isStale = true;
                     return cached.data;
                 }
@@ -174,7 +174,7 @@ export class CacheService {
         }
 
         entriesToDelete.forEach(key => this.cache.delete(key));
-        console.log(`🧹 Cleaned up ${entriesToDelete.length} stale cache entries`);
+
     }
 
     /**
@@ -182,7 +182,7 @@ export class CacheService {
      */
     invalidate(key: string): void {
         this.cache.delete(key);
-        console.log(`🗑️ Invalidated cache: ${key}`);
+
     }
 
     /**
@@ -196,7 +196,7 @@ export class CacheService {
             }
         }
         keysToDelete.forEach(key => this.cache.delete(key));
-        console.log(`🗑️ Invalidated ${keysToDelete.length} keys matching: ${pattern}`);
+
     }
 
     /**
@@ -222,14 +222,14 @@ export class CacheService {
      */
     clear(): void {
         this.cache.clear();
-        console.log('��️ Cache cleared');
+
     }
 
     /**
      * Warm cache with commonly needed data
      */
     async warmCache(contractService: any): Promise<void> {
-        console.log('🔥 Warming cache with essential data...');
+
 
         const warmupTasks = [
             { key: 'collateral-ratio', fn: () => contractService.getCollateralRatio(), config: CACHE_CONFIGS.COLLATERAL_RATIO },
@@ -248,7 +248,7 @@ export class CacheService {
         );
 
         const successful = results.filter(r => r.status === 'fulfilled').length;
-        console.log(`🔥 Cache warmed: ${successful}/${warmupTasks.length} tasks successful`);
+
     }
 }
 

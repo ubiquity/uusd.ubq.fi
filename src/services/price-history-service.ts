@@ -166,7 +166,7 @@ export class PriceHistoryService {
             );
 
             if (swapHistory.length > 0) {
-                console.log(`✅ Got ${swapHistory.length} price points from swap events`);
+
                 return swapHistory;
             }
         } catch (error) {
@@ -182,7 +182,7 @@ export class PriceHistoryService {
             );
 
             if (sampledHistory.length > 0) {
-                console.log(`✅ Got ${sampledHistory.length} price points from sampling`);
+
                 return sampledHistory;
             }
         } catch (error) {
@@ -205,7 +205,7 @@ export class PriceHistoryService {
         try {
             // For now, we'll skip the event log strategy due to complex ABI parsing
             // and focus on the sampling strategy which is more reliable
-            console.log('📊 Skipping swap events strategy, using sampling instead');
+
             return [];
         } catch (error) {
             console.warn('⚠️ Swap events strategy failed:', error);
@@ -248,12 +248,12 @@ export class PriceHistoryService {
             }
         }
 
-        console.log(`🔍 Cache status: ${cachedPoints.length} cached, ${missingBlocks.length} missing blocks`);
+
 
         // Only fetch missing data points
         let newPoints: PriceDataPoint[] = [];
         if (missingBlocks.length > 0) {
-            console.log(`📊 Batching ${missingBlocks.length} missing RPC requests...`);
+
 
             try {
                 const testAmount = parseEther('1'); // 1 LUSD
@@ -288,7 +288,7 @@ export class PriceHistoryService {
                     }
                 }
 
-                console.log(`✅ Fetched ${newPoints.length}/${missingBlocks.length} new data points`);
+
             } catch (error) {
                 console.error('❌ Batched RPC sampling failed:', error);
                 return cachedPoints; // Return at least cached data
@@ -300,7 +300,7 @@ export class PriceHistoryService {
             (a, b) => Number(a.blockNumber - b.blockNumber)
         );
 
-        console.log(`✅ Total points: ${allPoints.length} (${cachedPoints.length} cached + ${newPoints.length} new)`);
+
         return allPoints;
     }
 
@@ -508,7 +508,7 @@ export class PriceHistoryService {
             });
 
             if (cleanedCount > 0) {
-                console.log(`🧹 Cleaned up ${cleanedCount} old cache entries (older than 1 week)`);
+
             }
         } catch (error) {
             // Ignore localStorage errors

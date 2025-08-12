@@ -135,42 +135,42 @@ export class UnifiedExchangeComponent {
             const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
             const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
 
-            console.log('🔧 Setting up event listeners:');
-            console.log('  amountInput:', amountInput ? `Found (${amountInput.tagName})` : 'NOT FOUND');
-            console.log('  depositButton:', depositButton ? `Found (${depositButton.tagName})` : 'NOT FOUND');
-            console.log('  withdrawButton:', withdrawButton ? `Found (${withdrawButton.tagName})` : 'NOT FOUND');
-            console.log('  forceCollateralOnly:', forceCollateralOnly ? `Found (${forceCollateralOnly.tagName})` : 'NOT FOUND');
-            console.log('  redeemLusdOnly:', redeemLusdOnly ? `Found (${redeemLusdOnly.tagName})` : 'NOT FOUND');
+
+
+
+
+
+
 
             if (amountInput) {
                 // Try multiple event types
                 amountInput.addEventListener('input', () => {
-                    console.log('📝 INPUT event triggered');
+
                     this.updateOutput();
                 });
                 amountInput.addEventListener('keyup', () => {
-                    console.log('⌨️ KEYUP event triggered');
+
                     this.updateOutput();
                 });
                 amountInput.addEventListener('change', () => {
-                    console.log('🔄 CHANGE event triggered');
+
                     this.updateOutput();
                 });
-                console.log('✅ Event listeners added to amountInput');
+
             } else {
                 console.error('❌ amountInput not found!');
             }
 
             if (forceCollateralOnly) {
                 forceCollateralOnly.addEventListener('change', () => {
-                    console.log('☑️ Mint checkbox change event triggered');
+
                     this.updateOutput();
                 });
             }
 
             if (redeemLusdOnly) {
                 redeemLusdOnly.addEventListener('change', () => {
-                    console.log('☑️ Redeem checkbox change event triggered');
+
                     this.updateOutput();
                 });
             }
@@ -221,7 +221,7 @@ export class UnifiedExchangeComponent {
     private async loadProtocolSettings(): Promise<void> {
         try {
             this.protocolSettings = await this.services.contractService.getProtocolSettings(LUSD_COLLATERAL.index);
-            console.log('📋 Protocol settings loaded:', this.protocolSettings);
+
 
             // Update UI labels with actual ratios
             this.updateProtocolLabels();
@@ -272,7 +272,7 @@ export class UnifiedExchangeComponent {
      * Update exchange output with optimal route calculation
      */
     async updateOutput(): Promise<void> {
-        console.log('🔍 updateOutput called');
+
 
         // Clear existing timer
         if (this.debounceTimer) {
@@ -281,7 +281,7 @@ export class UnifiedExchangeComponent {
 
         // Debounce the calculation
         this.debounceTimer = setTimeout(async () => {
-            console.log('⏰ Debounce timer triggered, calling performCalculation');
+
             await this.performCalculation();
         }, 300);
     }
@@ -322,18 +322,18 @@ export class UnifiedExchangeComponent {
 
             // Calculate optimal route
             let routeResult: OptimalRouteResult;
-            console.log('🔍 Current direction:', this.currentDirection);
+
             if (this.currentDirection === 'deposit') {
-                console.log('📈 Calling getOptimalDepositRoute');
+
                 const isForceCollateralOnly = forceCollateralOnly?.checked || false;
                 routeResult = await this.optimalRouteService.getOptimalDepositRoute(inputAmount, isForceCollateralOnly);
             } else {
-                console.log('📉 Calling getOptimalWithdrawRoute');
+
                 const isLusdOnlyRedemption = redeemLusdOnly?.checked || false;
                 routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount, isLusdOnlyRedemption);
             }
 
-            console.log('📊 Route result:', routeResult);
+
 
             // Update UI with route information
             await this.updateRouteDisplay(routeResult);
