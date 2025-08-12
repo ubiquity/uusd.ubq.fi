@@ -1,6 +1,6 @@
 import { parseEther, formatEther, formatUnits, type Address } from 'viem';
 import type { WalletService } from '../services/wallet-service.ts';
-import type { ContractService } from '../services/contract-service.ts';
+import type { ContractService, ProtocolSettings } from '../services/contract-service.ts';
 import type { PriceService } from '../services/price-service.ts';
 import type { CurvePriceService } from '../services/curve-price-service.ts';
 import type { TransactionService } from '../services/transaction-service.ts';
@@ -37,6 +37,7 @@ export class UnifiedExchangeComponent {
     private debounceTimer: any | null = null;
     private currentDirection: ExchangeDirection = 'deposit';
     private transactionStateService: TransactionStateService;
+    private protocolSettings: ProtocolSettings | null = null;
 
     constructor(services: UnifiedExchangeServices) {
         this.services = services;
@@ -49,6 +50,7 @@ export class UnifiedExchangeComponent {
         this.setupBalanceSubscription();
         this.registerTransactionButton();
         this.setupEventListeners();
+        this.loadProtocolSettings();
     }
 
     /**
@@ -102,14 +104,14 @@ export class UnifiedExchangeComponent {
         } catch (error: any) {
             if (error instanceof Error && error.message.includes('does not match') &&
                 (error.message.includes('target chain') || error.message.includes('current chain'))) {
-                
+
                 const chainIdMatch = error.message.match(/chain.*?(\d+)/g);
                 if (chainIdMatch && chainIdMatch.length >= 2) {
                     const currentChainId = chainIdMatch[0].match(/\d+/)?.[0];
                     const targetChainMatch = error.message.match(/id: (\d+) – (\w+)/);
                     const targetChainId = targetChainMatch?.[1];
                     const targetChainName = targetChainMatch?.[2] || `chain ${targetChainId}`;
-                    
+
                     this.services.notificationManager.showError('exchange',
                         `Please switch your wallet from chain ${currentChainId} to ${targetChainName} (chain ${targetChainId}) to continue`);
                 } else {
@@ -214,6 +216,59 @@ export class UnifiedExchangeComponent {
     }
 
     /**
+     * Load protocol settings from contract
+     */
+    private async loadProtocolSettings(): Promise<void> {
+        try {
+            this.protocolSettings = await this.services.contractService.getProtocolSettings(LUSD_COLLATERAL.index);
+            console.log('📋 Protocol settings loaded:', this.protocolSettings);
+
+            // Update UI labels with actual ratios
+            this.updateProtocolLabels();
+        } catch (error) {
+            console.error('Failed to load protocol settings:', error);
+            // Don't fail completely, just use fallback behavior
+        }
+    }
+
+    /**
+     * Update UI labels with actual protocol ratios
+     */
+    private updateProtocolLabels(): void {
+        if (!this.protocolSettings) return;
+
+        const { collateralRatioPercentage, governanceRatioPercentage } = this.protocolSettings;
+
+        // Update mint options explanation
+        const mintExplanation = document.querySelector('#mintOptionsGroup .explanation-text');
+        if (mintExplanation) {
+            mintExplanation.textContent = `Unchecked: Use ${collateralRatioPercentage}% LUSD + ${governanceRatioPercentage}% UBQ`;
+        }
+
+        // Update redeem options explanation
+        const redeemExplanation = document.querySelector('#redeemOptionsGroup .explanation-text');
+        if (redeemExplanation) {
+            if (this.protocolSettings.isFullyCollateralized) {
+                redeemExplanation.textContent = 'Fully collateralized, 100% LUSD';
+            } else if (this.protocolSettings.isFullyAlgorithmic) {
+                redeemExplanation.textContent = 'Fully algorithmic, 100% UBQ';
+            } else {
+                redeemExplanation.textContent = `Hybrid, ${collateralRatioPercentage}% LUSD + ${governanceRatioPercentage}% UBQ`;
+            }
+        }
+
+        // Update redeem checkbox label based on protocol state
+        const redeemCheckboxLabel = document.querySelector('label[for="redeemLusdOnly"]');
+        if (redeemCheckboxLabel) {
+            if (this.protocolSettings.isFullyCollateralized) {
+                redeemCheckboxLabel.textContent = 'LUSD only (redundant - already 100% LUSD)';
+            } else {
+                redeemCheckboxLabel.textContent = 'Swap for LUSD only (via Curve)';
+            }
+        }
+    }
+
+    /**
      * Update exchange output with optimal route calculation
      */
     async updateOutput(): Promise<void> {
@@ -254,6 +309,11 @@ export class UnifiedExchangeComponent {
                 exchangeButton.disabled = true;
                 this.updateOptionsVisibility(false);
                 return;
+            }
+
+            // Refresh protocol settings if needed (every 30 seconds)
+            if (!this.protocolSettings) {
+                await this.loadProtocolSettings();
             }
 
             exchangeOutput.style.display = 'block';
@@ -371,9 +431,9 @@ export class UnifiedExchangeComponent {
         // }
 
         // Route reason
-        if (routeReasonElement) {
-            routeReasonElement.textContent = result.reason;
-        }
+        // if (routeReasonElement) {
+        //     routeReasonElement.textContent = result.reason;
+        // }
 
         // Warning for disabled routes
         if (routeWarningElement) {
@@ -444,8 +504,8 @@ export class UnifiedExchangeComponent {
         if (needsApproval) {
             button.textContent = `Approve ${approvalTokenSymbol}`;
         } else {
-            const actionVerb = result.direction === 'deposit' ? 'Deposit' : 'Withdraw';
-            button.textContent = `${actionVerb} (${result.routeType})`;
+            const actionVerb = result.direction === 'deposit' ? 'Buy' : 'Sell';
+            button.textContent = `${actionVerb}`;
         }
 
         button.disabled = false;
@@ -618,6 +678,8 @@ export class UnifiedExchangeComponent {
             if (!isConnected) {
                 button.textContent = 'Connect wallet first';
             } else {
+                // Refresh protocol settings when wallet connects
+                this.loadProtocolSettings();
                 this.updateOutput();
             }
         }
@@ -688,18 +750,22 @@ export class UnifiedExchangeComponent {
         const ubqAmountGroup = document.getElementById('ubqAmountGroup');
 
         if (this.currentDirection === 'deposit') {
-            // Show mint options and UBQ amount for deposits
+            // Show mint options and UBQ amount for deposits based on protocol state
             if (mintOptionsGroup) {
-                mintOptionsGroup.style.display = shouldShow ? 'block' : 'none';
+                // Only show mint options if not fully algorithmic
+                const showMintOptions = shouldShow && !this.protocolSettings?.isFullyAlgorithmic;
+                mintOptionsGroup.style.display = showMintOptions ? 'block' : 'none';
             }
             if (ubqAmountGroup) {
-                ubqAmountGroup.style.display = shouldShow ? 'block' : 'none';
+                // Only show UBQ amount if not fully collateralized
+                const showUbqAmount = shouldShow && !this.protocolSettings?.isFullyCollateralized;
+                ubqAmountGroup.style.display = showUbqAmount ? 'block' : 'none';
             }
             if (redeemOptionsGroup) {
                 redeemOptionsGroup.style.display = 'none';
             }
         } else {
-            // Show redeem options for withdrawals
+            // Show redeem options for withdrawals based on protocol state
             if (mintOptionsGroup) {
                 mintOptionsGroup.style.display = 'none';
             }
@@ -707,7 +773,20 @@ export class UnifiedExchangeComponent {
                 ubqAmountGroup.style.display = 'none';
             }
             if (redeemOptionsGroup) {
-                redeemOptionsGroup.style.display = shouldShow ? 'block' : 'none';
+                // Only show redeem options if protocol is not fully collateralized
+                // When fully collateralized (100% LUSD), the checkbox is meaningless
+                const showRedeemOptions = shouldShow && !this.protocolSettings?.isFullyCollateralized;
+                redeemOptionsGroup.style.display = showRedeemOptions ? 'block' : 'none';
+
+                // Update checkbox state and label based on protocol state
+                const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
+                if (redeemLusdOnly && this.protocolSettings?.isFullyAlgorithmic) {
+                    // In fully algorithmic mode, force LUSD-only (swap) since protocol gives 100% UBQ
+                    redeemLusdOnly.checked = true;
+                    redeemLusdOnly.disabled = true;
+                } else if (redeemLusdOnly) {
+                    redeemLusdOnly.disabled = false;
+                }
             }
         }
     }

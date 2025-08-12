@@ -659,4 +659,86 @@ export class ContractService implements ContractReads, ContractWrites {
         if (amount <= 0n) return maxUint256;
         return this.getAllowance(ADDRESSES.DOLLAR, account, ADDRESSES.DIAMOND);
     }
+
+    /**
+     * Get comprehensive protocol settings
+     */
+    async getProtocolSettings(collateralIndex: number = 0): Promise<ProtocolSettings> {
+        const publicClient = this.walletService.getPublicClient();
+
+        try {
+            const results = await publicClient.multicall({
+                contracts: [
+                    {
+                        address: ADDRESSES.DIAMOND,
+                        abi: DIAMOND_ABI,
+                        functionName: 'collateralRatio'
+                    },
+                    {
+                        address: ADDRESSES.DIAMOND,
+                        abi: DIAMOND_ABI,
+                        functionName: 'getDollarPriceUsd'
+                    },
+                    {
+                        address: ADDRESSES.DIAMOND,
+                        abi: DIAMOND_ABI,
+                        functionName: 'allCollaterals'
+                    }
+                ]
+            });
+
+            const collateralRatio = results[0].status === 'success' ? results[0].result as bigint : 0n;
+            const currentUUSDPrice = results[1].status === 'success' ? results[1].result as bigint : 0n;
+            const collateralAddresses = results[2].status === 'success' ? results[2].result as Address[] : [];
+
+            // Get collateral-specific info if addresses available
+            let collateralInfo: any = null;
+            if (collateralAddresses.length > collateralIndex) {
+                collateralInfo = await publicClient.readContract({
+                    address: ADDRESSES.DIAMOND,
+                    abi: DIAMOND_ABI,
+                    functionName: 'collateralInformation',
+                    args: [collateralAddresses[collateralIndex]]
+                });
+            }
+
+            // Calculate percentage for UI display
+            const collateralRatioPercentage = Number(collateralRatio) / 10000;
+            const governanceRatioPercentage = 100 - collateralRatioPercentage;
+
+            return {
+                collateralRatio,
+                collateralRatioPercentage,
+                governanceRatioPercentage,
+                mintPaused: collateralInfo ? Boolean(collateralInfo.isMintPaused) : false,
+                redeemPaused: collateralInfo ? Boolean(collateralInfo.isRedeemPaused) : false,
+                mintingFee: collateralInfo ? collateralInfo.mintingFee : 0n,
+                redemptionFee: collateralInfo ? collateralInfo.redemptionFee : 0n,
+                currentUUSDPrice,
+                isFullyCollateralized: collateralRatio >= 1000000n,
+                isFullyAlgorithmic: collateralRatio === 0n,
+                isFractional: collateralRatio > 0n && collateralRatio < 1000000n
+            };
+        } catch (error) {
+            console.error('Failed to fetch protocol settings:', error);
+            throw new Error(`Cannot load protocol settings: ${error}`);
+        }
+    }
+}
+
+/**
+ * Interface for comprehensive protocol settings
+ */
+export interface ProtocolSettings {
+    collateralRatio: bigint;
+    collateralRatioPercentage: number;
+    governanceRatioPercentage: number;
+    mintPaused: boolean;
+    redeemPaused: boolean;
+    mintingFee: bigint;
+    redemptionFee: bigint;
+    currentUUSDPrice: bigint;
+    isFullyCollateralized: boolean;
+    isFullyAlgorithmic: boolean;
+    isFractional: boolean;
 }

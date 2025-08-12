@@ -51,39 +51,7 @@
                     <input type="number" id="exchangeAmount" step="any" placeholder="Enter LUSD amount" required>
                 </div>
 
-                <!-- UBQ Amount Display for deposits -->
-                <div id="ubqAmountGroup" class="form-group" style="display: none;">
-                    <label for="ubqAmountDisplay">UBQ Required (5% collateral)</label>
-                    <input type="number" id="ubqAmountDisplay" step="any" placeholder="0.0" disabled readonly>
-                </div>
-
-                <!-- UBQ + LUSD Option for deposits (protocol supporter benefit) -->
-                <div id="mintOptionsGroup" class="form-group" style="display: none;">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="forceCollateralOnly" checked/>
-                        <label for="forceCollateralOnly">Fully collateralized</label>
-                    </div>
-                    <div class="option-explanation">
-                        <span class="explanation-text">
-                            Unchecked: Use 95% LUSD + 5% UBQ<br>
-                        </span>
-                    </div>
-                </div>
-
-                <!-- UBQ redemption options for withdrawals -->
-                <div id="redeemOptionsGroup" class="form-group" style="display: none;">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="redeemLusdOnly" />
-                        <label for="redeemLusdOnly">LUSD</label>
-                    </div>
-                    <div class="option-explanation">
-                        <span class="explanation-text">
-                            Hybrid, 95% LUSD + 5% UBQ
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Optimal Route Display -->
+                                <!-- Optimal Route Display -->
                 <div id="exchangeOutput" class="output-section" style="display: none;">
 
                     <!-- <div class="route-header"> -->
@@ -101,6 +69,10 @@
                         <span class="output-value" id="expectedOutput">-</span>
                     </div>
 
+                                    <button type="submit" class="action-button" id="exchangeButton" disabled>
+                    Enter amount to continue
+                </button>
+
                     <!-- <div class="route-explanation">
                         <div class="route-reason">
                             <span id="routeReason">UUSD below peg ($0.985). Minting gives better rate.</span>
@@ -112,9 +84,41 @@
                     </div>
                 </div>
 
-                <button type="submit" class="action-button" id="exchangeButton" disabled>
-                    Enter amount to continue
-                </button>
+                <!-- UBQ Amount Display for deposits -->
+                <div id="ubqAmountGroup" class="form-group" style="display: none;">
+                    <label for="ubqAmountDisplay">UBQ Required (5% collateral)</label>
+                    <input type="number" id="ubqAmountDisplay" step="any" placeholder="0.0" disabled readonly>
+                </div>
+
+                <!-- UBQ + LUSD Option for deposits (protocol supporter benefit) -->
+                <div id="mintOptionsGroup" class="form-group" style="display: none;">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="forceCollateralOnly" checked/>
+                        <label for="forceCollateralOnly">Fully collateralized</label>
+                    </div>
+                    <div class="option-explanation">
+                        <span class="explanation-text">
+                            Loading protocol state...
+                        </span>
+                    </div>
+                </div>
+
+                <!-- UBQ redemption options for withdrawals -->
+                <div id="redeemOptionsGroup" class="form-group" style="display: none;">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="redeemLusdOnly" />
+                        <label for="redeemLusdOnly">Swap for LUSD only (via Curve)</label>
+                    </div>
+                    <div class="option-explanation">
+                        <span class="explanation-text">
+                            Loading protocol state...
+                        </span>
+                    </div>
+                </div>
+
+
+
+
 
                 <!-- Notification Areas -->
                 <div class="notification-container" data-type="exchange">
