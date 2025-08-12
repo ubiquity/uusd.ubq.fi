@@ -26,17 +26,14 @@
 
 
         <div class="wallet-section">
-            <button id="connectWallet" onclick="window.app.connectWallet()">Connect Wallet</button>
             <div id="walletInfo" style="display: none;">
                 <p>Connected: <span class="wallet-address" id="walletAddress"></span></p>
                 <p class="info-text">Network: <span id="networkName">Ethereum Mainnet</span></p>
             </div>
+            <button id="connectWallet" onclick="window.app.connectWallet()">Connect Wallet</button>
         </div>
 
 
-        <div class="price-section">
-            <p class="uusd-price">UUSD Price: <span id="uusdPrice">Loading...</span></p>
-        </div>
 
         <!-- Direction Toggle -->
         <div class="direction-toggle" style="display: none;">
@@ -128,6 +125,9 @@
         </div>
 
 
+        <div class="price-section">
+            <p class="uusd-price">UUSD Price: <span id="uusdPrice">Loading...</span></p>
+        </div>
     </div>
 
     <!-- Inventory Bar - Fixed at bottom -->

@@ -100,6 +100,22 @@ export class UnifiedExchangeComponent {
             await this.executeOptimalRoute(routeResult);
 
         } catch (error: any) {
+            if (error instanceof Error && error.message.includes('does not match') &&
+                (error.message.includes('target chain') || error.message.includes('current chain'))) {
+                
+                const chainIdMatch = error.message.match(/chain.*?(\d+)/g);
+                if (chainIdMatch && chainIdMatch.length >= 2) {
+                    const currentChainId = chainIdMatch[0].match(/\d+/)?.[0];
+                    const targetChainMatch = error.message.match(/id: (\d+) – (\w+)/);
+                    const targetChainId = targetChainMatch?.[1];
+                    const targetChainName = targetChainMatch?.[2] || `chain ${targetChainId}`;
+                    
+                    this.services.notificationManager.showError('exchange',
+                        `Please switch your wallet from chain ${currentChainId} to ${targetChainName} (chain ${targetChainId}) to continue`);
+                } else {
+                    this.services.notificationManager.showError('exchange', 'Chain mismatch error: Please switch to the correct network');
+                }
+            }
             console.error('Exchange transaction failed:', error);
             // Error is handled by the transaction handlers
         }
