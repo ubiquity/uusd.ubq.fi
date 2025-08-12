@@ -182,3 +182,5 @@ app.js.map
 .DS_Store
 public/.well-known/appspecific/com.chrome.devtools.json
 .uuid
+
+tmp/

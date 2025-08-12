@@ -295,19 +295,10 @@ export class OptimalRouteService {
                 // reason = 'Redeeming disabled due to price conditions. Using Curve swap.';
 
             } else if (isLusdOnlyRedemption) {
-                // User explicitly chose LUSD-only redemption
-                // Compare swap vs redeem for pure LUSD output
-                if (swapOutputLUSD > redeemResult.collateralRedeemed) {
-                    routeType = 'swap';
-                    expectedOutput = swapOutputLUSD;
-                    // reason = 'LUSD-only mode: Curve swap provides more LUSD than redemption.';
-
-                } else {
-                    routeType = 'redeem';
-                    expectedOutput = redeemResult.collateralRedeemed;
-                    // reason = 'LUSD-only mode: Redeeming gives better LUSD rate (100% LUSD).';
-
-                }
+                // User explicitly chose LUSD-only via swap - FORCE swap regardless of output
+                routeType = 'swap';
+                expectedOutput = swapOutputLUSD;
+                // reason = 'LUSD-only mode: Forced swap via Curve (checkbox selected).';
             } else {
                 // User allows mixed redemption (95% LUSD + 5% UBQ) - PRIORITIZE REDEEM TO GET UBQ
                 // When user wants mixed redemption, we should prioritize redeem to give them the UBQ bonus

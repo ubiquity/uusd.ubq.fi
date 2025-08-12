@@ -75,7 +75,11 @@ export class UnifiedExchangeComponent {
      * Execute the exchange transaction
      */
     private async executeTransaction(): Promise<void> {
+        // Set loading state IMMEDIATELY on button click
+        this.transactionStateService.startTransaction('exchangeButton');
+
         if (!this.services.walletService.isConnected()) {
+            this.transactionStateService.errorTransaction('exchangeButton', 'Wallet not connected', '❌ Connect Wallet');
             this.services.notificationManager.showError('exchange', 'Please connect wallet first');
             return;
         }
@@ -84,31 +88,41 @@ export class UnifiedExchangeComponent {
             const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
 
             if (!amountInput?.value) {
+                this.transactionStateService.errorTransaction('exchangeButton', 'No amount entered', '❌ Enter Amount');
                 this.services.notificationManager.showError('exchange', 'Please enter a valid amount');
                 return;
             }
 
             const amount = parseEther(amountInput.value);
 
-            // Calculate optimal route
+            // Get checkbox states
+            const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
+            const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
+
+            // Calculate optimal route with checkbox states
             let routeResult: OptimalRouteResult;
             if (this.currentDirection === 'deposit') {
-                routeResult = await this.optimalRouteService.getOptimalDepositRoute(amount);
+                const isForceCollateralOnly = forceCollateralOnly?.checked || false;
+                routeResult = await this.optimalRouteService.getOptimalDepositRoute(amount, isForceCollateralOnly);
             } else {
-                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(amount);
+                const isLusdOnlyRedemption = redeemLusdOnly?.checked || false;
+                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(amount, isLusdOnlyRedemption);
             }
 
             // Execute the optimal route
             await this.executeOptimalRoute(routeResult);
 
         } catch (error: any) {
+            // Reset button state on error
+            this.transactionStateService.errorTransaction('exchangeButton', error.message || 'Transaction failed', '❌ Try Again');
+
             if (error instanceof Error && error.message.includes('does not match') &&
                 (error.message.includes('target chain') || error.message.includes('current chain'))) {
 
-                const chainIdMatch = error.message.match(/chain.*?(\d+)/g);
+                const chainIdMatch = error.message.match(/chain.*?(\\d+)/g);
                 if (chainIdMatch && chainIdMatch.length >= 2) {
-                    const currentChainId = chainIdMatch[0].match(/\d+/)?.[0];
-                    const targetChainMatch = error.message.match(/id: (\d+) – (\w+)/);
+                    const currentChainId = chainIdMatch[0].match(/\\d+/)?.[0];
+                    const targetChainMatch = error.message.match(/id: (\\d+) – (\\w+)/);
                     const targetChainId = targetChainMatch?.[1];
                     const targetChainName = targetChainMatch?.[2] || `chain ${targetChainId}`;
 
@@ -117,9 +131,10 @@ export class UnifiedExchangeComponent {
                 } else {
                     this.services.notificationManager.showError('exchange', 'Chain mismatch error: Please switch to the correct network');
                 }
+            } else {
+                this.services.notificationManager.showError('exchange', error.message || 'Transaction failed. Please try again.');
             }
             console.error('Exchange transaction failed:', error);
-            // Error is handled by the transaction handlers
         }
     }
 
@@ -170,7 +185,6 @@ export class UnifiedExchangeComponent {
 
             if (redeemLusdOnly) {
                 redeemLusdOnly.addEventListener('change', () => {
-
                     this.updateOutput();
                 });
             }
@@ -213,6 +227,14 @@ export class UnifiedExchangeComponent {
         this.clearForm();
         this.autoPopulateWithMaxBalance();
         this.updateOutput();
+
+        // Check redemption status AFTER form is updated when switching to withdraw
+        if (direction === 'withdraw') {
+            // Use setTimeout to ensure this runs after updateOutput() completes
+            setTimeout(() => {
+                this.checkRedemptionAllowed();
+            }, 100);
+        }
     }
 
     /**
@@ -267,6 +289,49 @@ export class UnifiedExchangeComponent {
             }
         }
     }
+
+    /**
+     * Check if redemption is currently allowed based on TWAP price conditions
+     */
+    private async checkRedemptionAllowed(): Promise<boolean> {
+        try {
+            const testAmount = parseEther('1');
+            const routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(testAmount, false);
+            const isRedemptionAllowed = routeResult.routeType === 'redeem';
+
+            const checkbox = document.getElementById('redeemLusdOnly') as HTMLInputElement;
+            if (checkbox) {
+                if (!isRedemptionAllowed) {
+                    // TWAP issues detected - force swap mode
+                    checkbox.checked = true;
+                    checkbox.disabled = true;
+                    console.log('🔒 Redemption disabled due to TWAP conditions - auto-enabling "Swap for LUSD only"');
+                } else {
+                    // Redemption is allowed - enable user choice
+                    checkbox.disabled = false;
+                    console.log('✅ Redemption enabled - user can choose redemption method');
+                }
+            }
+
+            return isRedemptionAllowed;
+        } catch (error) {
+            console.error('Error checking redemption status:', error);
+
+            // On error, assume redemption isn't safe and force swap mode
+            const checkbox = document.getElementById('redeemLusdOnly') as HTMLInputElement;
+            if (checkbox) {
+                checkbox.checked = true;
+                checkbox.disabled = true;
+                console.log('🔒 Error checking redemption - auto-enabling "Swap for LUSD only" for safety');
+            }
+
+            return false;
+        }
+    }
+
+    /**
+     * Show TWAP warning when user tries to uncheck "Swap for LUSD only" during oracle issues
+     */
 
     /**
      * Update exchange output with optimal route calculation
@@ -786,6 +851,13 @@ export class UnifiedExchangeComponent {
                     redeemLusdOnly.disabled = true;
                 } else if (redeemLusdOnly) {
                     redeemLusdOnly.disabled = false;
+                }
+
+                // Check redemption status when showing redeem options to auto-disable if needed
+                if (showRedeemOptions) {
+                    setTimeout(() => {
+                        this.checkRedemptionAllowed();
+                    }, 50);
                 }
             }
         }
