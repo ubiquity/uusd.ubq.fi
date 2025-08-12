@@ -246,16 +246,16 @@ export class UnifiedExchangeComponent {
         }
 
         // Update redeem options explanation
-        const redeemExplanation = document.querySelector('#redeemOptionsGroup .explanation-text');
-        if (redeemExplanation) {
-            if (this.protocolSettings.isFullyCollateralized) {
-                redeemExplanation.textContent = 'Fully collateralized, 100% LUSD';
-            } else if (this.protocolSettings.isFullyAlgorithmic) {
-                redeemExplanation.textContent = 'Fully algorithmic, 100% UBQ';
-            } else {
-                redeemExplanation.textContent = `Hybrid, ${collateralRatioPercentage}% LUSD + ${governanceRatioPercentage}% UBQ`;
-            }
-        }
+        // const redeemExplanation = document.querySelector('#redeemOptionsGroup .explanation-text');
+        // if (redeemExplanation) {
+        //     if (this.protocolSettings.isFullyCollateralized) {
+        //         redeemExplanation.textContent = 'Fully collateralized, 100% LUSD';
+        //     } else if (this.protocolSettings.isFullyAlgorithmic) {
+        //         redeemExplanation.textContent = 'Fully algorithmic, 100% UBQ';
+        //     } else {
+        //         redeemExplanation.textContent = `Hybrid, ${collateralRatioPercentage}% LUSD + ${governanceRatioPercentage}% UBQ`;
+        //     }
+        // }
 
         // Update redeem checkbox label based on protocol state
         const redeemCheckboxLabel = document.querySelector('label[for="redeemLusdOnly"]');

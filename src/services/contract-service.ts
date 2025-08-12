@@ -10,6 +10,7 @@ import type { CollateralInfo } from '../utils/calculation-utils.ts';
 import type { WalletService } from './wallet-service.ts';
 import { analyzeOracleError, getAlternativeActions, getOracleRefreshEstimate } from '../utils/oracle-utils.ts';
 import { CurvePriceService } from './curve-price-service.ts';
+import { cacheService, CACHE_CONFIGS } from './cache-service.ts';
 
 /**
  * Extended collateral information with blockchain state
@@ -93,39 +94,57 @@ export class ContractService implements ContractReads, ContractWrites {
     }
 
     /**
-     * Get current collateral ratio from the contract
+     * Get current collateral ratio from the contract (cached)
      */
     async getCollateralRatio(): Promise<bigint> {
-        const publicClient = this.walletService.getPublicClient();
-        return await publicClient.readContract({
-            address: ADDRESSES.DIAMOND,
-            abi: DIAMOND_ABI,
-            functionName: 'collateralRatio'
-        }) as bigint;
+        return cacheService.getOrFetch(
+            'collateral-ratio',
+            async () => {
+                const publicClient = this.walletService.getPublicClient();
+                return await publicClient.readContract({
+                    address: ADDRESSES.DIAMOND,
+                    abi: DIAMOND_ABI,
+                    functionName: 'collateralRatio'
+                }) as bigint;
+            },
+            CACHE_CONFIGS.COLLATERAL_RATIO
+        );
     }
 
     /**
-     * Get current governance token price from the contract
+     * Get current governance token price from the contract (cached with oracle fallback)
      */
     async getGovernancePrice(): Promise<bigint> {
-        const publicClient = this.walletService.getPublicClient();
-        return await publicClient.readContract({
-            address: ADDRESSES.DIAMOND,
-            abi: DIAMOND_ABI,
-            functionName: 'getGovernancePriceUsd'
-        }) as bigint;
+        return cacheService.getOrFetch(
+            'governance-price',
+            async () => {
+                const publicClient = this.walletService.getPublicClient();
+                return await publicClient.readContract({
+                    address: ADDRESSES.DIAMOND,
+                    abi: DIAMOND_ABI,
+                    functionName: 'getGovernancePriceUsd'
+                }) as bigint;
+            },
+            CACHE_CONFIGS.GOVERNANCE_PRICE
+        );
     }
 
     /**
-     * Get LUSD oracle price from Diamond contract
+     * Get LUSD oracle price from Diamond contract (cached)
      */
     async getLUSDOraclePrice(): Promise<bigint> {
-        const publicClient = this.walletService.getPublicClient();
-        return await publicClient.readContract({
-            address: ADDRESSES.DIAMOND,
-            abi: DIAMOND_ABI,
-            functionName: 'getDollarPriceUsd'
-        }) as bigint;
+        return cacheService.getOrFetch(
+            'lusd-oracle-price',
+            async () => {
+                const publicClient = this.walletService.getPublicClient();
+                return await publicClient.readContract({
+                    address: ADDRESSES.DIAMOND,
+                    abi: DIAMOND_ABI,
+                    functionName: 'getDollarPriceUsd'
+                }) as bigint;
+            },
+            CACHE_CONFIGS.LUSD_ORACLE_PRICE
+        );
     }
 
 

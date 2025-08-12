@@ -169,7 +169,7 @@ export class PriceService {
     /**
      * Calculate redeem output with real-time blockchain data
      */
-    async calculateRedeemOutput(params: PriceCalculationParams): Promise<RedeemPriceResult> {
+    async calculateRedeemOutput(params: PriceCalculationParams, skipGovernancePrice: boolean = false): Promise<RedeemPriceResult> {
         const { dollarAmount, collateralIndex } = params;
 
         // Use hardcoded LUSD for index 0 to avoid race condition
@@ -184,13 +184,34 @@ export class PriceService {
             collateral = dynamicCollateral;
         }
 
-        // Get current blockchain prices and thresholds
-        const [collateralRatio, governancePrice, twapPrice, priceThresholds] = await Promise.all([
+        // Prepare async calls - conditionally include governance price
+        const asyncCalls: Promise<any>[] = [
             this.contractService.getCollateralRatio(),
-            this.contractService.getGovernancePrice(),
             this.contractService.getLUSDOraclePrice(),
             this.priceThresholdService.getPriceThresholds()
-        ]);
+        ];
+
+        // Only add governance price if not skipping (e.g., for LUSD-only redemptions)
+        if (!skipGovernancePrice) {
+            asyncCalls.splice(1, 0, this.contractService.getGovernancePrice());
+        }
+
+        // Get current blockchain prices and thresholds
+        const results = await Promise.all(asyncCalls);
+
+        let collateralRatio: bigint;
+        let governancePrice: bigint;
+        let twapPrice: bigint;
+        let priceThresholds: any;
+
+        if (skipGovernancePrice) {
+            [collateralRatio, twapPrice, priceThresholds] = results;
+            // Use a default governance price or fetch from cache if available
+            governancePrice = 1000000n; // Default $1.00 as fallback
+        } else {
+            [collateralRatio, governancePrice, twapPrice, priceThresholds] = results;
+        }
+
         const redeemPriceThreshold = priceThresholds.redeemThreshold;
 
         // Get collateral amount based on fee-adjusted dollar amount

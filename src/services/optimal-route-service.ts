@@ -206,16 +206,22 @@ export class OptimalRouteService {
 
             console.log('📝 Step 2: Calculating redeem output...');
 
-            // Calculate redeem output with timeout
+            // Calculate redeem output with oracle error handling
             let redeemResult;
             try {
                 console.log('📝 Step 2a: Calling calculateRedeemOutput...');
 
+                // For LUSD-only redemption, we can skip governance price entirely
+                const skipGovernancePrice = isLusdOnlyRedemption;
+
                 // Add timeout to prevent hanging
-                const redeemPromise = this.priceService.calculateRedeemOutput({
-                    dollarAmount: uusdAmount,
-                    collateralIndex: LUSD_COLLATERAL.index
-                });
+                const redeemPromise = this.priceService.calculateRedeemOutput(
+                    {
+                        dollarAmount: uusdAmount,
+                        collateralIndex: LUSD_COLLATERAL.index
+                    },
+                    skipGovernancePrice
+                );
 
                 const timeoutPromise = new Promise((_, reject) => {
                     setTimeout(() => reject(new Error('Redeem calculation timeout')), 10000);
@@ -225,6 +231,34 @@ export class OptimalRouteService {
                 console.log('📝 Step 2b: Redeem calculation successful');
             } catch (error) {
                 console.error('❌ Error calculating redeem output:', error);
+
+                // Check if it's an oracle error and we can fall back to swap-only
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                if (errorMessage.includes('Stale data') || errorMessage.includes('oracle')) {
+                    console.log('🔮 Oracle stale, falling back to swap route for calculations');
+
+                    // Calculate swap output and return swap-only result
+                    try {
+                        const swapOutputLUSD = await this.getSwapOutput(uusdAmount, 'UUSD', 'LUSD');
+                        console.log('🔄 Using swap fallback due to oracle issues');
+
+                        return {
+                            routeType: 'swap' as const,
+                            expectedOutput: swapOutputLUSD,
+                            inputAmount: uusdAmount,
+                            direction: 'withdraw' as const,
+                            marketPrice: this.PEG_PRICE, // Fallback price
+                            pegPrice: this.PEG_PRICE,
+                            savings: { amount: 0n, percentage: 0 },
+                            isEnabled: true,
+                            disabledReason: 'Oracle data temporarily unavailable - using Curve swap'
+                        };
+                    } catch (swapError) {
+                        console.error('❌ Swap fallback also failed:', swapError);
+                        throw new Error(`Both redeem and swap calculations failed: ${error}`);
+                    }
+                }
+
                 throw new Error(`Failed to calculate redeem output: ${error}`);
             }
 

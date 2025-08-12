@@ -7,6 +7,7 @@ import { PriceService } from './services/price-service.ts';
 import { CurvePriceService } from './services/curve-price-service.ts';
 import { SwapService } from './services/swap-service.ts';
 import { TransactionService, TransactionOperation } from './services/transaction-service.ts';
+import { cacheService } from './services/cache-service.ts';
 
 // Import components
 import { NotificationManager } from './components/notification-manager.ts';
@@ -114,6 +115,9 @@ class UUSDApp {
             try {
                 await this.priceService.initialize();
                 console.log('✅ Price service initialized');
+
+                // Warm cache with essential data for better responsiveness
+                await cacheService.warmCache(this.contractService);
             } catch (error) {
                 console.warn('Failed to initialize price service:', error);
             }
