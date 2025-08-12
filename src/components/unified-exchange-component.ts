@@ -26,6 +26,19 @@ interface UnifiedExchangeServices {
     inventoryBar: InventoryBarComponent;
 }
 
+interface UIState {
+    direction: ExchangeDirection;
+    isRedemptionAllowed: boolean;
+    forceSwapOnly: boolean;
+    forceCollateralOnly: boolean;
+    protocolSettings: ProtocolSettings | null;
+    isCalculating: boolean;
+    currentAmount: string;
+    lastRouteResult: OptimalRouteResult | null;
+    showOutput: boolean;
+    showOptions: boolean;
+}
+
 /**
  * Unified Exchange Component
  * Handles both deposit (LUSD → UUSD) and withdraw (UUSD → LUSD) operations
@@ -35,9 +48,21 @@ export class UnifiedExchangeComponent {
     private services: UnifiedExchangeServices;
     private optimalRouteService: OptimalRouteService;
     private debounceTimer: any | null = null;
-    private currentDirection: ExchangeDirection = 'deposit';
     private transactionStateService: TransactionStateService;
-    private protocolSettings: ProtocolSettings | null = null;
+
+    // Centralized UI state - single source of truth
+    private uiState: UIState = {
+        direction: 'deposit',
+        isRedemptionAllowed: true,
+        forceSwapOnly: false,
+        forceCollateralOnly: true, // Default checked as per HTML
+        protocolSettings: null,
+        isCalculating: false,
+        currentAmount: '',
+        lastRouteResult: null,
+        showOutput: false,
+        showOptions: false
+    };
 
     constructor(services: UnifiedExchangeServices) {
         this.services = services;
@@ -51,6 +76,145 @@ export class UnifiedExchangeComponent {
         this.registerTransactionButton();
         this.setupEventListeners();
         this.loadProtocolSettings();
+
+        // Initial render to set up UI state
+        this.render();
+    }
+
+    /**
+     * Update UI state and trigger re-render
+     */
+    private setState(updates: Partial<UIState>): void {
+        this.uiState = { ...this.uiState, ...updates };
+        this.render();
+    }
+
+    /**
+     * Single render method - applies all UI state to DOM synchronously
+     */
+    private render(): void {
+        // Update direction buttons
+        const depositButton = document.getElementById('depositButton') as HTMLButtonElement;
+        const withdrawButton = document.getElementById('withdrawButton') as HTMLButtonElement;
+        if (depositButton && withdrawButton) {
+            depositButton.classList.toggle('active', this.uiState.direction === 'deposit');
+            withdrawButton.classList.toggle('active', this.uiState.direction === 'withdraw');
+        }
+
+        // Update input label and placeholder
+        const amountLabel = document.getElementById('amountLabel') as HTMLLabelElement;
+        const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
+        if (amountLabel) {
+            amountLabel.textContent = this.uiState.direction === 'deposit' ? 'LUSD' : 'UUSD';
+        }
+        if (amountInput) {
+            amountInput.placeholder = this.uiState.direction === 'deposit' ? 'Enter LUSD amount' : 'Enter UUSD amount';
+        }
+
+        // Update checkboxes based on state
+        const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
+        const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
+
+        if (forceCollateralOnly) {
+            forceCollateralOnly.checked = this.uiState.forceCollateralOnly;
+        }
+
+        if (redeemLusdOnly) {
+            redeemLusdOnly.checked = this.uiState.forceSwapOnly;
+            redeemLusdOnly.disabled = !this.uiState.isRedemptionAllowed || this.uiState.forceSwapOnly;
+        }
+
+        // Update options visibility
+        this.renderOptionsVisibility();
+
+        // Update output section
+        this.renderOutput();
+
+        console.log('🔄 UI State rendered:', {
+            direction: this.uiState.direction,
+            isRedemptionAllowed: this.uiState.isRedemptionAllowed,
+            forceSwapOnly: this.uiState.forceSwapOnly,
+            forceCollateralOnly: this.uiState.forceCollateralOnly
+        });
+    }
+
+    /**
+     * Render options visibility based on current state
+     */
+    private renderOptionsVisibility(): void {
+        const mintOptionsGroup = document.getElementById('mintOptionsGroup');
+        const redeemOptionsGroup = document.getElementById('redeemOptionsGroup');
+        const ubqAmountGroup = document.getElementById('ubqAmountGroup');
+
+        if (this.uiState.direction === 'deposit') {
+            // Show mint options and UBQ amount for deposits based on protocol state
+            if (mintOptionsGroup) {
+                const showMintOptions = this.uiState.showOptions && !this.uiState.protocolSettings?.isFullyAlgorithmic;
+                mintOptionsGroup.style.display = showMintOptions ? 'block' : 'none';
+            }
+            if (ubqAmountGroup) {
+                const showUbqAmount = this.uiState.showOptions && !this.uiState.protocolSettings?.isFullyCollateralized;
+                ubqAmountGroup.style.display = showUbqAmount ? 'block' : 'none';
+            }
+            if (redeemOptionsGroup) {
+                redeemOptionsGroup.style.display = 'none';
+            }
+        } else {
+            // Show redeem options for withdrawals based on protocol state
+            if (mintOptionsGroup) {
+                mintOptionsGroup.style.display = 'none';
+            }
+            if (ubqAmountGroup) {
+                ubqAmountGroup.style.display = 'none';
+            }
+            if (redeemOptionsGroup) {
+                const showRedeemOptions = this.uiState.showOptions && !this.uiState.protocolSettings?.isFullyCollateralized;
+                redeemOptionsGroup.style.display = showRedeemOptions ? 'block' : 'none';
+            }
+        }
+    }
+
+    /**
+     * Render output section based on current state
+     */
+    private renderOutput(): void {
+        const exchangeOutput = document.getElementById('exchangeOutput');
+        const exchangeButton = document.getElementById('exchangeButton') as HTMLButtonElement;
+
+        if (!exchangeOutput || !exchangeButton) return;
+
+        if (!this.uiState.showOutput || !this.uiState.currentAmount || this.uiState.currentAmount === '0') {
+            exchangeOutput.style.display = 'none';
+            exchangeButton.textContent = 'Enter amount to continue';
+            exchangeButton.disabled = true;
+            return;
+        }
+
+        exchangeOutput.style.display = 'block';
+
+        // Update route display if we have results
+        if (this.uiState.lastRouteResult) {
+            this.updateRouteDisplayFromState(this.uiState.lastRouteResult);
+        }
+
+        // Update button if wallet is connected
+        if (this.services.walletService.isConnected() && this.uiState.lastRouteResult) {
+            this.updateActionButtonFromState(this.uiState.lastRouteResult);
+        }
+    }
+
+    /**
+     * Update the route display in the UI from state
+     */
+    private updateRouteDisplayFromState(result: OptimalRouteResult): void {
+        this.updateRouteDisplay(result);
+    }
+
+    /**
+     * Update the action button based on the optimal route from state
+     */
+    private updateActionButtonFromState(result: OptimalRouteResult): void {
+        this.updateActionButton(result);
     }
 
     /**
@@ -95,18 +259,12 @@ export class UnifiedExchangeComponent {
 
             const amount = parseEther(amountInput.value);
 
-            // Get checkbox states
-            const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
-            const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
-
-            // Calculate optimal route with checkbox states
+            // Calculate optimal route with current state
             let routeResult: OptimalRouteResult;
-            if (this.currentDirection === 'deposit') {
-                const isForceCollateralOnly = forceCollateralOnly?.checked || false;
-                routeResult = await this.optimalRouteService.getOptimalDepositRoute(amount, isForceCollateralOnly);
+            if (this.uiState.direction === 'deposit') {
+                routeResult = await this.optimalRouteService.getOptimalDepositRoute(amount, this.uiState.forceCollateralOnly);
             } else {
-                const isLusdOnlyRedemption = redeemLusdOnly?.checked || false;
-                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(amount, isLusdOnlyRedemption);
+                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(amount, this.uiState.forceSwapOnly);
             }
 
             // Execute the optimal route
@@ -119,10 +277,10 @@ export class UnifiedExchangeComponent {
             if (error instanceof Error && error.message.includes('does not match') &&
                 (error.message.includes('target chain') || error.message.includes('current chain'))) {
 
-                const chainIdMatch = error.message.match(/chain.*?(\\d+)/g);
+                const chainIdMatch = error.message.match(/chain.*?(\d+)/g);
                 if (chainIdMatch && chainIdMatch.length >= 2) {
-                    const currentChainId = chainIdMatch[0].match(/\\d+/)?.[0];
-                    const targetChainMatch = error.message.match(/id: (\\d+) – (\\w+)/);
+                    const currentChainId = chainIdMatch[0].match(/\d+/)?.[0];
+                    const targetChainMatch = error.message.match(/id: (\d+) – (\w+)/);
                     const targetChainId = targetChainMatch?.[1];
                     const targetChainName = targetChainMatch?.[2] || `chain ${targetChainId}`;
 
@@ -150,25 +308,15 @@ export class UnifiedExchangeComponent {
             const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
             const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
 
-
-
-
-
-
-
-
             if (amountInput) {
                 // Try multiple event types
                 amountInput.addEventListener('input', () => {
-
                     this.updateOutput();
                 });
                 amountInput.addEventListener('keyup', () => {
-
                     this.updateOutput();
                 });
                 amountInput.addEventListener('change', () => {
-
                     this.updateOutput();
                 });
 
@@ -178,13 +326,14 @@ export class UnifiedExchangeComponent {
 
             if (forceCollateralOnly) {
                 forceCollateralOnly.addEventListener('change', () => {
-
+                    this.setState({ forceCollateralOnly: forceCollateralOnly.checked });
                     this.updateOutput();
                 });
             }
 
             if (redeemLusdOnly) {
                 redeemLusdOnly.addEventListener('change', () => {
+                    this.setState({ forceSwapOnly: redeemLusdOnly.checked });
                     this.updateOutput();
                 });
             }
@@ -201,40 +350,32 @@ export class UnifiedExchangeComponent {
     /**
      * Switch between deposit and withdraw directions
      */
-    private switchDirection(direction: ExchangeDirection): void {
-        this.currentDirection = direction;
+    private async switchDirection(direction: ExchangeDirection): Promise<void> {
+        console.log(`🔄 Switching direction to: ${direction}`);
 
-        // Update UI state
-        const depositButton = document.getElementById('depositButton') as HTMLButtonElement;
-        const withdrawButton = document.getElementById('withdrawButton') as HTMLButtonElement;
-        const amountLabel = document.getElementById('amountLabel') as HTMLLabelElement;
-        const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
-
-        if (depositButton && withdrawButton) {
-            depositButton.classList.toggle('active', direction === 'deposit');
-            withdrawButton.classList.toggle('active', direction === 'withdraw');
-        }
-
-        if (amountLabel) {
-            amountLabel.textContent = direction === 'deposit' ? 'LUSD' : 'UUSD';
-        }
-
-        if (amountInput) {
-            amountInput.placeholder = direction === 'deposit' ? 'Enter LUSD amount' : 'Enter UUSD amount';
-        }
-
-        // Clear form and recalculate
+        // Clear form first
         this.clearForm();
+
+        // Check redemption status IMMEDIATELY when switching to withdraw (no timeout)
+        let isRedemptionAllowed = true;
+        if (direction === 'withdraw') {
+            isRedemptionAllowed = await this.checkRedemptionAllowedSync();
+        }
+
+        // Update state synchronously - this triggers render()
+        this.setState({
+            direction,
+            isRedemptionAllowed,
+            forceSwapOnly: direction === 'withdraw' ? !isRedemptionAllowed : false,
+            currentAmount: '',
+            lastRouteResult: null,
+            showOutput: false,
+            showOptions: false
+        });
+
+        // Auto-populate and calculate after state is updated
         this.autoPopulateWithMaxBalance();
         this.updateOutput();
-
-        // Check redemption status AFTER form is updated when switching to withdraw
-        if (direction === 'withdraw') {
-            // Use setTimeout to ensure this runs after updateOutput() completes
-            setTimeout(() => {
-                this.checkRedemptionAllowed();
-            }, 100);
-        }
     }
 
     /**
@@ -242,8 +383,10 @@ export class UnifiedExchangeComponent {
      */
     private async loadProtocolSettings(): Promise<void> {
         try {
-            this.protocolSettings = await this.services.contractService.getProtocolSettings(LUSD_COLLATERAL.index);
+            const protocolSettings = await this.services.contractService.getProtocolSettings(LUSD_COLLATERAL.index);
 
+            // Update state with protocol settings
+            this.setState({ protocolSettings });
 
             // Update UI labels with actual ratios
             this.updateProtocolLabels();
@@ -257,9 +400,9 @@ export class UnifiedExchangeComponent {
      * Update UI labels with actual protocol ratios
      */
     private updateProtocolLabels(): void {
-        if (!this.protocolSettings) return;
+        if (!this.uiState.protocolSettings) return;
 
-        const { collateralRatioPercentage, governanceRatioPercentage } = this.protocolSettings;
+        const { collateralRatioPercentage, governanceRatioPercentage } = this.uiState.protocolSettings;
 
         // Update mint options explanation
         const mintExplanation = document.querySelector('#mintOptionsGroup .explanation-text');
@@ -267,22 +410,10 @@ export class UnifiedExchangeComponent {
             mintExplanation.textContent = `Unchecked: Use ${collateralRatioPercentage}% LUSD + ${governanceRatioPercentage}% UBQ`;
         }
 
-        // Update redeem options explanation
-        // const redeemExplanation = document.querySelector('#redeemOptionsGroup .explanation-text');
-        // if (redeemExplanation) {
-        //     if (this.protocolSettings.isFullyCollateralized) {
-        //         redeemExplanation.textContent = 'Fully collateralized, 100% LUSD';
-        //     } else if (this.protocolSettings.isFullyAlgorithmic) {
-        //         redeemExplanation.textContent = 'Fully algorithmic, 100% UBQ';
-        //     } else {
-        //         redeemExplanation.textContent = `Hybrid, ${collateralRatioPercentage}% LUSD + ${governanceRatioPercentage}% UBQ`;
-        //     }
-        // }
-
         // Update redeem checkbox label based on protocol state
         const redeemCheckboxLabel = document.querySelector('label[for="redeemLusdOnly"]');
         if (redeemCheckboxLabel) {
-            if (this.protocolSettings.isFullyCollateralized) {
+            if (this.uiState.protocolSettings.isFullyCollateralized) {
                 redeemCheckboxLabel.textContent = 'LUSD only (redundant - already 100% LUSD)';
             } else {
                 redeemCheckboxLabel.textContent = 'Swap for LUSD only (via Curve)';
@@ -292,61 +423,54 @@ export class UnifiedExchangeComponent {
 
     /**
      * Check if redemption is currently allowed based on TWAP price conditions
+     * Returns boolean result for state management - does NOT manipulate DOM
      */
-    private async checkRedemptionAllowed(): Promise<boolean> {
+    private async checkRedemptionAllowedSync(): Promise<boolean> {
         try {
             const testAmount = parseEther('1');
             const routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(testAmount, false);
             const isRedemptionAllowed = routeResult.routeType === 'redeem';
 
-            const checkbox = document.getElementById('redeemLusdOnly') as HTMLInputElement;
-            if (checkbox) {
-                if (!isRedemptionAllowed) {
-                    // TWAP issues detected - force swap mode
-                    checkbox.checked = true;
-                    checkbox.disabled = true;
-                    console.log('🔒 Redemption disabled due to TWAP conditions - auto-enabling "Swap for LUSD only"');
-                } else {
-                    // Redemption is allowed - enable user choice
-                    checkbox.disabled = false;
-                    console.log('✅ Redemption enabled - user can choose redemption method');
-                }
+            if (!isRedemptionAllowed) {
+                console.log('🔒 Redemption disabled due to TWAP conditions - will auto-enable "Swap for LUSD only"');
+            } else {
+                console.log('✅ Redemption enabled - user can choose redemption method');
             }
 
             return isRedemptionAllowed;
         } catch (error) {
             console.error('Error checking redemption status:', error);
-
-            // On error, assume redemption isn't safe and force swap mode
-            const checkbox = document.getElementById('redeemLusdOnly') as HTMLInputElement;
-            if (checkbox) {
-                checkbox.checked = true;
-                checkbox.disabled = true;
-                console.log('🔒 Error checking redemption - auto-enabling "Swap for LUSD only" for safety');
-            }
-
+            console.log('🔒 Error checking redemption - will auto-enable "Swap for LUSD only" for safety');
             return false;
         }
     }
 
     /**
-     * Show TWAP warning when user tries to uncheck "Swap for LUSD only" during oracle issues
+     * Legacy method for backward compatibility - now updates state instead of DOM
      */
+    private async checkRedemptionAllowed(): Promise<boolean> {
+        const isRedemptionAllowed = await this.checkRedemptionAllowedSync();
+
+        // Update state instead of direct DOM manipulation
+        this.setState({
+            isRedemptionAllowed,
+            forceSwapOnly: !isRedemptionAllowed
+        });
+
+        return isRedemptionAllowed;
+    }
 
     /**
      * Update exchange output with optimal route calculation
      */
     async updateOutput(): Promise<void> {
-
-
         // Clear existing timer
         if (this.debounceTimer) {
             clearTimeout(this.debounceTimer);
         }
 
-        // Debounce the calculation
+        // Debounce the calculation - but update state, not DOM
         this.debounceTimer = setTimeout(async () => {
-
             await this.performCalculation();
         }, 300);
     }
@@ -357,63 +481,58 @@ export class UnifiedExchangeComponent {
     private async performCalculation(): Promise<void> {
         try {
             const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
-            const exchangeOutput = document.getElementById('exchangeOutput');
-            const exchangeButton = document.getElementById('exchangeButton') as HTMLButtonElement;
-            const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
-            const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
-
-            if (!amountInput || !exchangeOutput || !exchangeButton) {
-                return;
-            }
+            if (!amountInput) return;
 
             const amount = amountInput.value;
 
+            // Update current amount in state
+            this.setState({
+                currentAmount: amount,
+                isCalculating: true
+            });
+
             if (!amount || amount === '0') {
-                exchangeOutput.style.display = 'none';
-                exchangeButton.textContent = 'Enter amount to continue';
-                exchangeButton.disabled = true;
-                this.updateOptionsVisibility(false);
+                this.setState({
+                    showOutput: false,
+                    showOptions: false,
+                    lastRouteResult: null,
+                    isCalculating: false
+                });
                 return;
             }
 
-            // Refresh protocol settings if needed (every 30 seconds)
-            if (!this.protocolSettings) {
+            // Refresh protocol settings if needed
+            if (!this.uiState.protocolSettings) {
                 await this.loadProtocolSettings();
             }
 
-            exchangeOutput.style.display = 'block';
-
             const inputAmount = parseEther(amount);
 
-            // Calculate optimal route
+            // Calculate optimal route using current state
             let routeResult: OptimalRouteResult;
 
-            if (this.currentDirection === 'deposit') {
-
-                const isForceCollateralOnly = forceCollateralOnly?.checked || false;
-                routeResult = await this.optimalRouteService.getOptimalDepositRoute(inputAmount, isForceCollateralOnly);
+            if (this.uiState.direction === 'deposit') {
+                routeResult = await this.optimalRouteService.getOptimalDepositRoute(inputAmount, this.uiState.forceCollateralOnly);
             } else {
-
-                const isLusdOnlyRedemption = redeemLusdOnly?.checked || false;
-                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount, isLusdOnlyRedemption);
+                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount, this.uiState.forceSwapOnly);
             }
 
-
-
-            // Update UI with route information
-            await this.updateRouteDisplay(routeResult);
-
-            // Show appropriate options based on direction (mint options for deposits, redeem options for withdrawals)
-            this.updateOptionsVisibility(true);
-
-            // Update button based on route and wallet connection
-            if (this.services.walletService.isConnected()) {
-                await this.updateActionButton(routeResult);
-            }
+            // Update state with results - this triggers render()
+            this.setState({
+                lastRouteResult: routeResult,
+                showOutput: true,
+                showOptions: true,
+                isCalculating: false
+            });
 
         } catch (error) {
             console.error('Error calculating optimal route:', error);
-            this.showCalculationError();
+            this.setState({
+                showOutput: false,
+                showOptions: false,
+                lastRouteResult: null,
+                isCalculating: false
+            });
         }
     }
 
@@ -427,23 +546,6 @@ export class UnifiedExchangeComponent {
         const savingsElement = document.getElementById('savingsAmount');
         const routeReasonElement = document.getElementById('routeReason');
         const routeWarningElement = document.getElementById('routeWarning');
-
-        // Route type and action
-        // if (routeTypeElement) {
-        //     let actionText = '';
-        //     switch (result.routeType) {
-        //         case 'mint':
-        //             actionText = '🔨 Minting';
-        //             break;
-        //         case 'redeem':
-        //             actionText = '🔄 Redeeming';
-        //             break;
-        //         case 'swap':
-        //             actionText = '🔀 Swapping';
-        //             break;
-        //     }
-        //     routeTypeElement.textContent = actionText;
-        // }
 
         // Expected output with UBQ amounts when applicable
         if (expectedOutputElement) {
@@ -483,22 +585,6 @@ export class UnifiedExchangeComponent {
         if (marketPriceElement) {
             marketPriceElement.textContent = `$${formatUnits(result.marketPrice, 6)}`;
         }
-
-        // Savings display
-        // if (savingsElement) {
-            // if (result.savings.percentage > 0) {
-                // savingsElement.textContent = `Save ${result.savings.percentage.toFixed(2)}% (${formatEther(result.savings.amount)} tokens)`;
-                // savingsElement.style.display = 'block';
-                // savingsElement.className = 'savings-positive';
-            // } else {
-                // savingsElement.style.display = 'none';
-            // }
-        // }
-
-        // Route reason
-        // if (routeReasonElement) {
-        //     routeReasonElement.textContent = result.reason;
-        // }
 
         // Warning for disabled routes
         if (routeWarningElement) {
@@ -590,15 +676,13 @@ export class UnifiedExchangeComponent {
      */
     private async executeOptimalRoute(result: OptimalRouteResult): Promise<void> {
         const account = this.services.walletService.getAccount()!;
-        const forceCollateralOnly = document.getElementById('forceCollateralOnly') as HTMLInputElement;
-        const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
 
         switch (result.routeType) {
             case 'mint':
                 await this.services.transactionService.executeMint({
                     collateralIndex: LUSD_COLLATERAL.index,
                     dollarAmount: result.inputAmount,
-                    isForceCollateralOnly: forceCollateralOnly?.checked || false
+                    isForceCollateralOnly: this.uiState.forceCollateralOnly
                 });
                 break;
 
@@ -610,7 +694,7 @@ export class UnifiedExchangeComponent {
                     collateralIndex: LUSD_COLLATERAL.index,
                     dollarAmount: result.inputAmount,
                     // Future enhancement: pass isLusdOnlyRedemption flag when transaction service supports it
-                    // isLusdOnlyRedemption: redeemLusdOnly?.checked || false
+                    // isLusdOnlyRedemption: this.uiState.forceSwapOnly
                 });
                 break;
 
@@ -652,11 +736,11 @@ export class UnifiedExchangeComponent {
     handleTransactionSuccess(operation: string): void {
         const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
 
-        const direction = this.currentDirection === 'deposit' ? 'Deposited' : 'Withdrew';
+        const direction = this.uiState.direction === 'deposit' ? 'Deposited' : 'Withdrew';
         this.transactionStateService.completeTransaction('exchangeButton', `✅ ${direction}!`);
 
         if (amountInput) {
-            this.services.notificationManager.showSuccess('exchange', `Successfully ${direction.toLowerCase()} ${amountInput.value} ${this.currentDirection === 'deposit' ? 'LUSD' : 'UUSD'}!`);
+            this.services.notificationManager.showSuccess('exchange', `Successfully ${direction.toLowerCase()} ${amountInput.value} ${this.uiState.direction === 'deposit' ? 'LUSD' : 'UUSD'}!`);
             amountInput.value = '';
             this.updateOutput();
         }
@@ -701,23 +785,6 @@ export class UnifiedExchangeComponent {
         const handlers = TransactionButtonUtils.createTransactionHandlers('exchangeButton');
         handlers.handleApprovalComplete();
         this.updateOutput();
-    }
-
-    /**
-     * Show calculation error
-     */
-    private showCalculationError(): void {
-        const exchangeOutput = document.getElementById('exchangeOutput');
-        const exchangeButton = document.getElementById('exchangeButton') as HTMLButtonElement;
-
-        if (exchangeOutput) {
-            exchangeOutput.style.display = 'none';
-        }
-
-        if (exchangeButton) {
-            exchangeButton.textContent = 'Calculation error';
-            exchangeButton.disabled = true;
-        }
     }
 
     /**
@@ -794,7 +861,7 @@ export class UnifiedExchangeComponent {
         }
 
         try {
-            const tokenSymbol = this.currentDirection === 'deposit' ? 'LUSD' : 'UUSD';
+            const tokenSymbol = this.uiState.direction === 'deposit' ? 'LUSD' : 'UUSD';
 
             if (hasAvailableBalance(this.services.inventoryBar, tokenSymbol)) {
                 const maxBalance = getMaxTokenBalance(this.services.inventoryBar, tokenSymbol);
@@ -807,60 +874,10 @@ export class UnifiedExchangeComponent {
     }
 
     /**
-     * Update visibility of options (UBQ + LUSD checkbox for mint, UBQ redemption for redeem)
+     * Legacy method - now updates state instead
      */
     private updateOptionsVisibility(shouldShow: boolean): void {
-        const mintOptionsGroup = document.getElementById('mintOptionsGroup');
-        const redeemOptionsGroup = document.getElementById('redeemOptionsGroup');
-        const ubqAmountGroup = document.getElementById('ubqAmountGroup');
-
-        if (this.currentDirection === 'deposit') {
-            // Show mint options and UBQ amount for deposits based on protocol state
-            if (mintOptionsGroup) {
-                // Only show mint options if not fully algorithmic
-                const showMintOptions = shouldShow && !this.protocolSettings?.isFullyAlgorithmic;
-                mintOptionsGroup.style.display = showMintOptions ? 'block' : 'none';
-            }
-            if (ubqAmountGroup) {
-                // Only show UBQ amount if not fully collateralized
-                const showUbqAmount = shouldShow && !this.protocolSettings?.isFullyCollateralized;
-                ubqAmountGroup.style.display = showUbqAmount ? 'block' : 'none';
-            }
-            if (redeemOptionsGroup) {
-                redeemOptionsGroup.style.display = 'none';
-            }
-        } else {
-            // Show redeem options for withdrawals based on protocol state
-            if (mintOptionsGroup) {
-                mintOptionsGroup.style.display = 'none';
-            }
-            if (ubqAmountGroup) {
-                ubqAmountGroup.style.display = 'none';
-            }
-            if (redeemOptionsGroup) {
-                // Only show redeem options if protocol is not fully collateralized
-                // When fully collateralized (100% LUSD), the checkbox is meaningless
-                const showRedeemOptions = shouldShow && !this.protocolSettings?.isFullyCollateralized;
-                redeemOptionsGroup.style.display = showRedeemOptions ? 'block' : 'none';
-
-                // Update checkbox state and label based on protocol state
-                const redeemLusdOnly = document.getElementById('redeemLusdOnly') as HTMLInputElement;
-                if (redeemLusdOnly && this.protocolSettings?.isFullyAlgorithmic) {
-                    // In fully algorithmic mode, force LUSD-only (swap) since protocol gives 100% UBQ
-                    redeemLusdOnly.checked = true;
-                    redeemLusdOnly.disabled = true;
-                } else if (redeemLusdOnly) {
-                    redeemLusdOnly.disabled = false;
-                }
-
-                // Check redemption status when showing redeem options to auto-disable if needed
-                if (showRedeemOptions) {
-                    setTimeout(() => {
-                        this.checkRedemptionAllowed();
-                    }, 50);
-                }
-            }
-        }
+        this.setState({ showOptions: shouldShow });
     }
 
     /**
@@ -874,6 +891,6 @@ export class UnifiedExchangeComponent {
      * Get current direction
      */
     getCurrentDirection(): ExchangeDirection {
-        return this.currentDirection;
+        return this.uiState.direction;
     }
 }
