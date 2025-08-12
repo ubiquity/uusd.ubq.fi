@@ -97,6 +97,9 @@ class UUSDApp {
         // Show the exchange interface
         this.showExchangeInterface();
 
+        // Check for stored wallet connection and auto-reconnect
+        await this.checkAutoReconnect();
+
         // RENDER CACHED SPARKLINE IMMEDIATELY (synchronous)
         this.renderCachedSparkline();
 
@@ -363,6 +366,22 @@ class UUSDApp {
         }
     }
 
+    /**
+     * Check for stored wallet connection and attempt auto-reconnection
+     */
+    private async checkAutoReconnect() {
+        try {
+            const reconnectedAddress = await this.walletService.checkStoredConnection();
+            if (reconnectedAddress) {
+                // Auto-reconnection successful - UI updates handled by event handlers
+                console.log('Auto-reconnected to wallet:', reconnectedAddress);
+            }
+        } catch (error) {
+            // Auto-reconnection failed silently
+            console.warn('Auto-reconnection failed:', error);
+        }
+    }
+
     // Public methods called from HTML
     async connectWallet() {
         const connectButton = document.getElementById('connectWallet') as HTMLButtonElement;
@@ -375,7 +394,7 @@ class UUSDApp {
                 connectButton.textContent = 'Disconnecting...';
                 connectButton.disabled = true;
 
-                // Disconnect wallet
+                // Disconnect wallet (this will clear localStorage)
                 this.walletService.disconnect();
                 // UI updates are handled by event handlers
             } else {
@@ -383,7 +402,8 @@ class UUSDApp {
                 connectButton.textContent = 'Connecting...';
                 connectButton.disabled = true;
 
-                await this.walletService.connect();
+                // Force wallet selection since user explicitly clicked connect
+                await this.walletService.connect(true);
                 // UI updates are handled by event handlers
             }
         } catch (error: any) {

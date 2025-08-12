@@ -28,6 +28,7 @@ export class WalletService {
     private publicClient: PublicClient;
     private account: Address | null = null;
     private events: Partial<WalletServiceEvents> = {};
+    private static readonly STORAGE_KEY = 'uusd_wallet_address';
 
     constructor() {
         this.publicClient = createPublicClient({
@@ -46,17 +47,19 @@ export class WalletService {
     /**
      * Connect to user's wallet
      */
-    async connect(): Promise<Address> {
+    async connect(forceSelection: boolean = false): Promise<Address> {
         if (!window.ethereum) {
             throw new Error('Please install a wallet extension');
         }
 
-        // Force wallet selection dialog by requesting permissions
-        // This ensures MetaMask shows account selection even after previous connections
-        await window.ethereum.request({
-            method: 'wallet_requestPermissions',
-            params: [{ eth_accounts: {} }]
-        });
+        if (forceSelection) {
+            // Force wallet selection dialog by requesting permissions
+            // This ensures MetaMask shows account selection even after previous connections
+            await window.ethereum.request({
+                method: 'wallet_requestPermissions',
+                params: [{ eth_accounts: {} }]
+            });
+        }
 
         this.walletClient = createWalletClient({
             chain: mainnet,
@@ -65,6 +68,9 @@ export class WalletService {
 
         const [address] = await this.walletClient.requestAddresses();
         this.account = address;
+
+        // Store the connected wallet address in localStorage
+        localStorage.setItem(WalletService.STORAGE_KEY, address);
 
         this.events.onConnect?.(address);
         this.events.onAccountChanged?.(address);
@@ -78,6 +84,9 @@ export class WalletService {
     disconnect(): void {
         this.walletClient = null;
         this.account = null;
+
+        // Clear stored wallet address from localStorage
+        localStorage.removeItem(WalletService.STORAGE_KEY);
 
         this.events.onDisconnect?.();
         this.events.onAccountChanged?.(null);
@@ -129,5 +138,52 @@ export class WalletService {
         if (!result.isValid) {
             throw new Error(result.error);
         }
+    }
+
+    /**
+     * Check for stored wallet connection and attempt auto-reconnection
+     */
+    async checkStoredConnection(): Promise<Address | null> {
+        if (!window.ethereum) {
+            return null;
+        }
+
+        const storedAddress = localStorage.getItem(WalletService.STORAGE_KEY);
+        if (!storedAddress) {
+            return null;
+        }
+
+        try {
+            // Try to reconnect without forcing wallet selection
+            this.walletClient = createWalletClient({
+                chain: mainnet,
+                transport: custom(window.ethereum)
+            });
+
+            // Check if the stored address is still available in the wallet
+            const availableAddresses = await this.walletClient.getAddresses();
+
+            if (availableAddresses.includes(storedAddress as Address)) {
+                this.account = storedAddress as Address;
+                this.events.onConnect?.(this.account);
+                this.events.onAccountChanged?.(this.account);
+                return this.account;
+            } else {
+                // Stored address is no longer available, clear it
+                localStorage.removeItem(WalletService.STORAGE_KEY);
+                return null;
+            }
+        } catch (error) {
+            // Auto-reconnection failed, clear stored address
+            localStorage.removeItem(WalletService.STORAGE_KEY);
+            return null;
+        }
+    }
+
+    /**
+     * Get stored wallet address without connecting
+     */
+    getStoredAddress(): string | null {
+        return localStorage.getItem(WalletService.STORAGE_KEY);
     }
 }
