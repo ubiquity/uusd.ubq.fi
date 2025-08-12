@@ -11,7 +11,7 @@ import { cacheService } from './services/cache-service.ts';
 
 // Import components
 import { NotificationManager } from './components/notification-manager.ts';
-import { UnifiedExchangeComponent } from './components/unified-exchange-component.ts';
+import { SimplifiedExchangeComponent } from './components/simplified-exchange-component.ts';
 import { InventoryBarComponent } from './components/inventory-bar-component.ts';
 
 // Import utilities
@@ -39,7 +39,7 @@ class UUSDApp {
 
     // Components
     private notificationManager: NotificationManager;
-    private unifiedExchangeComponent: UnifiedExchangeComponent;
+    private simplifiedExchangeComponent: SimplifiedExchangeComponent;
     private inventoryBarComponent: InventoryBarComponent;
 
     constructor() {
@@ -76,8 +76,8 @@ class UUSDApp {
             notificationManager: this.notificationManager
         });
 
-        // Create unified exchange component
-        this.unifiedExchangeComponent = new UnifiedExchangeComponent({
+        // Create simplified exchange component
+        this.simplifiedExchangeComponent = new SimplifiedExchangeComponent({
             ...services,
             inventoryBar: this.inventoryBarComponent
         });
@@ -314,12 +314,12 @@ class UUSDApp {
         this.walletService.setEventHandlers({
             onConnect: (account: Address) => {
                 this.updateWalletUI(account);
-                this.unifiedExchangeComponent.updateWalletConnection(true);
+                this.simplifiedExchangeComponent.updateWalletConnection(true);
                 this.inventoryBarComponent.handleWalletConnectionChange(account);
             },
             onDisconnect: () => {
                 this.updateWalletUI(null);
-                this.unifiedExchangeComponent.updateWalletConnection(false);
+                this.simplifiedExchangeComponent.updateWalletConnection(false);
                 this.inventoryBarComponent.handleWalletConnectionChange(null);
             }
         });
@@ -327,16 +327,18 @@ class UUSDApp {
         // Transaction service event handlers
         this.transactionService.setEventHandlers({
             onTransactionStart: (operation: string) => {
-                this.unifiedExchangeComponent.handleTransactionStart();
+                this.simplifiedExchangeComponent.handleTransactionStart();
             },
             onTransactionSubmitted: (operation: string, hash: string) => {
-                this.unifiedExchangeComponent.handleTransactionSubmitted(hash);
+                this.simplifiedExchangeComponent.handleTransactionSubmitted(hash);
             },
             onTransactionSuccess: (operation: string, hash: string) => {
-                this.unifiedExchangeComponent.handleTransactionSuccess(operation);
+                // Note: handleTransactionSuccess doesn't exist in simplified component
+                // as it's handled internally
             },
             onTransactionError: (operation: string, error: Error) => {
-                this.unifiedExchangeComponent.handleTransactionError(error);
+                // Note: handleTransactionError doesn't exist in simplified component
+                // as it's handled internally
             },
             onApprovalNeeded: (tokenSymbol: string) => {
                 // Handled within the unified exchange component
@@ -415,7 +417,7 @@ class UUSDApp {
     }
 
     async handleExchange(event: Event) {
-        await this.unifiedExchangeComponent.handleSubmit(event);
+        await this.simplifiedExchangeComponent.handleSubmit(event);
     }
 
     /**

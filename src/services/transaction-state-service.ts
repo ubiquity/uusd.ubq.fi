@@ -31,7 +31,15 @@ export class TransactionStateService {
   registerButton(buttonId: string, config: TransactionStateConfig): void {
     const button = config.buttonElement;
 
-    // Store original click handler
+    // Check if button is already registered
+    if (this.transactions.has(buttonId)) {
+      // Already registered, just update config if needed
+      const existingState = this.transactions.get(buttonId)!;
+      existingState.config = config;
+      return;
+    }
+
+    // Store original click handler (only on first registration)
     const originalClickHandler = button.onclick;
 
     const transactionState: TransactionState = {
@@ -61,11 +69,12 @@ export class TransactionStateService {
         return;
       }
 
-      // Execute original functionality - let components handle startTransaction via events
-      if (state.originalClickHandler) {
-        state.originalClickHandler.call(button, event);
-      } else if (config.onTransactionClick) {
+      // Execute transaction click handler
+      if (config.onTransactionClick) {
         config.onTransactionClick();
+      } else if (state.originalClickHandler) {
+        // Only call original if it's not our own wrapper
+        state.originalClickHandler.call(button, event);
       }
     };
 
