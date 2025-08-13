@@ -1,4 +1,4 @@
-import { type Address, type PublicClient, type WalletClient, maxUint256, formatUnits } from "viem";
+import { type Address, type _PublicClient, type _WalletClient, maxUint256, formatUnits } from "viem";
 import { ADDRESSES, DIAMOND_ABI, ERC20_ABI } from "../contracts/constants.ts";
 import type { CollateralInfo } from "../utils/calculation-utils.ts";
 import type { WalletService } from "./wallet-service.ts";
@@ -290,17 +290,17 @@ export class ContractService implements ContractReads, ContractWrites {
       const collateralOptions: CollateralOption[] = collateralInfoResults
         .map((result, i) => {
           if (result.status === "success") {
-            const info = result.result as any;
+            const info = result.result as unknown;
             return {
-              index: Number(info.index),
-              name: info.symbol,
+              index: Number((info as any).index),
+              name: (info as any).symbol,
               address: collateralAddresses[i],
-              mintingFee: formatUnits(info.mintingFee, 6),
-              redemptionFee: formatUnits(info.redemptionFee, 6),
-              missingDecimals: Number(info.missingDecimals),
-              isEnabled: Boolean(info.isEnabled),
-              isMintPaused: Boolean(info.isMintPaused),
-              isRedeemPaused: Boolean(info.isRedeemPaused),
+              mintingFee: formatUnits((info as any).mintingFee, 6),
+              redemptionFee: formatUnits((info as any).redemptionFee, 6),
+              missingDecimals: Number((info as any).missingDecimals),
+              isEnabled: Boolean((info as any).isEnabled),
+              isMintPaused: Boolean((info as any).isMintPaused),
+              isRedeemPaused: Boolean((info as any).isRedeemPaused),
             } as CollateralOption;
           }
           return null;
@@ -325,17 +325,17 @@ export class ContractService implements ContractReads, ContractWrites {
             abi: DIAMOND_ABI,
             functionName: "collateralInformation",
             args: [address],
-          })) as any;
+          })) as unknown;
           return {
-            index: Number(info.index),
-            name: info.symbol,
+            index: Number((info as any).index),
+            name: (info as any).symbol,
             address: address,
-            mintingFee: formatUnits(info.mintingFee, 6),
-            redemptionFee: formatUnits(info.redemptionFee, 6),
-            missingDecimals: Number(info.missingDecimals),
-            isEnabled: Boolean(info.isEnabled),
-            isMintPaused: Boolean(info.isMintPaused),
-            isRedeemPaused: Boolean(info.isRedeemPaused),
+            mintingFee: formatUnits((info as any).mintingFee, 6),
+            redemptionFee: formatUnits((info as any).redemptionFee, 6),
+            missingDecimals: Number((info as any).missingDecimals),
+            isEnabled: Boolean((info as any).isEnabled),
+            isMintPaused: Boolean((info as any).isMintPaused),
+            isRedeemPaused: Boolean((info as any).isRedeemPaused),
           };
         })
       );
@@ -391,7 +391,7 @@ export class ContractService implements ContractReads, ContractWrites {
         args,
         account,
       });
-    } catch (estimationError) {
+    } catch (_estimationError) {
       // Fallback gas limit for approval operations
       gasEstimate = 100000n;
     }
@@ -513,7 +513,7 @@ export class ContractService implements ContractReads, ContractWrites {
         args,
         account,
       });
-    } catch (estimationError: any) {
+    } catch (estimationError: unknown) {
       // Analyze error message for specific contract errors
       const errorMessage = estimationError.message || estimationError.toString();
 
@@ -653,7 +653,7 @@ export class ContractService implements ContractReads, ContractWrites {
       const collateralAddresses = results[2].status === "success" ? (results[2].result as Address[]) : [];
 
       // Get collateral-specific info if addresses available
-      let collateralInfo: any = null;
+      let collateralInfo: unknown = null;
       if (collateralAddresses.length > collateralIndex) {
         collateralInfo = await publicClient.readContract({
           address: ADDRESSES.DIAMOND,

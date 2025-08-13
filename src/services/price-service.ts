@@ -1,4 +1,4 @@
-import { parseEther, formatUnits } from "viem";
+import { parseEther as _parseEther, formatUnits } from "viem";
 import {
   calculateMintAmounts,
   calculateRedeemAmounts,
@@ -12,7 +12,7 @@ import {
 import type { ContractService, CollateralOption } from "./contract-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import { PriceHistoryService, type PriceDataPoint } from "./price-history-service.ts";
-import { PriceThresholdService, type PriceThresholds } from "./price-threshold-service.ts";
+import { PriceThresholdService, type PriceThresholds as _PriceThresholds } from "./price-threshold-service.ts";
 
 /**
  * Interface for price calculation parameters
@@ -64,13 +64,13 @@ export class PriceService {
   private priceHistoryService: PriceHistoryService;
   private priceThresholdService: PriceThresholdService;
   private collateralOptions: CollateralOption[] = [];
-  private cache = new Map<string, CacheEntry<any>>();
+  private cache = new Map<string, CacheEntry<unknown>>();
   private initialized = false;
 
-  constructor(contractService: ContractService, walletService?: any) {
+  constructor(contractService: ContractService, walletService?: unknown) {
     this.contractService = contractService;
     // Create a new WalletService if not provided - we'll fix this in app.ts
-    this.priceHistoryService = new PriceHistoryService(walletService || contractService);
+    this.priceHistoryService = new PriceHistoryService((walletService as any) || contractService);
     this.priceThresholdService = new PriceThresholdService();
   }
 
@@ -180,7 +180,7 @@ export class PriceService {
     }
 
     // Prepare async calls - conditionally include governance price
-    const asyncCalls: Promise<any>[] = [
+    const asyncCalls: Promise<unknown>[] = [
       this.contractService.getCollateralRatio(),
       this.contractService.getLUSDOraclePrice(),
       this.priceThresholdService.getPriceThresholds(),
@@ -197,17 +197,17 @@ export class PriceService {
     let collateralRatio: bigint;
     let governancePrice: bigint;
     let twapPrice: bigint;
-    let priceThresholds: any;
+    let priceThresholds: unknown;
 
     if (skipGovernancePrice) {
-      [collateralRatio, twapPrice, priceThresholds] = results;
+      [collateralRatio, twapPrice, priceThresholds] = results as [bigint, bigint, unknown];
       // Use a default governance price or fetch from cache if available
       governancePrice = 1000000n; // Default $1.00 as fallback
     } else {
-      [collateralRatio, governancePrice, twapPrice, priceThresholds] = results;
+      [collateralRatio, governancePrice, twapPrice, priceThresholds] = results as [bigint, bigint, bigint, unknown];
     }
 
-    const redeemPriceThreshold = priceThresholds.redeemThreshold;
+    const redeemPriceThreshold = (priceThresholds as { redeemThreshold: bigint }).redeemThreshold;
 
     // Get collateral amount based on fee-adjusted dollar amount
     const dollarAfterFee = calculateRedeemFeeOutput(dollarAmount, collateral.redemptionFee);

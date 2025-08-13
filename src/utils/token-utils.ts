@@ -1,4 +1,4 @@
-import { formatUnits, parseUnits, type Address } from "viem";
+import { formatUnits, parseUnits, type Address as _Address } from "viem";
 import type { TokenBalance, TokenMetadata } from "../types/inventory.types.ts";
 
 /**

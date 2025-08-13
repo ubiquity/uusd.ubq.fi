@@ -144,8 +144,6 @@ export class TransactionService {
         isForceCollateralOnly,
       });
 
-      // Check for oracle staleness before attempting transaction
-      const errorMessage = "";
       try {
         const hash = await this.contractService.mintDollar(
           collateralIndex,
@@ -159,23 +157,24 @@ export class TransactionService {
         this.events.onTransactionSubmitted?.(TransactionOperation.MINT, hash);
         this.events.onTransactionSuccess?.(TransactionOperation.MINT, hash);
         return hash;
-      } catch (contractError: any) {
+      } catch (contractError: unknown) {
         console.error("❌ Mint transaction failed:", contractError);
 
+        const contractErrorMessage = (contractError as Error).message;
         // Check if this is already an enhanced oracle error from ContractService
         if (
-          contractError.message?.includes("💡 Oracle Price Feed Issue Detected") ||
-          contractError.message?.includes("Oracle keepers will update") ||
-          contractError.message?.includes("Alternative actions:")
+          contractErrorMessage?.includes("💡 Oracle Price Feed Issue Detected") ||
+          contractErrorMessage?.includes("Oracle keepers will update") ||
+          contractErrorMessage?.includes("Alternative actions:")
         ) {
-          this.events.onTransactionError?.(TransactionOperation.MINT, contractError);
+          this.events.onTransactionError?.(TransactionOperation.MINT, contractError as Error);
           throw contractError;
         }
 
         // Check if this is a raw stale oracle data error
         if (
-          contractError.message?.toLowerCase().includes("stale stable/usd data") ||
-          (contractError.message?.toLowerCase().includes("stale") && contractError.message?.toLowerCase().includes("data"))
+          contractErrorMessage?.toLowerCase().includes("stale stable/usd data") ||
+          (contractErrorMessage?.toLowerCase().includes("stale") && contractErrorMessage?.toLowerCase().includes("data"))
         ) {
           const oracleError = new Error(
             `Price oracle data is outdated. The LUSD price feed needs to be updated by oracle keepers. This usually resolves within a few minutes. Please try again later, or consider using a different collateral type if available.`
@@ -185,7 +184,7 @@ export class TransactionService {
         }
 
         // Enhanced error handling with specific messages for non-oracle errors
-        const enhancedError = this.enhanceErrorMessage(contractError, "mint");
+        const enhancedError = this.enhanceErrorMessage(contractError as Error, "mint");
         this.events.onTransactionError?.(TransactionOperation.MINT, enhancedError);
         throw enhancedError;
       }
@@ -280,14 +279,14 @@ export class TransactionService {
       console.error("❌ General redeem error:", error);
 
       // Check if this is already an enhanced error from ContractService
-      const errorMessage = (error as Error).message;
+      const redeemErrorMessage = (error as Error).message;
       if (
-        errorMessage.includes("Cannot redeem at this time:") ||
-        errorMessage.includes("Redemptions are temporarily disabled") ||
-        errorMessage.includes("Insufficient collateral in the protocol") ||
-        errorMessage.includes("💡 Oracle Price Feed Issue Detected") ||
-        errorMessage.includes("Oracle keepers will update") ||
-        errorMessage.includes("Alternative actions:")
+        redeemErrorMessage.includes("Cannot redeem at this time:") ||
+        redeemErrorMessage.includes("Redemptions are temporarily disabled") ||
+        redeemErrorMessage.includes("Insufficient collateral in the protocol") ||
+        redeemErrorMessage.includes("💡 Oracle Price Feed Issue Detected") ||
+        redeemErrorMessage.includes("Oracle keepers will update") ||
+        redeemErrorMessage.includes("Alternative actions:")
       ) {
         this.events.onTransactionError?.(TransactionOperation.REDEEM, error as Error);
         throw error;

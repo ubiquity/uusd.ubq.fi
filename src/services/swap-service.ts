@@ -1,4 +1,4 @@
-import { type Address, type Hash, parseEther, formatEther, maxUint256 } from "viem";
+import { type Address, type Hash, parseEther as _parseEther, formatEther as _formatEther, maxUint256 } from "viem";
 import type { WalletService } from "./wallet-service.ts";
 import type { ContractService } from "./contract-service.ts";
 
@@ -128,12 +128,13 @@ export class SwapService {
         fromToken: params.fromToken,
         toToken: params.toToken,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Swap transaction failed:", error);
-      if (error.message.includes("ChainMismatchError")) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      if (errorMessage.includes("ChainMismatchError")) {
         throw new Error("Wrong network. Please switch to Ethereum mainnet.");
       }
-      throw new Error(`Swap failed: ${error.message || "Unknown error"}`);
+      throw new Error(`Swap failed: ${errorMessage}`);
     }
   }
 

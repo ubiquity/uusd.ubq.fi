@@ -96,7 +96,7 @@ export function calculateRedeemAmounts(input: RedeemCalculationInput): RedeemCal
 
   if (input.collateralRatio >= poolPricePrecision) {
     // 100% collateral mode
-    const dollarAfterFee = calculateRedeemFeeOutput(input.dollarAmount, input.redemptionFee);
+    const _dollarAfterFee = calculateRedeemFeeOutput(input.dollarAmount, input.redemptionFee);
     collateralRedeemed = input.collateralAmount;
     governanceRedeemed = 0n;
   } else if (input.collateralRatio === 0n) {

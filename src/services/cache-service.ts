@@ -39,8 +39,8 @@ export const CACHE_CONFIGS = {
 } as const;
 
 export class CacheService {
-  private cache = new Map<string, CacheEntry<any>>();
-  private pendingRequests = new Map<string, Promise<any>>();
+  private cache = new Map<string, CacheEntry<unknown>>();
+  private pendingRequests = new Map<string, Promise<unknown>>();
   private maxCacheSize = 1000; // Prevent memory bloat
 
   /**
@@ -221,7 +221,7 @@ export class CacheService {
       )
     );
 
-    const successful = results.filter((r) => r.status === "fulfilled").length;
+    const _successful = results.filter((r) => r.status === "fulfilled").length;
   }
 }
 

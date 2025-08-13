@@ -8,7 +8,7 @@ interface RPCRequest {
   id: number;
   jsonrpc: "2.0";
   method: string;
-  params: any[];
+  params: unknown[];
 }
 
 /**
@@ -17,11 +17,11 @@ interface RPCRequest {
 interface RPCResponse {
   id: number;
   jsonrpc: "2.0";
-  result?: any;
+  result?: unknown;
   error?: {
     code: number;
     message: string;
-    data?: any;
+    data?: unknown;
   };
 }
 
@@ -29,7 +29,7 @@ interface RPCResponse {
  * Batch request result
  */
 export interface BatchRequestResult {
-  blocks: any[];
+  blocks: unknown[];
   prices: bigint[];
   errors: string[];
 }
@@ -105,7 +105,7 @@ export class RPCBatchService {
       const responses: RPCResponse[] = await response.json();
 
       // Process responses
-      const blocks: any[] = [];
+      const blocks: unknown[] = [];
       const prices: bigint[] = [];
       const errors: string[] = [];
 

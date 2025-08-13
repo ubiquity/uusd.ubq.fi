@@ -1,6 +1,6 @@
 import { type Address, type PublicClient, type Log, parseEther } from "viem";
 import type { WalletService } from "./wallet-service.ts";
-import { RPCBatchService, type BatchRequestResult } from "./rpc-batch-service.ts";
+import { RPCBatchService, type BatchRequestResult as _BatchRequestResult } from "./rpc-batch-service.ts";
 
 /**
  * Historical price data point
@@ -25,10 +25,10 @@ export interface PriceHistoryConfig {
  */
 interface TokenExchangeEvent {
   buyer: Address;
-  sold_id: bigint;
-  tokens_sold: bigint;
-  bought_id: bigint;
-  tokens_bought: bigint;
+  soldId: bigint;
+  tokensSold: bigint;
+  boughtId: bigint;
+  tokensBought: bigint;
 }
 
 /**
@@ -142,7 +142,7 @@ export class PriceHistoryService {
           cachedPoints.push(cachedPoint);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors in cache reconstruction
     }
 
@@ -289,12 +289,12 @@ export class PriceHistoryService {
       // This is a simplified parsing - in production, use proper ABI decoding libraries
       return {
         buyer: `0x${topics[1]?.slice(26)}` as Address,
-        sold_id: BigInt(`0x${data.slice(2, 66)}`),
-        tokens_sold: BigInt(`0x${data.slice(66, 130)}`),
-        bought_id: BigInt(`0x${data.slice(130, 194)}`),
-        tokens_bought: BigInt(`0x${data.slice(194, 258)}`),
+        soldId: BigInt(`0x${data.slice(2, 66)}`),
+        tokensSold: BigInt(`0x${data.slice(66, 130)}`),
+        boughtId: BigInt(`0x${data.slice(130, 194)}`),
+        tokensBought: BigInt(`0x${data.slice(194, 258)}`),
       };
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -303,9 +303,7 @@ export class PriceHistoryService {
    * Check if the swap is between LUSD and UUSD
    */
   private isLUSDUUSDSwap(event: TokenExchangeEvent): boolean {
-    return (
-      (event.sold_id === this.LUSD_INDEX && event.bought_id === this.UUSD_INDEX) || (event.sold_id === this.UUSD_INDEX && event.bought_id === this.LUSD_INDEX)
-    );
+    return (event.soldId === this.LUSD_INDEX && event.boughtId === this.UUSD_INDEX) || (event.soldId === this.UUSD_INDEX && event.boughtId === this.LUSD_INDEX);
   }
 
   /**
@@ -314,12 +312,12 @@ export class PriceHistoryService {
   private calculatePriceFromSwap(event: TokenExchangeEvent): bigint {
     const lusdPriceUsd = 1000000n; // Assume $1.00 in 6 decimal precision
 
-    if (event.sold_id === this.LUSD_INDEX && event.bought_id === this.UUSD_INDEX) {
+    if (event.soldId === this.LUSD_INDEX && event.boughtId === this.UUSD_INDEX) {
       // LUSD -> UUSD swap: price = (LUSD_amount / UUSD_amount) * LUSD_price
-      return (event.tokens_sold * lusdPriceUsd) / event.tokens_bought;
-    } else if (event.sold_id === this.UUSD_INDEX && event.bought_id === this.LUSD_INDEX) {
+      return (event.tokensSold * lusdPriceUsd) / event.tokensBought;
+    } else if (event.soldId === this.UUSD_INDEX && event.boughtId === this.LUSD_INDEX) {
       // UUSD -> LUSD swap: price = (LUSD_amount / UUSD_amount) * LUSD_price
-      return (event.tokens_bought * lusdPriceUsd) / event.tokens_sold;
+      return (event.tokensBought * lusdPriceUsd) / event.tokensSold;
     }
 
     return 0n;
@@ -375,7 +373,7 @@ export class PriceHistoryService {
             this.pointCache.set(pointKey, cached);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore localStorage errors
       }
     }
@@ -388,7 +386,7 @@ export class PriceHistoryService {
       this.pointCache.delete(pointKey);
       try {
         localStorage.removeItem(`price_${pointKey}`);
-      } catch (error) {
+      } catch (_error) {
         // Ignore localStorage errors
       }
       return null;
@@ -427,7 +425,7 @@ export class PriceHistoryService {
     // Store in localStorage
     try {
       localStorage.setItem(`price_${pointKey}`, JSON.stringify(cacheData));
-    } catch (error) {
+    } catch (_error) {
       // Ignore localStorage errors (quota exceeded, etc.)
     }
   }
@@ -464,7 +462,7 @@ export class PriceHistoryService {
                 keysToRemove.push(key);
               }
             }
-          } catch (error) {
+          } catch (_error) {
             // If we can't parse it, it's probably corrupted - remove it
             keysToRemove.push(key);
           }
@@ -478,6 +476,7 @@ export class PriceHistoryService {
       });
 
       if (cleanedCount > 0) {
+        // Cache cleanup completed
       }
     } catch (error) {
       // Ignore localStorage errors

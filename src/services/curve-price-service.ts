@@ -1,4 +1,4 @@
-import { type Address, type PublicClient, parseEther } from "viem";
+import { type Address, type PublicClient as _PublicClient, parseEther } from "viem";
 import type { WalletService } from "./wallet-service.ts";
 
 /**

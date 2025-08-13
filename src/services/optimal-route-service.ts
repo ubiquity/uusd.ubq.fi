@@ -1,4 +1,4 @@
-import { formatEther, formatUnits, parseEther, type Address } from "viem";
+import { formatEther, formatUnits, parseEther } from "viem";
 import type { PriceService } from "./price-service.ts";
 import type { CurvePriceService } from "./curve-price-service.ts";
 import type { ContractService } from "./contract-service.ts";
@@ -64,7 +64,7 @@ export class OptimalRouteService {
         setTimeout(() => reject(new Error("Market conditions timeout")), 10000);
       });
 
-      const [lusdPrice, marketPrice] = (await Promise.race([marketConditionsPromise, timeoutPromise])) as [bigint, bigint];
+      const [_lusdPrice, marketPrice] = (await Promise.race([marketConditionsPromise, timeoutPromise])) as [bigint, bigint];
 
       const dollarAmount = parseEther(formatUnits(lusdAmount, 18));
 
@@ -88,7 +88,7 @@ export class OptimalRouteService {
       const [mixedMintResult, collateralOnlyMintResult] = (await Promise.race([
         Promise.all([mixedMintPromise, collateralOnlyMintPromise]),
         mintTimeoutPromise,
-      ])) as [any, any];
+      ])) as [unknown, unknown];
 
       // Calculate swap output (LUSD → UUSD via Curve)
       const swapOutputUUSD = await this.getSwapOutput(lusdAmount, "LUSD", "UUSD");
@@ -171,7 +171,7 @@ export class OptimalRouteService {
           // reason: 'Using Curve swap (fallback due to calculation error).',
           isEnabled: true,
         };
-      } catch (swapError) {
+      } catch (_swapError) {
         throw new Error(`Failed to calculate optimal route: ${error}`);
       }
     }
@@ -222,7 +222,7 @@ export class OptimalRouteService {
           setTimeout(() => reject(new Error("Redeem calculation timeout")), 10000);
         });
 
-        redeemResult = (await Promise.race([redeemPromise, timeoutPromise])) as any;
+        redeemResult = (await Promise.race([redeemPromise, timeoutPromise])) as unknown;
       } catch (error) {
         console.error("❌ Error calculating redeem output:", error);
 
@@ -334,7 +334,7 @@ export class OptimalRouteService {
           // reason: 'Using Curve swap (fallback due to calculation error).',
           isEnabled: true,
         };
-      } catch (swapError) {
+      } catch (_swapError) {
         throw new Error(`Failed to calculate optimal route: ${error}`);
       }
     }

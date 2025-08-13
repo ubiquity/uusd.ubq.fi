@@ -1,5 +1,5 @@
 import { formatUnits } from "viem";
-import type { TokenBalance } from "../types/inventory.types.ts";
+import type { TokenBalance as _TokenBalance } from "../types/inventory.types.ts";
 import type { InventoryBarComponent } from "../components/inventory-bar-component.ts";
 
 /**
