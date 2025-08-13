@@ -90,7 +90,7 @@ export class SwapService {
     this.validateSwapParams(params);
 
     // Get token addresses and indices
-    const { fromTokenAddress, toTokenAddress, fromIndex, toIndex } = this.getSwapTokenInfo(params);
+    const { fromTokenAddress, fromIndex, toIndex } = this.getSwapTokenInfo(params);
 
     // Check and handle token approval
     await this.ensureTokenApproval(fromTokenAddress, account, params.amountIn);
@@ -116,7 +116,7 @@ export class SwapService {
 
       // Get actual output amount from transaction receipt
       const publicClient = this.walletService.getPublicClient();
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash });
 
       // For now, estimate the output (in production, parse from logs)
       const estimatedOutput = await this.getSwapQuoteInternal(params.amountIn, fromIndex, toIndex);

@@ -221,7 +221,7 @@ export class CacheService {
       )
     );
 
-    const _successful = results.filter((r) => r.status === "fulfilled").length;
+    const successfulCount = results.filter((r) => r.status === "fulfilled").length;
   }
 }
 

@@ -93,7 +93,7 @@ export class RPCBatchService {
       const response = await fetch(rpcUrl, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          ["Content-Type"]: "application/json",
         },
         body: JSON.stringify(requests), // Send array directly as JSON-RPC 2.0 batch
       });
@@ -143,7 +143,7 @@ export class RPCBatchService {
             const lusdPriceUsd = 1000000n; // $1.00 in 6 decimal precision
             const uusdPrice = (lusdPriceUsd * testAmount) / priceResult;
             prices.push(uusdPrice);
-          } catch (error) {
+          } catch {
             errors.push(`Price ${blockNumbers[i]}: Failed to parse result`);
             prices.push(0n);
           }

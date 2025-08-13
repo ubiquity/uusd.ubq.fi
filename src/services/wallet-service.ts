@@ -177,7 +177,7 @@ export class WalletService {
         localStorage.removeItem(WalletService.STORAGE_KEY);
         return null;
       }
-    } catch (_error) {
+    } catch (error) {
       // Auto-reconnection failed, clear stored address
       localStorage.removeItem(WalletService.STORAGE_KEY);
       return null;

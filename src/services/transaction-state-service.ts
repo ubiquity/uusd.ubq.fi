@@ -11,7 +11,7 @@ export interface TransactionState {
   error?: string;
   buttonElement: HTMLButtonElement;
   config: TransactionStateConfig;
-  originalClickHandler?: ((this: GlobalEventHandlers, ev: MouseEvent) => any) | null;
+  originalClickHandler?: ((this: GlobalEventHandlers, ev: MouseEvent) => void) | null;
 }
 
 export class TransactionStateService {
@@ -291,7 +291,7 @@ export class TransactionStateService {
    * Reset all buttons to initial state (useful for wallet disconnect)
    */
   resetAllButtons(): void {
-    for (const [buttonId, state] of this.transactions.entries()) {
+    for (const [, state] of this.transactions.entries()) {
       if (state.isLoading) {
         state.isLoading = false;
         state.hash = undefined;
