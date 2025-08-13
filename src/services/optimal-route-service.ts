@@ -416,7 +416,7 @@ export class OptimalRouteService {
 
         const savingsAmount = optimalOutput > alternativeOutput ? optimalOutput - alternativeOutput : 0n;
         const savingsPercentage = savingsAmount > 0n
-            ? Number((savingsAmount * 10000n) / alternativeOutput) / 100 // Convert to percentage with 2 decimals
+            ? parseFloat(formatUnits((savingsAmount * 10000n) / alternativeOutput, 2))
             : 0;
 
         return {

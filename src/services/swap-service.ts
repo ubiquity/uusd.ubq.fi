@@ -95,9 +95,12 @@ export class SwapService {
         // Check and handle token approval
         await this.ensureTokenApproval(fromTokenAddress, account, params.amountIn);
 
+        // Get expected output first
+        const expectedOutput = await this.getSwapQuoteInternal(params.amountIn, fromIndex, toIndex);
+
         // Calculate minimum output with slippage protection
         const slippage = params.slippageTolerance || this.DEFAULT_SLIPPAGE;
-        const minAmountOut = params.minAmountOut || this.calculateMinAmountOut(params.amountIn, slippage);
+        const minAmountOut = params.minAmountOut || this.calculateMinAmountOut(expectedOutput, slippage);
 
         try {
             // Execute the swap

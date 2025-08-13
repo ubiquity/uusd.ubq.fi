@@ -4,8 +4,8 @@ export interface CollateralOption {
     index: number;
     name: string;
     address: Address;
-    mintingFee: number;
-    redemptionFee: number;
+    mintingFee: string;
+    redemptionFee: string;
     missingDecimals: number;
     isEnabled?: boolean;
     isMintPaused?: boolean;

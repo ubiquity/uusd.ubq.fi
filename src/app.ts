@@ -1,4 +1,4 @@
-import { type Address } from 'viem';
+import { type Address, formatUnits } from 'viem';
 
 // Import services
 import { WalletService } from './services/wallet-service.ts';
@@ -219,7 +219,7 @@ class UUSDApp {
         const prices = priceHistory.map(point => {
             // Handle both BigInt and number types
             if (typeof point.price === 'bigint') {
-                return Number(point.price) / 1000000; // Convert from 6-decimal precision to USD
+                return parseFloat(formatUnits(point.price, 6));
             }
             return typeof point.price === 'number' ? point.price : parseFloat(point.price);
         });
@@ -253,7 +253,7 @@ class UUSDApp {
         const strokePath = [...points.slice(0, -2)]; // Remove bottom corners
         strokePath.push(...points.slice(0, -2).reverse().map(point => {
             const [x, y] = point.split(' ');
-            const yNum = parseFloat(y.replace('%', ''));
+            const yNum = Number(y.replace('%', ''));
             return `${x} ${yNum + 0.1}%`; // Add minimal thickness for single-pixel line
         }));
 

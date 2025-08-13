@@ -1,4 +1,5 @@
 import type { Address } from 'viem';
+import { formatUnits } from 'viem';
 import type { WalletService } from '../services/wallet-service.ts';
 import type { ContractService } from '../services/contract-service.ts';
 import type { PriceService } from '../services/price-service.ts';
@@ -206,16 +207,16 @@ export class InventoryBarComponent {
 
             if (symbol === 'UUSD') {
                 const rawPrice = await this.services.contractService.getDollarPriceUsd();
-                priceInUsd = Number(rawPrice) / 1000000; // Convert from 6-decimal precision
+                priceInUsd = parseFloat(formatUnits(rawPrice, 6));
             } else if (symbol === 'UBQ') {
                 const rawPrice = await this.services.contractService.getGovernancePrice();
-                priceInUsd = Number(rawPrice) / 1000000; // Convert from 6-decimal precision
+                priceInUsd = parseFloat(formatUnits(rawPrice, 6));
             } else if (symbol === 'LUSD') {
                 const rawPrice = await this.services.contractService.getLUSDOraclePrice();
-                priceInUsd = Number(rawPrice) / 1000000; // Convert from 6-decimal precision
+                priceInUsd = parseFloat(formatUnits(rawPrice, 6));
             }
 
-            const tokenAmount = Number(balance) / Math.pow(10, decimals);
+            const tokenAmount = parseFloat(formatUnits(balance, decimals));
             return tokenAmount * priceInUsd;
 
         } catch (error) {

@@ -315,8 +315,8 @@ export class ContractService implements ContractReads, ContractWrites {
                         index: Number(info.index),
                         name: info.symbol,
                         address: collateralAddresses[i],
-                        mintingFee: Number(formatUnits(info.mintingFee, 6)),
-                        redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
+                        mintingFee: formatUnits(info.mintingFee, 6),
+                        redemptionFee: formatUnits(info.redemptionFee, 6),
                         missingDecimals: Number(info.missingDecimals),
                         isEnabled: Boolean(info.isEnabled),
                         isMintPaused: Boolean(info.isMintPaused),
@@ -351,8 +351,8 @@ export class ContractService implements ContractReads, ContractWrites {
                         index: Number(info.index),
                         name: info.symbol,
                         address: address,
-                        mintingFee: Number(formatUnits(info.mintingFee, 6)),
-                        redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
+                        mintingFee: formatUnits(info.mintingFee, 6),
+                        redemptionFee: formatUnits(info.redemptionFee, 6),
                         missingDecimals: Number(info.missingDecimals),
                         isEnabled: Boolean(info.isEnabled),
                         isMintPaused: Boolean(info.isMintPaused),
@@ -722,7 +722,7 @@ export class ContractService implements ContractReads, ContractWrites {
             }
 
             // Calculate percentage for UI display
-            const collateralRatioPercentage = Number(collateralRatio) / 10000;
+            const collateralRatioPercentage = formatUnits(collateralRatio, 6);
             const governanceRatioPercentage = 100 - collateralRatioPercentage;
 
             return {

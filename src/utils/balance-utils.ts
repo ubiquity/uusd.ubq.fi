@@ -28,7 +28,7 @@ export function getMaxTokenBalance(
     const formattedBalance = formatUnits(tokenBalance.balance, tokenBalance.decimals);
 
     // Remove trailing zeros and ensure clean formatting
-    const cleanBalance = parseFloat(formattedBalance).toString();
+    const cleanBalance = formattedBalance.replace(/\.?0+$/, '');
 
     return cleanBalance;
 }
@@ -65,11 +65,12 @@ export function getBalanceDisplay(
     }
 
     const formattedBalance = formatUnits(tokenBalance.balance, tokenBalance.decimals);
+    const trimmed = formattedBalance.replace(/\.?0+$/, '') || '0';
+
+    if (trimmed === '0') return '0';
+    if (tokenBalance.balance < 100000000000000n) return '<0.0001';
+
     const num = parseFloat(formattedBalance);
-
-    if (num === 0) return '0';
-    if (num < 0.0001) return '<0.0001';
-
     return num.toLocaleString('en-US', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 4

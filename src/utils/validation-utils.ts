@@ -1,4 +1,5 @@
 import type { Address } from 'viem';
+import { parseUnits } from 'viem';
 
 /**
  * Interface for input validation results
@@ -20,8 +21,16 @@ export function validateMintInputs(amount: string, collateralIndex: string): Val
         return { isValid: false, error: 'Collateral selection is required' };
     }
 
-    const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
+    if (!/^\d*\.?\d*$/.test(amount) || amount === '.' || amount === '') {
+        return { isValid: false, error: 'Amount must be a positive number' };
+    }
+    
+    try {
+        const parsedAmount = parseUnits(amount, 18);
+        if (parsedAmount <= 0n) {
+            return { isValid: false, error: 'Amount must be a positive number' };
+        }
+    } catch {
         return { isValid: false, error: 'Amount must be a positive number' };
     }
 
@@ -40,8 +49,16 @@ export function validateRedeemInputs(amount: string, collateralIndex: string): V
         return { isValid: false, error: 'Collateral selection is required' };
     }
 
-    const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
+    if (!/^\d*\.?\d*$/.test(amount) || amount === '.' || amount === '') {
+        return { isValid: false, error: 'Amount must be a positive number' };
+    }
+    
+    try {
+        const parsedAmount = parseUnits(amount, 18);
+        if (parsedAmount <= 0n) {
+            return { isValid: false, error: 'Amount must be a positive number' };
+        }
+    } catch {
         return { isValid: false, error: 'Amount must be a positive number' };
     }
 
@@ -84,13 +101,17 @@ export function validateNumericInput(input: string, fieldName: string = 'Value')
         return { isValid: false, error: `${fieldName} is required` };
     }
 
-    const numericValue = parseFloat(input);
-    if (isNaN(numericValue)) {
+    if (!/^\d*\.?\d*$/.test(input) || input === '.' || input === '') {
         return { isValid: false, error: `${fieldName} must be a valid number` };
     }
-
-    if (numericValue < 0) {
-        return { isValid: false, error: `${fieldName} cannot be negative` };
+    
+    try {
+        const parsedValue = parseUnits(input, 18);
+        if (parsedValue < 0n) {
+            return { isValid: false, error: `${fieldName} cannot be negative` };
+        }
+    } catch {
+        return { isValid: false, error: `${fieldName} must be a valid number` };
     }
 
     return { isValid: true };

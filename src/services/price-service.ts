@@ -1,4 +1,4 @@
-import { parseEther } from 'viem';
+import { parseEther, formatUnits } from 'viem';
 import {
     calculateMintAmounts,
     calculateRedeemAmounts,
@@ -331,7 +331,7 @@ export class PriceService {
     async getCurrentUUSDPrice(): Promise<string> {
         const rawPrice = await this.contractService.getDollarPriceUsd();
         // Convert raw price (6 decimal precision) to USD format
-        const priceInUsd = Number(rawPrice) / 1000000;
+        const priceInUsd = formatUnits(rawPrice, 6);
         return `$${priceInUsd.toFixed(6)}`;
     }
 

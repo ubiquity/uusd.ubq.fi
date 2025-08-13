@@ -1,4 +1,4 @@
-import { formatUnits, type Address } from 'viem';
+import { formatUnits, parseUnits, type Address } from 'viem';
 import type { TokenBalance, TokenMetadata } from '../types/inventory.types.ts';
 
 /**
@@ -6,11 +6,12 @@ import type { TokenBalance, TokenMetadata } from '../types/inventory.types.ts';
  */
 export function formatTokenAmount(amount: bigint, decimals: number, displayDecimals: number = 4): string {
     const formatted = formatUnits(amount, decimals);
+    const trimmed = formatted.replace(/\.?0+$/, '') || '0';
+
+    if (trimmed === '0') return '0';
+    if (amount < parseUnits('0.0001', decimals)) return '<0.0001';
+
     const num = parseFloat(formatted);
-
-    if (num === 0) return '0';
-    if (num < 0.0001) return '<0.0001';
-
     return num.toLocaleString('en-US', {
         minimumFractionDigits: 0,
         maximumFractionDigits: displayDecimals
@@ -52,8 +53,7 @@ export function calculateTotalUsdValue(balances: TokenBalance[]): number {
  * Check if token balance is effectively zero (less than 0.0001)
  */
 export function isBalanceZero(balance: bigint, decimals: number): boolean {
-    const formatted = formatUnits(balance, decimals);
-    return parseFloat(formatted) < 0.0001;
+    return balance < parseUnits('0.0001', decimals);
 }
 
 /**
