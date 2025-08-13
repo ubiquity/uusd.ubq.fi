@@ -82,13 +82,16 @@ export class InventoryBarComponent {
      * Handle wallet connection
      */
     private async handleWalletConnect(account: Address): Promise<void> {
+        console.log('[InventoryBar] handleWalletConnect called with account:', account);
         this.state.isConnected = true;
         this.updateConnectionState();
 
         // Use background refresh if we already have some balances (reconnection)
         // Use initial load if no balances exist (fresh connection)
         const isReconnection = this.state.balances.length > 0;
+        console.log('[InventoryBar] Loading balances, isReconnection:', isReconnection);
         await this.loadBalances(!isReconnection); // Background refresh for reconnections
+        console.log('[InventoryBar] Balances loaded, count:', this.state.balances.length);
         this.startPeriodicUpdates();
     }
 
@@ -96,12 +99,19 @@ export class InventoryBarComponent {
      * Handle wallet disconnection
      */
     private handleWalletDisconnect(): void {
+        console.log('[InventoryBar] handleWalletDisconnect called');
         this.state.isConnected = false;
         this.state.balances = [];
         this.state.totalUsdValue = 0;
+        console.log('[InventoryBar] State after disconnect:', {
+            isConnected: this.state.isConnected,
+            balances: this.state.balances,
+            totalUsdValue: this.state.totalUsdValue
+        });
         this.updateConnectionState();
         this.stopPeriodicUpdates();
         this.renderBalances();
+        console.log('[InventoryBar] Disconnect complete, DOM should be cleared');
     }
 
     /**
@@ -124,10 +134,18 @@ export class InventoryBarComponent {
      * Load token balances for the connected wallet using JSON-RPC 2.0 batch requests
      */
     private async loadBalances(isBackgroundRefresh: boolean = false): Promise<void> {
-        if (!this.state.isConnected) return;
+        console.log('[InventoryBar] loadBalances called, isBackgroundRefresh:', isBackgroundRefresh);
+        if (!this.state.isConnected) {
+            console.log('[InventoryBar] Not connected, skipping balance load');
+            return;
+        }
 
         const account = this.services.walletService.getAccount();
-        if (!account) return;
+        console.log('[InventoryBar] Account from wallet service:', account);
+        if (!account) {
+            console.log('[InventoryBar] No account, skipping balance load');
+            return;
+        }
 
 
         this.state.isLoading = true;
@@ -172,10 +190,14 @@ export class InventoryBarComponent {
 
             const balances = await Promise.all(balancePromises);
 
+            console.log('[InventoryBar] Balances fetched:', balances.length, 'tokens');
+            balances.forEach(b => console.log(`[InventoryBar] ${b.symbol}: ${b.balance} (${b.usdValue} USD)`));
+            
             this.state.balances = balances;
             this.state.totalUsdValue = calculateTotalUsdValue(balances);
             this.state.isLoading = false;
 
+            console.log('[InventoryBar] Calling renderBalances()');
             this.renderBalances();
 
             // Hide background refresh indicator after successful update
@@ -373,6 +395,7 @@ export class InventoryBarComponent {
      * Handle wallet connection (called by main app)
      */
     public async handleWalletConnectionChange(account: Address | null): Promise<void> {
+        console.log('[InventoryBar] handleWalletConnectionChange called, account:', account);
         if (account) {
             await this.handleWalletConnect(account);
         } else {

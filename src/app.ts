@@ -417,6 +417,8 @@ class UUSDApp {
                 // Manually update UI after disconnection
                 // Don't rely on event handlers as they may not fire immediately
                 this.updateWalletUI(null);
+                // Also manually update inventory bar since event may not fire
+                this.inventoryBarComponent.handleWalletConnectionChange(null);
             } else {
                 // Set connecting state
                 connectButton.textContent = 'Connecting...';
@@ -429,6 +431,8 @@ class UUSDApp {
                 if (this.walletService.isConnected()) {
                     const account = this.walletService.getAccount();
                     this.updateWalletUI(account);
+                    // Also manually update inventory bar since event may not fire
+                    this.inventoryBarComponent.handleWalletConnectionChange(account);
                 }
             }
         } catch (error: any) {
