@@ -290,17 +290,26 @@ export class ContractService implements ContractReads, ContractWrites {
       const collateralOptions: CollateralOption[] = collateralInfoResults
         .map((result, i) => {
           if (result.status === "success") {
-            const info = result.result as unknown;
+            const info = result.result as {
+              index: bigint;
+              symbol: string;
+              mintingFee: bigint;
+              redemptionFee: bigint;
+              missingDecimals: bigint;
+              isEnabled: boolean;
+              isMintPaused: boolean;
+              isRedeemPaused: boolean;
+            };
             return {
-              index: Number((info as any).index),
-              name: (info as any).symbol,
+              index: Number(info.index),
+              name: info.symbol,
               address: collateralAddresses[i],
-              mintingFee: formatUnits((info as any).mintingFee, 6),
-              redemptionFee: formatUnits((info as any).redemptionFee, 6),
-              missingDecimals: Number((info as any).missingDecimals),
-              isEnabled: Boolean((info as any).isEnabled),
-              isMintPaused: Boolean((info as any).isMintPaused),
-              isRedeemPaused: Boolean((info as any).isRedeemPaused),
+              mintingFee: formatUnits(info.mintingFee, 6),
+              redemptionFee: formatUnits(info.redemptionFee, 6),
+              missingDecimals: Number(info.missingDecimals),
+              isEnabled: Boolean(info.isEnabled),
+              isMintPaused: Boolean(info.isMintPaused),
+              isRedeemPaused: Boolean(info.isRedeemPaused),
             } as CollateralOption;
           }
           return null;
@@ -325,17 +334,26 @@ export class ContractService implements ContractReads, ContractWrites {
             abi: DIAMOND_ABI,
             functionName: "collateralInformation",
             args: [address],
-          })) as unknown;
+          })) as {
+            index: bigint;
+            symbol: string;
+            mintingFee: bigint;
+            redemptionFee: bigint;
+            missingDecimals: bigint;
+            isEnabled: boolean;
+            isMintPaused: boolean;
+            isRedeemPaused: boolean;
+          };
           return {
-            index: Number((info as any).index),
-            name: (info as any).symbol,
+            index: Number(info.index),
+            name: info.symbol,
             address: address,
-            mintingFee: formatUnits((info as any).mintingFee, 6),
-            redemptionFee: formatUnits((info as any).redemptionFee, 6),
-            missingDecimals: Number((info as any).missingDecimals),
-            isEnabled: Boolean((info as any).isEnabled),
-            isMintPaused: Boolean((info as any).isMintPaused),
-            isRedeemPaused: Boolean((info as any).isRedeemPaused),
+            mintingFee: formatUnits(info.mintingFee, 6),
+            redemptionFee: formatUnits(info.redemptionFee, 6),
+            missingDecimals: Number(info.missingDecimals),
+            isEnabled: Boolean(info.isEnabled),
+            isMintPaused: Boolean(info.isMintPaused),
+            isRedeemPaused: Boolean(info.isRedeemPaused),
           };
         })
       );
@@ -391,7 +409,7 @@ export class ContractService implements ContractReads, ContractWrites {
         args,
         account,
       });
-    } catch (_estimationError) {
+    } catch {
       // Fallback gas limit for approval operations
       gasEstimate = 100000n;
     }

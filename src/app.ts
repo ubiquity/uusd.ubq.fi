@@ -219,10 +219,6 @@ class UUSDApp {
       return typeof point.price === "number" ? point.price : parseFloat(point.price);
     });
 
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    const _priceRange = maxPrice - minPrice;
-
     // Map prices to chart coordinates based on $0.99-$1.01 range
     const chartMinPrice = 0.99;
     const chartMaxPrice = 1.01;

@@ -49,7 +49,7 @@ export class WalletService {
         await Promise.race([
           window.ethereum.request({
             method: "wallet_requestPermissions",
-            params: [{ eth_accounts: {} }],
+            params: [{ ethAccounts: {} }],
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timeout")), 10000)),
         ]);
@@ -177,7 +177,7 @@ export class WalletService {
         localStorage.removeItem(WalletService.STORAGE_KEY);
         return null;
       }
-    } catch (error) {
+    } catch {
       // Auto-reconnection failed, clear stored address
       localStorage.removeItem(WalletService.STORAGE_KEY);
       return null;

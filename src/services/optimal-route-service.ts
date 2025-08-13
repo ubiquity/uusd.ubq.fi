@@ -64,7 +64,7 @@ export class OptimalRouteService {
         setTimeout(() => reject(new Error("Market conditions timeout")), 10000);
       });
 
-      const [_lusdPrice, marketPrice] = (await Promise.race([marketConditionsPromise, timeoutPromise])) as [bigint, bigint];
+      const [, marketPrice] = (await Promise.race([marketConditionsPromise, timeoutPromise])) as [bigint, bigint];
 
       const dollarAmount = parseEther(formatUnits(lusdAmount, 18));
 
@@ -171,7 +171,7 @@ export class OptimalRouteService {
           // reason: 'Using Curve swap (fallback due to calculation error).',
           isEnabled: true,
         };
-      } catch (_swapError) {
+      } catch {
         throw new Error(`Failed to calculate optimal route: ${error}`);
       }
     }
@@ -334,7 +334,7 @@ export class OptimalRouteService {
           // reason: 'Using Curve swap (fallback due to calculation error).',
           isEnabled: true,
         };
-      } catch (_swapError) {
+      } catch {
         throw new Error(`Failed to calculate optimal route: ${error}`);
       }
     }

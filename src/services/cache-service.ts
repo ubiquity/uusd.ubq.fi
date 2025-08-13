@@ -212,7 +212,7 @@ export class CacheService {
     ];
 
     // Execute warmup tasks in parallel but don't throw if they fail
-    const results = await Promise.allSettled(
+    await Promise.allSettled(
       warmupTasks.map((task) =>
         this.getOrFetch(task.key, task.fn, task.config).catch((err) => {
           console.warn(`Warmup failed for ${task.key}:`, err);
@@ -220,8 +220,6 @@ export class CacheService {
         })
       )
     );
-
-    const successfulCount = results.filter((r) => r.status === "fulfilled").length;
   }
 }
 

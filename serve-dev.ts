@@ -30,52 +30,52 @@ async function handler(req: Request): Promise<Response> {
 
   // Add CORS headers for development
   const headers = new Headers({
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
   });
 
   // Handle hot reload endpoint
-  if (path === '/hot-reload') {
+  if (path === "/hot-reload") {
     let controller: ReadableStreamDefaultController;
 
     const stream = new ReadableStream({
       start(ctrl) {
         controller = ctrl;
         clients.add(controller);
-        controller.enqueue(new TextEncoder().encode('data: connected\n\n'));
+        controller.enqueue(new TextEncoder().encode("data: connected\n\n"));
       },
       cancel() {
         clients.delete(controller);
-      }
+      },
     });
 
     return new Response(stream, {
       headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "Access-Control-Allow-Origin": "*",
       },
     });
   }
 
   // Serve static files from the "public" directory first
-  if (path === '/' || path.startsWith('/public/') || path === '/app.js' || path === '/favicon.svg' || path.startsWith('/styles/')) {
+  if (path === "/" || path.startsWith("/public/") || path === "/app.js" || path === "/favicon.svg" || path.startsWith("/styles/")) {
     const response = await serveDir(req, {
-      fsRoot: 'public',
-      urlRoot: '',
+      fsRoot: "public",
+      urlRoot: "",
       enableCors: true,
     });
 
     // Inject hot reload script into HTML files
-    if (path === '/' && response.ok) {
+    if (path === "/" && response.ok) {
       const textContent = await response.text();
-      const modifiedContent = textContent.replace('</body>', `${hotReloadScript}</body>`);
+      const modifiedContent = textContent.replace("</body>", `${hotReloadScript}</body>`);
       return new Response(modifiedContent, {
         headers: {
-          'Content-Type': 'text/html',
-          'Access-Control-Allow-Origin': '*',
+          "Content-Type": "text/html",
+          "Access-Control-Allow-Origin": "*",
         },
       });
     }
@@ -84,27 +84,27 @@ async function handler(req: Request): Promise<Response> {
   }
 
   // Serve files from the "src" directory for development
-  if (path.startsWith('/src/')) {
+  if (path.startsWith("/src/")) {
     return serveDir(req, {
-      fsRoot: 'src',
-      urlRoot: 'src',
+      fsRoot: "src",
+      urlRoot: "src",
       enableCors: true,
     });
   }
 
   // For any other request, return a 404 response
-  return new Response('Not Found', {
+  return new Response("Not Found", {
     status: 404,
-    headers
+    headers,
   });
 }
 
 // Function to notify all clients to reload
 function notifyReload() {
-  console.log('📁 File changed, notifying clients to reload...');
-  clients.forEach(client => {
+  console.log("📁 File changed, notifying clients to reload...");
+  clients.forEach((client) => {
     try {
-      client.enqueue(new TextEncoder().encode('data: reload\n\n'));
+      client.enqueue(new TextEncoder().encode("data: reload\n\n"));
     } catch (err: any) {
       console.error(`Hot reload client error: ${err.message}. Removing client.`);
       clients.delete(client);
@@ -113,7 +113,7 @@ function notifyReload() {
 }
 
 // Watch for changes to built files
-const appJsPath = new URL('./public/app.js', import.meta.url).pathname;
+const appJsPath = new URL("./public/app.js", import.meta.url).pathname;
 
 // Start file watchers with debouncing
 async function startFileWatchers() {
@@ -122,7 +122,7 @@ async function startFileWatchers() {
     let debounceTimer: number | null = null;
 
     for await (const event of watcher) {
-      if (event.kind === 'modify') {
+      if (event.kind === "modify") {
         // Clear existing timer
         if (debounceTimer) {
           clearTimeout(debounceTimer);
@@ -131,8 +131,8 @@ async function startFileWatchers() {
         // Set new timer with 100ms delay
         debounceTimer = setTimeout(() => {
           for (const path of event.paths) {
-            if (path.endsWith('app.js')) {
-              console.log('🔨 app.js changed');
+            if (path.endsWith("app.js")) {
+              console.log("🔨 app.js changed");
               notifyReload();
               break; // Only notify once per event
             }
@@ -142,11 +142,11 @@ async function startFileWatchers() {
       }
     }
   } catch (err: any) {
-    console.log('⚠️  File watching not available:', err.message);
+    console.log("⚠️  File watching not available:", err.message);
   }
 }
 
-const PORT = parseInt(Deno.env.get('PORT') || '3000');
+const PORT = parseInt(Deno.env.get("PORT") || "3000");
 
 // Generate devtools JSON if this is the main entry point
 if (import.meta.main) {
@@ -154,8 +154,8 @@ if (import.meta.main) {
 }
 
 console.log(`🚀 Development server running at http://localhost:${PORT}`);
-console.log('🔥 Hot reload enabled');
-console.log('🗺️  Source maps enabled for debugging');
+console.log("🔥 Hot reload enabled");
+console.log("🗺️  Source maps enabled for debugging");
 
 // Start file watching in background
 startFileWatchers();

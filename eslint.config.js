@@ -8,7 +8,7 @@ import globals from "globals";
 export default [
   js.configs.recommended,
   {
-    files: ["**/*.ts"],
+    files: ["src/**/*.ts"],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
@@ -29,10 +29,10 @@ export default [
       ...typescriptEslint.configs.recommended.rules,
       ...eslintConfigPrettier.rules,
       "prettier/prettier": "error",
-      "prefer-arrow-callback": "off",
-      "func-style": "off",
+      "prefer-arrow-callback": ["warn", { "allowNamedFunctions": true }],
+      "func-style": ["warn", "declaration", { "allowArrowFunctions": false }],
       "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": [
         "warn",
@@ -43,13 +43,18 @@ export default [
         },
       ],
       "@typescript-eslint/naming-convention": [
-        "warn",
+        "error",
         { selector: "typeLike", format: ["PascalCase"] },
-        { selector: "variableLike", format: ["camelCase", "UPPER_CASE", "PascalCase"] },
-        { selector: "memberLike", format: ["camelCase", "UPPER_CASE", "PascalCase"] },
+        { selector: "variableLike", format: ["camelCase"] },
+        { selector: "memberLike", modifiers: ["private"], format: ["camelCase"], leadingUnderscore: "require" },
+        { selector: "variable", types: ["boolean"], format: ["PascalCase"], prefix: ["is", "should", "has", "can", "did", "will"] },
+        { selector: "variable", format: ["camelCase", "UPPER_CASE"], leadingUnderscore: "allow", trailingUnderscore: "allow" },
         { selector: "typeParameter", format: ["PascalCase"], prefix: ["T"] },
-        { selector: "interface", format: ["PascalCase"] },
-        { selector: ["function"], format: ["camelCase"] },
+        { selector: "interface", format: ["PascalCase"], custom: { regex: "^I[A-Z]", match: false } },
+        { selector: ["function", "variable"], format: ["camelCase"] },
+        { selector: "variable", modifiers: ["destructured"], format: null },
+        { selector: "variable", format: ["camelCase"], leadingUnderscore: "allow", trailingUnderscore: "allow" },
+        { selector: "variable", types: ["boolean"], format: ["PascalCase"], prefix: ["is", "has", "should", "can", "did", "will"] },
         { selector: "parameter", format: ["camelCase"], leadingUnderscore: "allow" },
       ],
       "no-case-declarations": "off",

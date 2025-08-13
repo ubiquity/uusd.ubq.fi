@@ -1,10 +1,9 @@
-import { parseEther, type Address, maxUint256 } from "viem";
+import { type Address, maxUint256 } from "viem";
 import { ADDRESSES } from "../contracts/constants.ts";
 import { validateTransactionParams } from "../utils/validation-utils.ts";
-import { formatLoadingButtonText } from "../utils/format-utils.ts";
 import type { WalletService } from "./wallet-service.ts";
 import type { ContractService, CollateralOption } from "./contract-service.ts";
-import type { PriceService, MintPriceResult, RedeemPriceResult } from "./price-service.ts";
+import type { PriceService, MintPriceResult } from "./price-service.ts";
 
 /**
  * Interface for transaction execution events
@@ -425,7 +424,7 @@ export class TransactionService {
   /**
    * Enhance error messages for better user experience
    */
-  private enhanceErrorMessage(error: Error, operation: string): Error {
+  private enhanceErrorMessage(error: Error, _operation: string): Error {
     const errorMessage = error.message.toLowerCase();
 
     // User rejection - keep user-friendly message

@@ -142,7 +142,7 @@ export class PriceHistoryService {
           cachedPoints.push(cachedPoint);
         }
       }
-    } catch (_error) {
+    } catch {
       // Ignore errors in cache reconstruction
     }
 
@@ -188,9 +188,9 @@ export class PriceHistoryService {
    * Fetch price history from Curve pool swap events
    */
   private async fetchPriceFromSwapEvents(
-    publicClient: PublicClient,
-    targetBlocks: { fromBlock: bigint; toBlock: bigint },
-    config: PriceHistoryConfig
+    _publicClient: PublicClient,
+    _targetBlocks: { fromBlock: bigint; toBlock: bigint },
+    _config: PriceHistoryConfig
   ): Promise<PriceDataPoint[]> {
     // For now, we'll skip the event log strategy due to complex ABI parsing
     // and focus on the sampling strategy which is more reliable
@@ -294,7 +294,7 @@ export class PriceHistoryService {
         boughtId: BigInt(`0x${data.slice(130, 194)}`),
         tokensBought: BigInt(`0x${data.slice(194, 258)}`),
       };
-    } catch (_error) {
+    } catch {
       return null;
     }
   }
@@ -373,7 +373,7 @@ export class PriceHistoryService {
             this.pointCache.set(pointKey, cached);
           }
         }
-      } catch (_error) {
+      } catch {
         // Ignore localStorage errors
       }
     }
@@ -386,7 +386,7 @@ export class PriceHistoryService {
       this.pointCache.delete(pointKey);
       try {
         localStorage.removeItem(`price_${pointKey}`);
-      } catch (_error) {
+      } catch {
         // Ignore localStorage errors
       }
       return null;
@@ -425,7 +425,7 @@ export class PriceHistoryService {
     // Store in localStorage
     try {
       localStorage.setItem(`price_${pointKey}`, JSON.stringify(cacheData));
-    } catch (_error) {
+    } catch {
       // Ignore localStorage errors (quota exceeded, etc.)
     }
   }
@@ -462,7 +462,7 @@ export class PriceHistoryService {
                 keysToRemove.push(key);
               }
             }
-          } catch (_error) {
+          } catch {
             // If we can't parse it, it's probably corrupted - remove it
             keysToRemove.push(key);
           }
