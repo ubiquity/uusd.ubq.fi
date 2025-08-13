@@ -90,7 +90,7 @@ class UUSDApp {
       getTransactionStatus: () => this.getTransactionStatus(),
     };
 
-    this.init();
+    void this.init();
   }
 
   private async init() {
@@ -313,12 +313,12 @@ class UUSDApp {
       onConnect: (account: Address) => {
         this.updateWalletUI(account);
         this.simplifiedExchangeComponent.updateWalletConnection(true);
-        this.inventoryBarComponent.handleWalletConnectionChange(account);
+        void this.inventoryBarComponent.handleWalletConnectionChange(account);
       },
       onDisconnect: () => {
         this.updateWalletUI(null);
         this.simplifiedExchangeComponent.updateWalletConnection(false);
-        this.inventoryBarComponent.handleWalletConnectionChange(null);
+        void this.inventoryBarComponent.handleWalletConnectionChange(null);
       },
     });
 
@@ -401,7 +401,7 @@ class UUSDApp {
         // Don't rely on event handlers as they may not fire immediately
         this.updateWalletUI(null);
         // Also manually update inventory bar since event may not fire
-        this.inventoryBarComponent.handleWalletConnectionChange(null);
+        void this.inventoryBarComponent.handleWalletConnectionChange(null);
       } else {
         // Set connecting state
         connectButton.textContent = "Connecting...";
@@ -415,7 +415,7 @@ class UUSDApp {
           const account = this.walletService.getAccount();
           this.updateWalletUI(account);
           // Also manually update inventory bar since event may not fire
-          this.inventoryBarComponent.handleWalletConnectionChange(account);
+          void this.inventoryBarComponent.handleWalletConnectionChange(account);
         }
       }
     } catch (error: any) {

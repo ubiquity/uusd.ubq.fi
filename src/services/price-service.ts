@@ -188,7 +188,7 @@ export class PriceService {
 
     // Only add governance price if not skipping (e.g., for LUSD-only redemptions)
     if (!skipGovernancePrice) {
-      asyncCalls.splice(1, 0, this.contractService.getGovernancePrice());
+      void asyncCalls.splice(1, 0, this.contractService.getGovernancePrice());
     }
 
     // Get current blockchain prices and thresholds

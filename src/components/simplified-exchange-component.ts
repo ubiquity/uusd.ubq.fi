@@ -50,7 +50,7 @@ export class SimplifiedExchangeComponent {
     this.transactionStateService = TransactionStateService.getInstance();
     this.optimalRouteService = new OptimalRouteService(services.priceService, services.curvePriceService, services.contractService);
 
-    this.init();
+    void this.init();
   }
 
   private async init() {
@@ -136,7 +136,7 @@ export class SimplifiedExchangeComponent {
       if (ubqDiscountCheckbox) {
         ubqDiscountCheckbox.addEventListener("change", (e) => {
           this.state.useUbqDiscount = (e.target as HTMLInputElement).checked;
-          this.calculateRoute();
+          void this.calculateRoute();
         });
       }
 
@@ -154,7 +154,7 @@ export class SimplifiedExchangeComponent {
 
           // Only allow changes when redemptions are enabled
           this.state.forceSwapOnly = (e.target as HTMLInputElement).checked;
-          this.calculateRoute();
+          void this.calculateRoute();
         });
       }
     }, 100);
@@ -173,7 +173,7 @@ export class SimplifiedExchangeComponent {
     }
 
     this.debounceTimer = setTimeout(() => {
-      this.calculateRoute();
+      void this.calculateRoute();
     }, 300);
   }
 
@@ -275,6 +275,13 @@ export class SimplifiedExchangeComponent {
 
       depositButton.style.display = hasLUSD ? "block" : "none";
       withdrawButton.style.display = hasUUSD ? "block" : "none";
+
+      // Auto-select the visible direction if only one is available
+      if (hasLUSD && !hasUUSD) {
+        this.state.direction = "deposit";
+      } else if (hasUUSD && !hasLUSD) {
+        this.state.direction = "withdraw";
+      }
 
       depositButton.classList.toggle("active", this.state.direction === "deposit");
       withdrawButton.classList.toggle("active", this.state.direction === "withdraw");
@@ -515,7 +522,7 @@ export class SimplifiedExchangeComponent {
     // }
 
     // Update button
-    this.updateActionButton();
+    void this.updateActionButton();
   }
 
   /**
@@ -682,7 +689,7 @@ export class SimplifiedExchangeComponent {
   private handleTransactionError(error: Error) {
     this.transactionStateService.errorTransaction("exchangeButton", error.message, "❌ Try Again");
     this.services.notificationManager.showError("exchange", error.message || "Transaction failed");
-    this.updateActionButton();
+    void this.updateActionButton();
   }
 
   /**
@@ -733,7 +740,7 @@ export class SimplifiedExchangeComponent {
         const maxBalance = getMaxTokenBalance(this.services.inventoryBar, tokenSymbol);
         amountInput.value = maxBalance;
         this.state.amount = maxBalance;
-        this.calculateRoute();
+        void this.calculateRoute();
       }
     } catch (error) {
       // Silent fail
@@ -745,8 +752,8 @@ export class SimplifiedExchangeComponent {
    */
   updateWalletConnection(isConnected: boolean) {
     if (isConnected) {
-      this.loadProtocolSettings();
-      this.calculateRoute();
+      void this.loadProtocolSettings();
+      void this.calculateRoute();
     } else {
       this.state.routeResult = null;
       this.renderOutput();

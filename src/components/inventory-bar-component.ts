@@ -67,7 +67,7 @@ export class InventoryBarComponent {
     if (account) {
       this.state.isConnected = true;
       this.updateConnectionState();
-      this.loadBalances();
+      void this.loadBalances();
       this.startPeriodicUpdates();
     }
   }
@@ -234,7 +234,7 @@ export class InventoryBarComponent {
   private startPeriodicUpdates(): void {
     this.stopPeriodicUpdates(); // Clear existing interval
     this.updateInterval = window.setInterval(() => {
-      this.loadBalances(true); // Mark as background refresh
+      void this.loadBalances(true); // Mark as background refresh
     }, this.UPDATE_INTERVAL_MS);
   }
 
