@@ -1,4 +1,4 @@
-import { parseEther, formatEther, formatUnits, type Address } from "viem";
+import { parseEther, formatEther, type Address } from "viem";
 import type { WalletService } from "../services/wallet-service.ts";
 import type { ContractService, ProtocolSettings } from "../services/contract-service.ts";
 import type { PriceService } from "../services/price-service.ts";
@@ -31,7 +31,7 @@ export class SimplifiedExchangeComponent {
   private services: SimplifiedExchangeServices;
   private optimalRouteService: OptimalRouteService;
   private transactionStateService: TransactionStateService;
-  private debounceTimer: any | null = null;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Simplified state
   private state = {
@@ -67,6 +67,13 @@ export class SimplifiedExchangeComponent {
 
     this.render();
 
+    // Auto-populate on initial load if wallet is connected
+    if (this.isWalletConnected()) {
+      setTimeout(() => {
+        this.autoPopulateMaxBalance();
+      }, 150);
+    }
+
     // Periodically refresh protocol settings and redemption status (every 30 seconds)
     setInterval(async () => {
       await this.loadProtocolSettings();
@@ -97,14 +104,38 @@ export class SimplifiedExchangeComponent {
 
   private setupWalletEventListeners() {
     this.services.walletService.setEventHandlers({
-      onConnect: (account: Address) => {
+      onConnect: (_account: Address) => {
+        // Clear state and re-evaluate on wallet connect
+        this.state.amount = "";
+        this.state.routeResult = null;
         this.render();
+        this.autoPopulateMaxBalance();
       },
       onDisconnect: () => {
+        // Clear all state on disconnect
+        this.state.amount = "";
+        this.state.routeResult = null;
+        this.state.direction = "deposit"; // Reset to default
+        const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+        if (amountInput) amountInput.value = "";
         this.render();
       },
       onAccountChanged: (account: Address | null) => {
+        // Clear state and force re-evaluation when switching accounts
+        this.state.amount = "";
+        this.state.routeResult = null;
+        const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+        if (amountInput) amountInput.value = "";
+
+        // Force a fresh render that will auto-select the correct direction
         this.render();
+
+        // If connected, auto-populate balance for the new account
+        if (account) {
+          setTimeout(() => {
+            this.autoPopulateMaxBalance();
+          }, 100);
+        }
       },
     });
   }
@@ -258,11 +289,31 @@ export class SimplifiedExchangeComponent {
    * Render the main UI
    */
   private render() {
-    // Update direction buttons
+    const isConnected = this.isWalletConnected();
+
+    // Get main exchange interface elements
+    const exchangeContainer = document.querySelector(".exchange-container") as HTMLElement;
     const depositButton = document.getElementById("depositButton");
     const withdrawButton = document.getElementById("withdrawButton");
 
+    // Hide entire exchange interface when wallet is not connected
+    if (!isConnected) {
+      if (exchangeContainer) {
+        exchangeContainer.style.display = "none";
+      }
+      // Clear any visible output
+      const outputSection = document.getElementById("exchangeOutput");
+      if (outputSection) outputSection.style.display = "none";
+      return;
+    }
+
+    // Show exchange interface when connected
+    if (exchangeContainer) {
+      exchangeContainer.style.display = "block";
+    }
+
     console.log("[RENDER] Button visibility:", {
+      isConnected,
       depositExists: !!depositButton,
       withdrawExists: !!withdrawButton,
       depositHidden: depositButton?.style.display === "none",
@@ -658,8 +709,8 @@ export class SimplifiedExchangeComponent {
 
       // Success - clear form
       this.handleTransactionSuccess();
-    } catch (error: any) {
-      this.handleTransactionError(error);
+    } catch (error: unknown) {
+      this.handleTransactionError(error as Error);
     }
   }
 
@@ -732,7 +783,10 @@ export class SimplifiedExchangeComponent {
     if (!this.services.walletService.isConnected()) return;
 
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
-    if (!amountInput || (amountInput.value && amountInput.value !== "0")) return;
+    if (!amountInput) return;
+
+    // Only auto-populate if input is empty or zero
+    if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
 
     try {
       const tokenSymbol = this.state.direction === "deposit" ? "LUSD" : "UUSD";
@@ -742,7 +796,7 @@ export class SimplifiedExchangeComponent {
         this.state.amount = maxBalance;
         void this.calculateRoute();
       }
-    } catch (error) {
+    } catch {
       // Silent fail
     }
   }
