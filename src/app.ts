@@ -320,14 +320,18 @@ class UUSDApp {
         // Wallet service event handlers
         this.walletService.setEventHandlers({
             onConnect: (account: Address) => {
+                console.log('🔌 DEBUG: onConnect event fired for account:', account);
                 this.updateWalletUI(account);
                 this.simplifiedExchangeComponent.updateWalletConnection(true);
                 this.inventoryBarComponent.handleWalletConnectionChange(account);
+                console.log('🔌 DEBUG: onConnect event handling completed');
             },
             onDisconnect: () => {
+                console.log('🔌 DEBUG: onDisconnect event fired');
                 this.updateWalletUI(null);
                 this.simplifiedExchangeComponent.updateWalletConnection(false);
                 this.inventoryBarComponent.handleWalletConnectionChange(null);
+                console.log('🔌 DEBUG: onDisconnect event handling completed');
             }
         });
 
@@ -357,10 +361,13 @@ class UUSDApp {
     }
 
     private updateWalletUI(account: Address | null) {
+        console.log('🔌 DEBUG: updateWalletUI called with account:', account);
         const connectButton = document.getElementById('connectWallet') as HTMLButtonElement;
+        console.log('🔌 DEBUG: connectButton found:', !!connectButton, 'current text:', connectButton?.textContent);
 
         if (account) {
             // When connected, show disconnect button and wallet info
+            console.log('🔌 DEBUG: Setting button to Disconnect state');
             connectButton.textContent = 'Disconnect';
             connectButton.disabled = false;
             connectButton.style.display = 'unset';
@@ -368,11 +375,13 @@ class UUSDApp {
             document.getElementById('walletAddress')!.textContent = formatAddress(account);
         } else {
             // When disconnected, show connect button and hide wallet info
+            console.log('🔌 DEBUG: Setting button to Connect Wallet state');
             connectButton.textContent = 'Connect Wallet';
             connectButton.disabled = false;
             connectButton.style.display = 'unset';
             document.getElementById('walletInfo')!.style.display = 'none';
         }
+        console.log('🔌 DEBUG: updateWalletUI completed, button text now:', connectButton?.textContent);
     }
 
     /**
@@ -405,7 +414,9 @@ class UUSDApp {
 
                 // Disconnect wallet (this will clear localStorage)
                 this.walletService.disconnect();
-                // UI updates are handled by event handlers
+                // Manually update UI after disconnection
+                // Don't rely on event handlers as they may not fire immediately
+                this.updateWalletUI(null);
             } else {
                 // Set connecting state
                 connectButton.textContent = 'Connecting...';
@@ -413,7 +424,12 @@ class UUSDApp {
 
                 // Force wallet selection since user explicitly clicked connect
                 await this.walletService.connect(true);
-                // UI updates are handled by event handlers
+                // Manually update UI after successful connection
+                // Don't rely on event handlers as they may not fire immediately
+                if (this.walletService.isConnected()) {
+                    const account = this.walletService.getAccount();
+                    this.updateWalletUI(account);
+                }
             }
         } catch (error: any) {
             // Reset button state on error
@@ -452,5 +468,6 @@ class UUSDApp {
     }
 }
 
-// Initialize app
-new UUSDApp();
+// Initialize app and expose to window
+const app = new UUSDApp();
+(window as any).app = app;

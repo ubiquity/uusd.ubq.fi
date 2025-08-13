@@ -48,34 +48,59 @@ export class WalletService {
      * Connect to user's wallet
      */
     async connect(forceSelection: boolean = false): Promise<Address> {
+        console.log('🔌 DEBUG: [WalletService] Connect method called, forceSelection:', forceSelection);
+        
         if (!window.ethereum) {
+            console.log('🔌 DEBUG: [WalletService] No window.ethereum found');
             throw new Error('Please install a wallet extension');
         }
+        console.log('🔌 DEBUG: [WalletService] window.ethereum exists');
 
-        if (forceSelection) {
-            // Force wallet selection dialog by requesting permissions
-            // This ensures MetaMask shows account selection even after previous connections
-            await window.ethereum.request({
-                method: 'wallet_requestPermissions',
-                params: [{ eth_accounts: {} }]
+        try {
+            if (forceSelection) {
+                console.log('🔌 DEBUG: [WalletService] Requesting wallet permissions...');
+                await Promise.race([
+                    window.ethereum.request({
+                        method: 'wallet_requestPermissions',
+                        params: [{ eth_accounts: {} }]
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Permission request timeout')), 10000))
+                ]);
+                console.log('🔌 DEBUG: [WalletService] Permissions granted');
+            }
+
+            console.log('🔌 DEBUG: [WalletService] Creating wallet client...');
+            this.walletClient = createWalletClient({
+                chain: mainnet,
+                transport: custom(window.ethereum)
             });
+            console.log('🔌 DEBUG: [WalletService] Wallet client created');
+
+            console.log('🔌 DEBUG: [WalletService] Requesting addresses...');
+            const addresses = await Promise.race([
+                this.walletClient.requestAddresses(),
+                new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Address request timeout')), 10000))
+            ]);
+            const [address] = addresses;
+            console.log('🔌 DEBUG: [WalletService] Address received:', address);
+
+            this.account = address;
+
+            // Store the connected wallet address in localStorage
+            localStorage.setItem(WalletService.STORAGE_KEY, address);
+            console.log('🔌 DEBUG: [WalletService] Address stored in localStorage');
+
+            console.log('🔌 DEBUG: [WalletService] Firing onConnect event');
+            this.events.onConnect?.(address);
+            console.log('🔌 DEBUG: [WalletService] Firing onAccountChanged event');
+            this.events.onAccountChanged?.(address);
+
+            console.log('🔌 DEBUG: [WalletService] Connect completed successfully');
+            return address;
+        } catch (error) {
+            console.error('🔌 DEBUG: [WalletService] Connect failed:', error);
+            throw error;
         }
-
-        this.walletClient = createWalletClient({
-            chain: mainnet,
-            transport: custom(window.ethereum)
-        });
-
-        const [address] = await this.walletClient.requestAddresses();
-        this.account = address;
-
-        // Store the connected wallet address in localStorage
-        localStorage.setItem(WalletService.STORAGE_KEY, address);
-
-        this.events.onConnect?.(address);
-        this.events.onAccountChanged?.(address);
-
-        return address;
     }
 
     /**

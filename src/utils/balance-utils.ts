@@ -70,8 +70,7 @@ export function getBalanceDisplay(
     if (trimmed === '0') return '0';
     if (tokenBalance.balance < 100000000000000n) return '<0.0001';
 
-    const num = parseFloat(formattedBalance);
-    return num.toLocaleString('en-US', {
+    return parseFloat(formattedBalance).toLocaleString('en-US', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 4
     });

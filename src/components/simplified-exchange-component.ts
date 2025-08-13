@@ -66,6 +66,7 @@ export class SimplifiedExchangeComponent {
 
         this.registerTransactionButton();
         this.setupEventListeners();
+        this.setupWalletEventListeners();
         this.setupBalanceSubscription();
 
         this.render();
@@ -92,6 +93,27 @@ export class SimplifiedExchangeComponent {
         } catch (error) {
             console.error('Failed to load protocol settings:', error);
         }
+    }
+
+    private isWalletConnected(): boolean {
+        return !!this.services.walletService.getAccount();
+    }
+
+    private setupWalletEventListeners() {
+        this.services.walletService.setEventHandlers({
+            onConnect: (account: Address) => {
+                console.log('[WALLET] Wallet connected event received:', account);
+                this.render();
+            },
+            onDisconnect: () => {
+                console.log('[WALLET] Wallet disconnected event received');
+                this.render();
+            },
+            onAccountChanged: (account: Address | null) => {
+                console.log('[WALLET] Wallet account changed event received:', account);
+                this.render();
+            }
+        });
     }
 
     /**
@@ -246,11 +268,26 @@ export class SimplifiedExchangeComponent {
      * Render the main UI
      */
     private render() {
+        console.log('[RENDER] Starting render with direction:', this.state.direction);
+        
         // Update direction buttons
         const depositButton = document.getElementById('depositButton');
         const withdrawButton = document.getElementById('withdrawButton');
 
+        console.log('[RENDER] Button visibility:', {
+            depositExists: !!depositButton,
+            withdrawExists: !!withdrawButton,
+            depositHidden: depositButton?.style.display === 'none',
+            withdrawHidden: withdrawButton?.style.display === 'none'
+        });
+
         if (depositButton && withdrawButton) {
+            const hasLUSD = hasAvailableBalance(this.services.inventoryBar, 'LUSD');
+            const hasUUSD = hasAvailableBalance(this.services.inventoryBar, 'UUSD');
+
+            depositButton.style.display = hasLUSD ? 'block' : 'none';
+            withdrawButton.style.display = hasUUSD ? 'block' : 'none';
+
             depositButton.classList.toggle('active', this.state.direction === 'deposit');
             withdrawButton.classList.toggle('active', this.state.direction === 'withdraw');
         }
@@ -419,6 +456,40 @@ export class SimplifiedExchangeComponent {
             checkboxChecked: swapOnlyCheckbox?.checked,
             checkboxDisabled: swapOnlyCheckbox?.disabled
         });
+    }
+
+    private renderNoTokensState() {
+        const exchangeContainer = document.querySelector('.exchange-container');
+        const amountInput = document.getElementById('amountInput') as HTMLInputElement;
+        const executeButton = document.getElementById('executeButton') as HTMLButtonElement;
+        
+        if (amountInput) {
+            amountInput.disabled = true;
+            amountInput.placeholder = 'No tokens available';
+            amountInput.value = '';
+        }
+        
+        if (executeButton) {
+            executeButton.disabled = true;
+            executeButton.textContent = 'Connect wallet with tokens to continue';
+        }
+        
+        let noTokensMessage = document.getElementById('noTokensMessage');
+        if (!noTokensMessage) {
+            noTokensMessage = document.createElement('div');
+            noTokensMessage.id = 'noTokensMessage';
+            noTokensMessage.className = 'no-tokens-message';
+            noTokensMessage.innerHTML = `
+                <p>No LUSD or UUSD tokens found in your wallet.</p>
+                <p>Please acquire tokens to use the exchange.</p>
+            `;
+            
+            if (exchangeContainer) {
+                exchangeContainer.appendChild(noTokensMessage);
+            }
+        }
+        
+        noTokensMessage.style.display = 'block';
     }
 
     /**
@@ -678,6 +749,9 @@ export class SimplifiedExchangeComponent {
     private setupBalanceSubscription() {
         if (this.services.inventoryBar) {
             this.services.inventoryBar.onBalancesUpdated(() => {
+                console.log('[BALANCE UPDATE] Balance subscription triggered');
+                console.log('[BALANCE UPDATE] Has LUSD:', hasAvailableBalance(this.services.inventoryBar, 'LUSD'));
+                console.log('[BALANCE UPDATE] Has UUSD:', hasAvailableBalance(this.services.inventoryBar, 'UUSD'));
                 this.autoPopulateMaxBalance();
             });
         }
