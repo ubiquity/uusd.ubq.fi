@@ -134,8 +134,8 @@ export class CacheService {
   /**
    * Check if error is oracle-related
    */
-  private isOracleError(error: any): boolean {
-    const errorMessage = error?.message?.toLowerCase() || "";
+  private isOracleError(error: unknown): boolean {
+    const errorMessage = (error as Error)?.message?.toLowerCase() || "";
     return errorMessage.includes("stale data") || errorMessage.includes("oracle") || errorMessage.includes("chainlink") || errorMessage.includes("price feed");
   }
 
@@ -204,7 +204,7 @@ export class CacheService {
   /**
    * Warm cache with commonly needed data
    */
-  async warmCache(contractService: any): Promise<void> {
+  async warmCache(contractService: unknown): Promise<void> {
     const warmupTasks = [
       { key: "collateral-ratio", fn: () => contractService.getCollateralRatio(), config: CACHE_CONFIGS.COLLATERAL_RATIO },
       { key: "lusd-oracle-price", fn: () => contractService.getLUSDOraclePrice(), config: CACHE_CONFIGS.LUSD_ORACLE_PRICE },

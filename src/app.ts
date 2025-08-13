@@ -6,7 +6,7 @@ import { ContractService } from "./services/contract-service.ts";
 import { PriceService } from "./services/price-service.ts";
 import { CurvePriceService } from "./services/curve-price-service.ts";
 import { SwapService } from "./services/swap-service.ts";
-import { TransactionService, TransactionOperation } from "./services/transaction-service.ts";
+import { TransactionService, TransactionOperation as _TransactionOperation } from "./services/transaction-service.ts";
 import { cacheService } from "./services/cache-service.ts";
 
 // Import components
@@ -20,7 +20,11 @@ import { TransactionButtonUtils } from "./utils/transaction-button-utils.ts";
 
 declare global {
   interface Window {
-    ethereum?: any;
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on: (event: string, callback: (...args: unknown[]) => void) => void;
+      removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
+    };
   }
 }
 
@@ -81,7 +85,7 @@ class UUSDApp {
     this.setupServiceEventHandlers();
 
     // Expose to window for HTML onclick handlers and debugging
-    (window as any).app = {
+    (window as Record<string, unknown>).app = {
       ...this,
       exchange: this.simplifiedExchangeComponent,
       connectWallet: () => this.connectWallet(),
@@ -155,7 +159,7 @@ class UUSDApp {
     try {
       const uusdPrice = await this.priceService.getCurrentUUSDPrice();
       this.updateUUSDPriceDisplay(uusdPrice);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.warn("Failed to load UUSD price:", error);
       this.updateUUSDPriceDisplay("Unavailable");
     }
@@ -170,7 +174,7 @@ class UUSDApp {
       if (cachedHistory.length > 0) {
         this.generateRealSparkline(cachedHistory);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Ignore cache errors for immediate render
       console.warn("Could not render cached sparkline:", error);
     }
@@ -192,7 +196,7 @@ class UUSDApp {
       if (freshHistory.length > cachedHistory.length || (freshHistory.length > 0 && cachedHistory.length === 0)) {
         this.generateRealSparkline(freshHistory);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.warn("Failed to load price history:", error);
     }
   }
@@ -200,7 +204,7 @@ class UUSDApp {
   /**
    * Generate real sparkline from actual price data
    */
-  private generateRealSparkline(priceHistory: any[]): void {
+  private generateRealSparkline(priceHistory: Array<{ price: bigint | number | string }>): void {
     const chartElement = document.querySelector(".sparkline-chart") as HTMLElement;
     const strokeElement = document.querySelector(".sparkline-stroke") as HTMLElement;
 
@@ -324,24 +328,24 @@ class UUSDApp {
 
     // Transaction service event handlers
     this.transactionService.setEventHandlers({
-      onTransactionStart: (operation: string) => {
+      onTransactionStart: (_operation: string) => {
         this.simplifiedExchangeComponent.handleTransactionStart();
       },
-      onTransactionSubmitted: (operation: string, hash: string) => {
+      onTransactionSubmitted: (_operation: string, hash: string) => {
         this.simplifiedExchangeComponent.handleTransactionSubmitted(hash);
       },
-      onTransactionSuccess: (operation: string, hash: string) => {
+      onTransactionSuccess: (_operation: string, _hash: string) => {
         // Note: handleTransactionSuccess doesn't exist in simplified component
         // as it's handled internally
       },
-      onTransactionError: (operation: string, error: Error) => {
+      onTransactionError: (_operation: string, _error: Error) => {
         // Note: handleTransactionError doesn't exist in simplified component
         // as it's handled internally
       },
-      onApprovalNeeded: (tokenSymbol: string) => {
+      onApprovalNeeded: (_tokenSymbol: string) => {
         // Handled within the unified exchange component
       },
-      onApprovalComplete: (tokenSymbol: string) => {
+      onApprovalComplete: (_tokenSymbol: string) => {
         // Handled within the unified exchange component
       },
     });
@@ -418,11 +422,12 @@ class UUSDApp {
           void this.inventoryBarComponent.handleWalletConnectionChange(account);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Reset button state on error
       connectButton.textContent = originalText;
       connectButton.disabled = false;
-      this.notificationManager.showError("exchange", error.message);
+      const message = error instanceof Error ? error.message : "Unknown error occurred";
+      this.notificationManager.showError("exchange", message);
     }
   }
 
@@ -452,4 +457,4 @@ class UUSDApp {
 
 // Initialize app and expose to window
 const app = new UUSDApp();
-(window as any).app = app;
+(window as Record<string, unknown>).app = app;

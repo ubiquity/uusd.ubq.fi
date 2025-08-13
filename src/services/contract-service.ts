@@ -219,8 +219,8 @@ export class ContractService implements ContractReads, ContractWrites {
       if (failedCalls.length > 0) {
         console.warn("⚠️ Some batch calls failed:", failedCalls.length);
         // Log individual failures for debugging
-        failedCalls.forEach((failure, index) => {
-          console.warn(`Call ${index} failed:`, failure.error);
+        failedCalls.forEach((failure, _index) => {
+          console.warn(`Call failed:`, failure.error);
         });
       }
 
@@ -448,9 +448,9 @@ export class ContractService implements ContractReads, ContractWrites {
         args,
         account,
       });
-    } catch (estimationError: any) {
+    } catch (estimationError: unknown) {
       // Analyze oracle error with enhanced messaging
-      const errorMessage = estimationError.message || estimationError.toString();
+      const errorMessage = (estimationError as Error).message || String(estimationError);
       const oracleAnalysis = analyzeOracleError(errorMessage);
 
       if (oracleAnalysis.isOracleIssue) {
@@ -665,11 +665,11 @@ export class ContractService implements ContractReads, ContractWrites {
 
       // Calculate percentage for UI display
       const collateralRatioPercentage = formatUnits(collateralRatio, 6);
-      const governanceRatioPercentage = 100 - collateralRatioPercentage;
+      const governanceRatioPercentage = 100 - Number(collateralRatioPercentage);
 
       return {
         collateralRatio,
-        collateralRatioPercentage,
+        collateralRatioPercentage: Number(collateralRatioPercentage),
         governanceRatioPercentage,
         mintPaused: collateralInfo ? Boolean(collateralInfo.isMintPaused) : false,
         redeemPaused: collateralInfo ? Boolean(collateralInfo.isRedeemPaused) : false,
