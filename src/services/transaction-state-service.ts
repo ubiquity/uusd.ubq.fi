@@ -46,7 +46,7 @@ export class TransactionStateService {
       isLoading: false,
       buttonElement: button,
       config,
-      originalClickHandler
+      originalClickHandler,
     };
 
     this.transactions.set(buttonId, transactionState);
@@ -77,8 +77,6 @@ export class TransactionStateService {
         state.originalClickHandler.call(button, event);
       }
     };
-
-
   }
 
   /**
@@ -99,12 +97,10 @@ export class TransactionStateService {
     const displayText = pendingText || state.config.pendingText;
 
     button.innerHTML = `${displayText}<span class="loading"></span>`;
-    button.classList.add('transaction-pending');
+    button.classList.add("transaction-pending");
 
     // Don't disable the button - keep it clickable but change behavior
     button.disabled = false;
-
-
   }
 
   /**
@@ -123,10 +119,8 @@ export class TransactionStateService {
 
     const button = state.buttonElement;
     button.innerHTML = `Approving ${tokenSymbol}...<span class="loading"></span>`;
-    button.classList.add('transaction-pending');
+    button.classList.add("transaction-pending");
     button.disabled = false;
-
-
   }
 
   /**
@@ -139,8 +133,6 @@ export class TransactionStateService {
     // Keep the loading state, just update text to show main transaction is proceeding
     const button = state.buttonElement;
     button.innerHTML = `Processing...<span class="loading"></span>`;
-
-
   }
 
   /**
@@ -162,11 +154,9 @@ export class TransactionStateService {
         📋 View Transaction
       </span>
     `;
-    button.classList.add('transaction-pending');
+    button.classList.add("transaction-pending");
     button.disabled = false;
     button.title = `Click to view transaction: ${hash}`;
-
-
   }
 
   /**
@@ -185,21 +175,20 @@ export class TransactionStateService {
 
     const button = state.buttonElement;
     button.innerHTML = state.config.originalText;
-    button.classList.remove('transaction-pending', 'transaction-error');
+    button.classList.remove("transaction-pending", "transaction-error");
     button.disabled = false;
-    button.title = '';
+    button.title = "";
 
     if (successText) {
       // Temporarily show success text
       button.innerHTML = successText;
       setTimeout(() => {
-        if (!state.isLoading) { // Only reset if no new transaction started
+        if (!state.isLoading) {
+          // Only reset if no new transaction started
           button.innerHTML = state.config.originalText;
         }
       }, 2000);
     }
-
-
   }
 
   /**
@@ -218,21 +207,20 @@ export class TransactionStateService {
 
     const button = state.buttonElement;
     button.innerHTML = errorText || state.config.originalText;
-    button.classList.remove('transaction-pending');
-    button.classList.add('transaction-error');
+    button.classList.remove("transaction-pending");
+    button.classList.add("transaction-error");
     button.disabled = false;
     button.title = `Error: ${error}`;
 
     // Reset error state after a delay
     setTimeout(() => {
-      if (!state.isLoading) { // Only reset if no new transaction started
-        button.classList.remove('transaction-error');
+      if (!state.isLoading) {
+        // Only reset if no new transaction started
+        button.classList.remove("transaction-error");
         button.innerHTML = state.config.originalText;
-        button.title = '';
+        button.title = "";
       }
     }, 3000);
-
-
   }
 
   /**
@@ -259,7 +247,7 @@ export class TransactionStateService {
    * Check if any transaction is in progress
    */
   hasActiveTransaction(): boolean {
-    return Array.from(this.transactions.values()).some(state => state.isLoading);
+    return Array.from(this.transactions.values()).some((state) => state.isLoading);
   }
 
   /**
@@ -283,9 +271,7 @@ export class TransactionStateService {
   private showTransactionDetails(hash: string): void {
     // For Ethereum mainnet - adjust for other networks as needed
     const explorerUrl = `https://etherscan.io/tx/${hash}`;
-    window.open(explorerUrl, '_blank', 'noopener,noreferrer');
-
-
+    window.open(explorerUrl, "_blank", "noopener,noreferrer");
   }
 
   /**
@@ -299,7 +285,6 @@ export class TransactionStateService {
     }
 
     this.transactions.delete(buttonId);
-
   }
 
   /**
@@ -314,12 +299,10 @@ export class TransactionStateService {
 
         const button = state.buttonElement;
         button.innerHTML = state.config.originalText;
-        button.classList.remove('transaction-pending', 'transaction-error');
+        button.classList.remove("transaction-pending", "transaction-error");
         button.disabled = false;
-        button.title = '';
+        button.title = "";
       }
     }
-
-
   }
 }
