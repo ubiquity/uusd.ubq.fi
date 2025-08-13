@@ -12,7 +12,7 @@ export interface TransactionButtonConfig {
  * Provides standardized registration and management of transaction buttons
  */
 export class TransactionButtonUtils {
-  private static transactionStateService = TransactionStateService.getInstance();
+  private static _transactionStateService = TransactionStateService.getInstance();
 
   /**
    * Register a transaction button with consistent UX
@@ -22,7 +22,7 @@ export class TransactionButtonUtils {
     setTimeout(() => {
       const button = document.getElementById(config.buttonId) as HTMLButtonElement;
       if (button) {
-        this.transactionStateService.registerButton(config.buttonId, {
+        this._transactionStateService.registerButton(config.buttonId, {
           buttonElement: button,
           originalText: config.originalText,
           pendingText: config.pendingText,
@@ -40,31 +40,31 @@ export class TransactionButtonUtils {
   static createTransactionHandlers(buttonId: string) {
     return {
       handleTransactionStart: () => {
-        this.transactionStateService.startTransaction(buttonId);
+        this._transactionStateService.startTransaction(buttonId);
       },
 
       handleTransactionSubmitted: (hash: string) => {
-        this.transactionStateService.updateTransactionHash(buttonId, hash);
+        this._transactionStateService.updateTransactionHash(buttonId, hash);
       },
 
       handleTransactionSuccess: (successText?: string) => {
-        this.transactionStateService.completeTransaction(buttonId, successText);
+        this._transactionStateService.completeTransaction(buttonId, successText);
       },
 
       handleTransactionError: (error: Error, errorText?: string) => {
-        this.transactionStateService.errorTransaction(buttonId, error.message, errorText || "❌ Try Again");
+        this._transactionStateService.errorTransaction(buttonId, error.message, errorText || "❌ Try Again");
       },
 
       handleApprovalNeeded: (tokenSymbol: string) => {
-        this.transactionStateService.startApproval(buttonId, tokenSymbol);
+        this._transactionStateService.startApproval(buttonId, tokenSymbol);
       },
 
       handleApprovalComplete: () => {
-        this.transactionStateService.completeApproval(buttonId);
+        this._transactionStateService.completeApproval(buttonId);
       },
 
       updateButtonText: (newText: string) => {
-        this.transactionStateService.updateButtonText(buttonId, newText);
+        this._transactionStateService.updateButtonText(buttonId, newText);
       },
     };
   }
@@ -73,21 +73,21 @@ export class TransactionButtonUtils {
    * Check if any transaction is currently active
    */
   static hasActiveTransaction(): boolean {
-    return this.transactionStateService.hasActiveTransaction();
+    return this._transactionStateService.hasActiveTransaction();
   }
 
   /**
    * Get all currently active transactions
    */
   static getActiveTransactions(): { buttonId: string; hash?: string }[] {
-    return this.transactionStateService.getActiveTransactions();
+    return this._transactionStateService.getActiveTransactions();
   }
 
   /**
    * Reset all transaction buttons (useful for wallet disconnect)
    */
   static resetAllButtons(): void {
-    this.transactionStateService.resetAllButtons();
+    this._transactionStateService.resetAllButtons();
   }
 
   /**
@@ -107,10 +107,10 @@ export class TransactionButtonUtils {
 
       commonButtons.forEach(({ id, defaultText, pendingText }) => {
         const button = document.getElementById(id) as HTMLButtonElement;
-        if (button && !this.transactionStateService.getButtonState(id)) {
+        if (button && !this._transactionStateService.getButtonState(id)) {
           const originalText = button.textContent || defaultText;
 
-          this.transactionStateService.registerButton(id, {
+          this._transactionStateService.registerButton(id, {
             buttonElement: button,
             originalText,
             pendingText,

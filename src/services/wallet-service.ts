@@ -16,14 +16,14 @@ export interface WalletServiceEvents {
  * Service responsible for wallet connection and management
  */
 export class WalletService {
-  private walletClient: WalletClient | null = null;
-  private publicClient: PublicClient;
-  private account: Address | null = null;
-  private events: Partial<WalletServiceEvents> = {};
-  private static readonly STORAGE_KEY = "uusd_wallet_address";
+  private _walletClient: WalletClient | null = null;
+  private _publicClient: PublicClient;
+  private _account: Address | null = null;
+  private _events: Partial<WalletServiceEvents> = {};
+  private static readonly _storageKey = "uusd_wallet_address";
 
   constructor() {
-    this.publicClient = createPublicClient({
+    this._publicClient = createPublicClient({
       chain: mainnet,
       transport: http(RPC_URL),
     });
@@ -33,7 +33,7 @@ export class WalletService {
    * Set event handlers for wallet service events
    */
   setEventHandlers(events: Partial<WalletServiceEvents>) {
-    this.events = { ...this.events, ...events };
+    this._events = { ...this._events, ...events };
   }
 
   /**
@@ -49,31 +49,31 @@ export class WalletService {
         await Promise.race([
           window.ethereum.request({
             method: "wallet_requestPermissions",
-            params: [{ ethAccounts: {} }],
+            params: [{ eth_accounts: {} }],
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timeout")), 10000)),
         ]);
       }
 
-      this.walletClient = createWalletClient({
+      this._walletClient = createWalletClient({
         chain: mainnet,
         transport: custom(window.ethereum),
       });
 
       const addresses = await Promise.race([
-        this.walletClient.requestAddresses(),
+        this._walletClient.requestAddresses(),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Address request timeout")), 10000)),
       ]);
       const [address] = addresses;
 
-      this.account = address;
+      this._account = address;
 
       // Store the connected wallet address in localStorage
-      localStorage.setItem(WalletService.STORAGE_KEY, address);
+      localStorage.setItem(WalletService._storageKey, address);
 
-      this.events.onConnect?.(address);
+      this._events.onConnect?.(address);
 
-      this.events.onAccountChanged?.(address);
+      this._events.onAccountChanged?.(address);
 
       return address;
     } catch (error) {
@@ -86,59 +86,59 @@ export class WalletService {
    * Disconnect wallet
    */
   disconnect(): void {
-    this.walletClient = null;
-    this.account = null;
+    this._walletClient = null;
+    this._account = null;
 
     // Clear stored wallet address from localStorage
-    localStorage.removeItem(WalletService.STORAGE_KEY);
+    localStorage.removeItem(WalletService._storageKey);
 
-    this.events.onDisconnect?.();
-    this.events.onAccountChanged?.(null);
+    this._events.onDisconnect?.();
+    this._events.onAccountChanged?.(null);
   }
 
   /**
    * Get current connected account
    */
   getAccount(): Address | null {
-    return this.account;
+    return this._account;
   }
 
   /**
    * Get wallet client (throws if not connected)
    */
   getWalletClient(): WalletClient {
-    if (!this.walletClient) {
+    if (!this._walletClient) {
       throw new Error("Wallet not connected");
     }
-    return this.walletClient;
+    return this._walletClient;
   }
 
   /**
    * Get public client for read operations
    */
   getPublicClient(): PublicClient {
-    return this.publicClient;
+    return this._publicClient;
   }
 
   /**
    * Check if wallet is connected
    */
   isConnected(): boolean {
-    return this.account !== null && this.walletClient !== null;
+    return this._account !== null && this._walletClient !== null;
   }
 
   /**
    * Get the current chain from wallet client
    */
   getChain() {
-    return this.walletClient?.chain || mainnet;
+    return this._walletClient?.chain || mainnet;
   }
 
   /**
    * Validate current wallet connection state
    */
   validateConnection() {
-    const result = validateWalletConnection(this.account);
+    const result = validateWalletConnection(this._account);
     if (!result.isValid) {
       throw new Error(result.error);
     }
@@ -152,34 +152,34 @@ export class WalletService {
       return null;
     }
 
-    const storedAddress = localStorage.getItem(WalletService.STORAGE_KEY);
+    const storedAddress = localStorage.getItem(WalletService._storageKey);
     if (!storedAddress) {
       return null;
     }
 
     try {
       // Try to reconnect without forcing wallet selection
-      this.walletClient = createWalletClient({
+      this._walletClient = createWalletClient({
         chain: mainnet,
         transport: custom(window.ethereum),
       });
 
       // Check if the stored address is still available in the wallet
-      const availableAddresses = await this.walletClient.getAddresses();
+      const availableAddresses = await this._walletClient.getAddresses();
 
       if (availableAddresses.includes(storedAddress as Address)) {
-        this.account = storedAddress as Address;
-        this.events.onConnect?.(this.account);
-        this.events.onAccountChanged?.(this.account);
-        return this.account;
+        this._account = storedAddress as Address;
+        this._events.onConnect?.(this._account);
+        this._events.onAccountChanged?.(this._account);
+        return this._account;
       } else {
         // Stored address is no longer available, clear it
-        localStorage.removeItem(WalletService.STORAGE_KEY);
+        localStorage.removeItem(WalletService._storageKey);
         return null;
       }
     } catch {
       // Auto-reconnection failed, clear stored address
-      localStorage.removeItem(WalletService.STORAGE_KEY);
+      localStorage.removeItem(WalletService._storageKey);
       return null;
     }
   }
@@ -188,6 +188,6 @@ export class WalletService {
    * Get stored wallet address without connecting
    */
   getStoredAddress(): string | null {
-    return localStorage.getItem(WalletService.STORAGE_KEY);
+    return localStorage.getItem(WalletService._storageKey);
   }
 }

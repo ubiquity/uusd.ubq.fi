@@ -40,15 +40,15 @@ export interface OptimalRouteResult {
  * Service to determine optimal route for LUSD ↔ UUSD exchanges
  */
 export class OptimalRouteService {
-  private priceService: PriceService;
-  private curvePriceService: CurvePriceService;
-  private contractService: ContractService;
-  private readonly PEG_PRICE = 1000000n; // $1.00 with 6 decimals
+  private _priceService: PriceService;
+  private _curvePriceService: CurvePriceService;
+  private _contractService: ContractService;
+  private readonly _pegPrice = 1000000n; // $1.00 with 6 decimals
 
   constructor(priceService: PriceService, curvePriceService: CurvePriceService, contractService: ContractService) {
-    this.priceService = priceService;
-    this.curvePriceService = curvePriceService;
-    this.contractService = contractService;
+    this._priceService = priceService;
+    this._curvePriceService = curvePriceService;
+    this._contractService = contractService;
   }
 
   /**
@@ -58,7 +58,7 @@ export class OptimalRouteService {
   async getOptimalDepositRoute(lusdAmount: bigint, isForceCollateralOnly: boolean = false): Promise<OptimalRouteResult> {
     try {
       // Get current market conditions with timeout protection
-      const marketConditionsPromise = Promise.all([this.contractService.getLUSDOraclePrice(), this.curvePriceService.getUUSDMarketPrice(this.PEG_PRICE)]);
+      const marketConditionsPromise = Promise.all([this._contractService.getLUSDOraclePrice(), this._curvePriceService.getUUSDMarketPrice(this._pegPrice)]);
 
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error("Market conditions timeout")), 10000);
@@ -69,13 +69,13 @@ export class OptimalRouteService {
       const dollarAmount = parseEther(formatUnits(lusdAmount, 18));
 
       // Calculate both mint options with timeout protection
-      const mixedMintPromise = this.priceService.calculateMintOutput({
+      const mixedMintPromise = this._priceService.calculateMintOutput({
         dollarAmount,
         collateralIndex: LUSD_COLLATERAL.index,
         isForceCollateralOnly: false,
       });
 
-      const collateralOnlyMintPromise = this.priceService.calculateMintOutput({
+      const collateralOnlyMintPromise = this._priceService.calculateMintOutput({
         dollarAmount,
         collateralIndex: LUSD_COLLATERAL.index,
         isForceCollateralOnly: true,
@@ -91,7 +91,7 @@ export class OptimalRouteService {
       ])) as [unknown, unknown];
 
       // Calculate swap output (LUSD → UUSD via Curve)
-      const swapOutputUUSD = await this.getSwapOutput(lusdAmount, "LUSD", "UUSD");
+      const swapOutputUUSD = await this._getSwapOutput(lusdAmount, "LUSD", "UUSD");
 
       // Determine optimal route based on user preference and market conditions
       let routeType: RouteType;
@@ -137,7 +137,7 @@ export class OptimalRouteService {
       // Calculate alternative output for savings comparison
       const allOutputs = [swapOutputUUSD, mixedMintResult.totalDollarMint, collateralOnlyMintResult.totalDollarMint];
       const alternativeOutput = allOutputs.filter((output) => output !== expectedOutput).reduce((max, current) => (current > max ? current : max), 0n);
-      const savings = this.calculateSavings(expectedOutput, alternativeOutput);
+      const savings = this._calculateSavings(expectedOutput, alternativeOutput);
 
       return {
         routeType,
@@ -145,7 +145,7 @@ export class OptimalRouteService {
         inputAmount: lusdAmount,
         direction: "deposit",
         marketPrice,
-        pegPrice: this.PEG_PRICE,
+        pegPrice: this._pegPrice,
         savings,
         // reason,
         isEnabled,
@@ -159,14 +159,14 @@ export class OptimalRouteService {
 
       // Fallback to swap if calculations fail
       try {
-        const swapOutput = await this.getSwapOutput(lusdAmount, "LUSD", "UUSD");
+        const swapOutput = await this._getSwapOutput(lusdAmount, "LUSD", "UUSD");
         return {
           routeType: "swap",
           expectedOutput: swapOutput,
           inputAmount: lusdAmount,
           direction: "deposit",
-          marketPrice: this.PEG_PRICE,
-          pegPrice: this.PEG_PRICE,
+          marketPrice: this._pegPrice,
+          pegPrice: this._pegPrice,
           savings: { amount: 0n, percentage: 0 },
           // reason: 'Using Curve swap (fallback due to calculation error).',
           isEnabled: true,
@@ -189,9 +189,9 @@ export class OptimalRouteService {
       let marketPrice: bigint;
 
       try {
-        lusdPrice = await this.contractService.getLUSDOraclePrice();
+        lusdPrice = await this._contractService.getLUSDOraclePrice();
 
-        marketPrice = await this.curvePriceService.getUUSDMarketPrice(this.PEG_PRICE);
+        marketPrice = await this._curvePriceService.getUUSDMarketPrice(this._pegPrice);
       } catch (error) {
         console.error("❌ Error getting market conditions:", error);
         throw new Error(`Failed to get market conditions: ${error}`);
@@ -200,22 +200,22 @@ export class OptimalRouteService {
       console.log("📊 Market conditions:", {
         lusdPrice: formatUnits(lusdPrice, 6),
         marketPrice: formatUnits(marketPrice, 6),
-        pegPrice: formatUnits(this.PEG_PRICE, 6),
+        pegPrice: formatUnits(this._pegPrice, 6),
       });
 
       // Calculate redeem output with oracle error handling
       let redeemResult;
       try {
         // For LUSD-only redemption, we can skip governance price entirely
-        const skipGovernancePrice = isLusdOnlyRedemption;
+        const shouldSkipGovernancePrice = isLusdOnlyRedemption;
 
         // Add timeout to prevent hanging
-        const redeemPromise = this.priceService.calculateRedeemOutput(
+        const redeemPromise = this._priceService.calculateRedeemOutput(
           {
             dollarAmount: uusdAmount,
             collateralIndex: LUSD_COLLATERAL.index,
           },
-          skipGovernancePrice
+          shouldSkipGovernancePrice
         );
 
         const timeoutPromise = new Promise((_, reject) => {
@@ -231,15 +231,15 @@ export class OptimalRouteService {
         if (errorMessage.includes("Stale data") || errorMessage.includes("oracle")) {
           // Calculate swap output and return swap-only result
           try {
-            const swapOutputLUSD = await this.getSwapOutput(uusdAmount, "UUSD", "LUSD");
+            const swapOutputLUSD = await this._getSwapOutput(uusdAmount, "UUSD", "LUSD");
 
             return {
               routeType: "swap" as const,
               expectedOutput: swapOutputLUSD,
               inputAmount: uusdAmount,
               direction: "withdraw" as const,
-              marketPrice: this.PEG_PRICE, // Fallback price
-              pegPrice: this.PEG_PRICE,
+              marketPrice: this._pegPrice, // Fallback price
+              pegPrice: this._pegPrice,
               savings: { amount: 0n, percentage: 0 },
               isEnabled: true,
               disabledReason: "Oracle data temporarily unavailable - using Curve swap",
@@ -256,7 +256,7 @@ export class OptimalRouteService {
       // Calculate swap output (UUSD → LUSD via Curve)
       let swapOutputLUSD;
       try {
-        swapOutputLUSD = await this.getSwapOutput(uusdAmount, "UUSD", "LUSD");
+        swapOutputLUSD = await this._getSwapOutput(uusdAmount, "UUSD", "LUSD");
       } catch (error) {
         console.error("❌ Error calculating swap output:", error);
         throw new Error(`Failed to calculate swap output: ${error}`);
@@ -297,7 +297,7 @@ export class OptimalRouteService {
 
       // Calculate alternative output for savings comparison
       const alternativeOutput = routeType === "redeem" ? swapOutputLUSD : redeemResult.collateralRedeemed;
-      const savings = this.calculateSavings(expectedOutput, alternativeOutput);
+      const savings = this._calculateSavings(expectedOutput, alternativeOutput);
 
       const result = {
         routeType,
@@ -305,7 +305,7 @@ export class OptimalRouteService {
         inputAmount: uusdAmount,
         direction: "withdraw" as const,
         marketPrice,
-        pegPrice: this.PEG_PRICE,
+        pegPrice: this._pegPrice,
         savings,
         // reason,
         isEnabled,
@@ -321,15 +321,15 @@ export class OptimalRouteService {
 
       // Fallback to swap if calculations fail
       try {
-        const swapOutput = await this.getSwapOutput(uusdAmount, "UUSD", "LUSD");
+        const swapOutput = await this._getSwapOutput(uusdAmount, "UUSD", "LUSD");
 
         return {
           routeType: "swap",
           expectedOutput: swapOutput,
           inputAmount: uusdAmount,
           direction: "withdraw",
-          marketPrice: this.PEG_PRICE,
-          pegPrice: this.PEG_PRICE,
+          marketPrice: this._pegPrice,
+          pegPrice: this._pegPrice,
           savings: { amount: 0n, percentage: 0 },
           // reason: 'Using Curve swap (fallback due to calculation error).',
           isEnabled: true,
@@ -343,7 +343,7 @@ export class OptimalRouteService {
   /**
    * Get swap output from Curve pool
    */
-  private async getSwapOutput(amount: bigint, fromToken: "LUSD" | "UUSD", toToken: "LUSD" | "UUSD"): Promise<bigint> {
+  private async _getSwapOutput(amount: bigint, fromToken: "LUSD" | "UUSD", toToken: "LUSD" | "UUSD"): Promise<bigint> {
     if (fromToken === toToken) {
       throw new Error("Cannot swap same token");
     }
@@ -352,7 +352,7 @@ export class OptimalRouteService {
       // For LUSD → UUSD, we need to calculate based on the amount
       // Since CurvePriceService.getUUSDMarketPrice expects LUSD price and returns UUSD price per unit,
       // we need to simulate the actual swap amount
-      const publicClient = this.curvePriceService["walletService"].getPublicClient();
+      const publicClient = this._curvePriceService["walletService"].getPublicClient();
       return (await publicClient.readContract({
         address: "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f",
         abi: [
@@ -373,7 +373,7 @@ export class OptimalRouteService {
       })) as bigint;
     } else if (fromToken === "UUSD" && toToken === "LUSD") {
       // Use existing method for UUSD → LUSD
-      return this.curvePriceService.getLUSDForUUSD(amount);
+      return this._curvePriceService.getLUSDForUUSD(amount);
     } else {
       throw new Error(`Unsupported swap pair: ${fromToken} → ${toToken}`);
     }
@@ -382,7 +382,7 @@ export class OptimalRouteService {
   /**
    * Calculate savings between two options
    */
-  private calculateSavings(optimalOutput: bigint, alternativeOutput: bigint): { amount: bigint; percentage: number } {
+  private _calculateSavings(optimalOutput: bigint, alternativeOutput: bigint): { amount: bigint; percentage: number } {
     if (alternativeOutput === 0n) {
       return { amount: 0n, percentage: 0 };
     }

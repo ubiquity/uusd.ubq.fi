@@ -50,22 +50,22 @@ export enum TransactionOperation {
  * Service responsible for orchestrating multi-step transaction flows
  */
 export class TransactionService {
-  private walletService: WalletService;
-  private contractService: ContractService;
-  private priceService: PriceService;
-  private events: TransactionEvents = {};
+  private _walletService: WalletService;
+  private _contractService: ContractService;
+  private _priceService: PriceService;
+  private _events: TransactionEvents = {};
 
   constructor(walletService: WalletService, contractService: ContractService, priceService: PriceService) {
-    this.walletService = walletService;
-    this.contractService = contractService;
-    this.priceService = priceService;
+    this._walletService = walletService;
+    this._contractService = contractService;
+    this._priceService = priceService;
   }
 
   /**
    * Set event handlers for transaction events
    */
   setEventHandlers(events: TransactionEvents) {
-    this.events = { ...this.events, ...events };
+    this._events = { ...this._events, ...events };
   }
 
   /**
@@ -82,13 +82,16 @@ export class TransactionService {
 
     // Validate wallet connection
     try {
-      this.walletService.validateConnection();
+      this._walletService.validateConnection();
     } catch (error) {
       console.error("❌ Wallet validation failed:", error);
       throw error;
     }
 
-    const account = this.walletService.getAccount()!;
+    const account = this._walletService.getAccount();
+    if (!account) {
+      throw new Error("Wallet not connected");
+    }
 
     // Validate transaction parameters
     const validation = validateTransactionParams(dollarAmount, collateralIndex, account);
@@ -98,16 +101,16 @@ export class TransactionService {
     }
 
     try {
-      this.events.onTransactionStart?.(TransactionOperation.MINT);
+      this._events.onTransactionStart?.(TransactionOperation.MINT);
 
       // Get collateral info and calculate mint amounts
-      const collateral = this.priceService.getCollateralByIndex(collateralIndex);
+      const collateral = this._priceService.getCollateralByIndex(collateralIndex);
       if (!collateral) {
         console.error("❌ Collateral not found for index:", collateralIndex);
         throw new Error(`Collateral with index ${collateralIndex} not found`);
       }
 
-      const mintResult = await this.priceService.calculateMintOutput({
+      const mintResult = await this._priceService.calculateMintOutput({
         dollarAmount,
         collateralIndex,
         isForceCollateralOnly,
@@ -120,7 +123,7 @@ export class TransactionService {
 
       // Handle approvals if needed
 
-      await this.handleMintApprovals(collateral, account, mintResult);
+      await this._handleMintApprovals(collateral, account, mintResult);
 
       // Execute mint transaction with slippage tolerance
       // Add 0.5% slippage tolerance
@@ -144,7 +147,7 @@ export class TransactionService {
       });
 
       try {
-        const hash = await this.contractService.mintDollar(
+        const hash = await this._contractService.mintDollar(
           collateralIndex,
           dollarAmount,
           dollarOutMin, // Minimum acceptable output (with slippage)
@@ -153,8 +156,8 @@ export class TransactionService {
           isForceCollateralOnly
         );
 
-        this.events.onTransactionSubmitted?.(TransactionOperation.MINT, hash);
-        this.events.onTransactionSuccess?.(TransactionOperation.MINT, hash);
+        this._events.onTransactionSubmitted?.(TransactionOperation.MINT, hash);
+        this._events.onTransactionSuccess?.(TransactionOperation.MINT, hash);
         return hash;
       } catch (contractError: unknown) {
         console.error("❌ Mint transaction failed:", contractError);
@@ -166,7 +169,7 @@ export class TransactionService {
           contractErrorMessage?.includes("Oracle keepers will update") ||
           contractErrorMessage?.includes("Alternative actions:")
         ) {
-          this.events.onTransactionError?.(TransactionOperation.MINT, contractError as Error);
+          this._events.onTransactionError?.(TransactionOperation.MINT, contractError as Error);
           throw contractError;
         }
 
@@ -178,13 +181,13 @@ export class TransactionService {
           const oracleError = new Error(
             `Price oracle data is outdated. The LUSD price feed needs to be updated by oracle keepers. This usually resolves within a few minutes. Please try again later, or consider using a different collateral type if available.`
           );
-          this.events.onTransactionError?.(TransactionOperation.MINT, oracleError);
+          this._events.onTransactionError?.(TransactionOperation.MINT, oracleError);
           throw oracleError;
         }
 
         // Enhanced error handling with specific messages for non-oracle errors
-        const enhancedError = this.enhanceErrorMessage(contractError as Error, "mint");
-        this.events.onTransactionError?.(TransactionOperation.MINT, enhancedError);
+        const enhancedError = this._enhanceErrorMessage(contractError as Error, "mint");
+        this._events.onTransactionError?.(TransactionOperation.MINT, enhancedError);
         throw enhancedError;
       }
     } catch (error) {
@@ -207,13 +210,16 @@ export class TransactionService {
 
     // Validate wallet connection
     try {
-      this.walletService.validateConnection();
+      this._walletService.validateConnection();
     } catch (error) {
       console.error("❌ Wallet validation failed:", error);
       throw error;
     }
 
-    const account = this.walletService.getAccount()!;
+    const account = this._walletService.getAccount();
+    if (!account) {
+      throw new Error("Wallet not connected");
+    }
 
     // Validate transaction parameters
     const validation = validateTransactionParams(dollarAmount, collateralIndex, account);
@@ -223,11 +229,11 @@ export class TransactionService {
     }
 
     try {
-      this.events.onTransactionStart?.(TransactionOperation.REDEEM);
+      this._events.onTransactionStart?.(TransactionOperation.REDEEM);
 
       // Check if there's a pending redemption to collect first
 
-      const redeemBalance = await this.contractService.getRedeemCollateralBalance(account, collateralIndex);
+      const redeemBalance = await this._contractService.getRedeemCollateralBalance(account, collateralIndex);
 
       if (redeemBalance > 0n) {
         // Collect existing redemption first
@@ -236,7 +242,7 @@ export class TransactionService {
 
       // Calculate redeem output for slippage protection
 
-      const redeemResult = await this.priceService.calculateRedeemOutput({
+      const redeemResult = await this._priceService.calculateRedeemOutput({
         dollarAmount,
         collateralIndex,
       });
@@ -247,7 +253,7 @@ export class TransactionService {
 
       // Handle UUSD approval if needed
 
-      await this.handleRedeemApproval(account, dollarAmount);
+      await this._handleRedeemApproval(account, dollarAmount);
 
       // Execute redeem transaction with slippage tolerance
       // Add 0.5% slippage tolerance
@@ -265,14 +271,14 @@ export class TransactionService {
         collateralOutMin: collateralOutMin.toString(),
       });
 
-      const hash = await this.contractService.redeemDollar(
+      const hash = await this._contractService.redeemDollar(
         collateralIndex,
         dollarAmount,
         governanceOutMin, // Minimum governance tokens expected (with slippage)
         collateralOutMin // Minimum collateral expected (with slippage)
       );
 
-      this.events.onTransactionSuccess?.(TransactionOperation.REDEEM, hash);
+      this._events.onTransactionSuccess?.(TransactionOperation.REDEEM, hash);
       return hash;
     } catch (error) {
       console.error("❌ General redeem error:", error);
@@ -287,13 +293,13 @@ export class TransactionService {
         redeemErrorMessage.includes("Oracle keepers will update") ||
         redeemErrorMessage.includes("Alternative actions:")
       ) {
-        this.events.onTransactionError?.(TransactionOperation.REDEEM, error as Error);
+        this._events.onTransactionError?.(TransactionOperation.REDEEM, error as Error);
         throw error;
       }
 
       // Enhanced error handling with specific messages for redeem errors
-      const enhancedError = this.enhanceErrorMessage(error as Error, "redeem");
-      this.events.onTransactionError?.(TransactionOperation.REDEEM, enhancedError);
+      const enhancedError = this._enhanceErrorMessage(error as Error, "redeem");
+      this._events.onTransactionError?.(TransactionOperation.REDEEM, enhancedError);
       throw enhancedError;
     }
   }
@@ -303,17 +309,17 @@ export class TransactionService {
    */
   async executeCollectRedemption(collateralIndex: number): Promise<string> {
     // Validate wallet connection
-    this.walletService.validateConnection();
+    this._walletService.validateConnection();
 
     try {
-      this.events.onTransactionStart?.(TransactionOperation.COLLECT_REDEMPTION);
+      this._events.onTransactionStart?.(TransactionOperation.COLLECT_REDEMPTION);
 
-      const hash = await this.contractService.collectRedemption(collateralIndex);
+      const hash = await this._contractService.collectRedemption(collateralIndex);
 
-      this.events.onTransactionSuccess?.(TransactionOperation.COLLECT_REDEMPTION, hash);
+      this._events.onTransactionSuccess?.(TransactionOperation.COLLECT_REDEMPTION, hash);
       return hash;
     } catch (error) {
-      this.events.onTransactionError?.(TransactionOperation.COLLECT_REDEMPTION, error as Error);
+      this._events.onTransactionError?.(TransactionOperation.COLLECT_REDEMPTION, error as Error);
       throw error;
     }
   }
@@ -322,10 +328,10 @@ export class TransactionService {
    * Check if user has pending redemption for any collateral
    */
   async checkForPendingRedemptions(account: Address): Promise<CollateralOption | null> {
-    const collaterals = this.priceService.getCollateralOptions();
+    const collaterals = this._priceService.getCollateralOptions();
 
     for (const collateral of collaterals) {
-      const balance = await this.contractService.getRedeemCollateralBalance(account, collateral.index);
+      const balance = await this._contractService.getRedeemCollateralBalance(account, collateral.index);
 
       if (balance > 0n) {
         return collateral;
@@ -348,7 +354,7 @@ export class TransactionService {
     collateralAllowance: bigint;
     governanceAllowance: bigint;
   }> {
-    const { collateralAllowance, governanceAllowance } = await this.contractService.checkMintAllowances(
+    const { collateralAllowance, governanceAllowance } = await this._contractService.checkMintAllowances(
       collateral.address,
       account,
       mintResult.collateralNeeded,
@@ -373,7 +379,7 @@ export class TransactionService {
     needsApproval: boolean;
     allowance: bigint;
   }> {
-    const allowance = await this.contractService.checkRedeemAllowance(account, amount);
+    const allowance = await this._contractService.checkRedeemAllowance(account, amount);
 
     return {
       needsApproval: amount > 0n && allowance < amount,
@@ -384,47 +390,47 @@ export class TransactionService {
   /**
    * Handle mint approvals sequentially
    */
-  private async handleMintApprovals(collateral: CollateralOption, account: Address, mintResult: MintPriceResult): Promise<void> {
+  private async _handleMintApprovals(collateral: CollateralOption, account: Address, mintResult: MintPriceResult): Promise<void> {
     const approvalStatus = await this.getMintApprovalStatus(collateral, account, mintResult);
 
     // Handle collateral approval first
     if (approvalStatus.needsCollateralApproval) {
-      this.events.onApprovalNeeded?.(collateral.name);
+      this._events.onApprovalNeeded?.(collateral.name);
 
-      await this.contractService.approveToken(collateral.address, ADDRESSES.DIAMOND, maxUint256);
+      await this._contractService.approveToken(collateral.address, ADDRESSES.DIAMOND, maxUint256);
 
-      this.events.onApprovalComplete?.(collateral.name);
+      this._events.onApprovalComplete?.(collateral.name);
     }
 
     // Then handle governance approval
     if (approvalStatus.needsGovernanceApproval) {
-      this.events.onApprovalNeeded?.("UBQ");
+      this._events.onApprovalNeeded?.("UBQ");
 
-      await this.contractService.approveToken(ADDRESSES.GOVERNANCE, ADDRESSES.DIAMOND, maxUint256);
+      await this._contractService.approveToken(ADDRESSES.GOVERNANCE, ADDRESSES.DIAMOND, maxUint256);
 
-      this.events.onApprovalComplete?.("UBQ");
+      this._events.onApprovalComplete?.("UBQ");
     }
   }
 
   /**
    * Handle redeem approval
    */
-  private async handleRedeemApproval(account: Address, amount: bigint): Promise<void> {
+  private async _handleRedeemApproval(account: Address, amount: bigint): Promise<void> {
     const approvalStatus = await this.getRedeemApprovalStatus(account, amount);
 
     if (approvalStatus.needsApproval) {
-      this.events.onApprovalNeeded?.("UUSD");
+      this._events.onApprovalNeeded?.("UUSD");
 
-      await this.contractService.approveToken(ADDRESSES.DOLLAR, ADDRESSES.DIAMOND, maxUint256);
+      await this._contractService.approveToken(ADDRESSES.DOLLAR, ADDRESSES.DIAMOND, maxUint256);
 
-      this.events.onApprovalComplete?.("UUSD");
+      this._events.onApprovalComplete?.("UUSD");
     }
   }
 
   /**
    * Enhance error messages for better user experience
    */
-  private enhanceErrorMessage(error: Error, _operation: string): Error {
+  private _enhanceErrorMessage(error: Error, _operation: string): Error {
     const errorMessage = error.message.toLowerCase();
 
     // User rejection - keep user-friendly message

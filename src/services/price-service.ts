@@ -60,41 +60,41 @@ interface CacheEntry<T> {
  * Service responsible for price calculations and contract price data
  */
 export class PriceService {
-  private contractService: ContractService;
-  private priceHistoryService: PriceHistoryService;
-  private priceThresholdService: PriceThresholdService;
-  private collateralOptions: CollateralOption[] = [];
-  private cache = new Map<string, CacheEntry<unknown>>();
-  private initialized = false;
+  private _contractService: ContractService;
+  private _priceHistoryService: PriceHistoryService;
+  private _priceThresholdService: PriceThresholdService;
+  private _collateralOptions: CollateralOption[] = [];
+  private _cache = new Map<string, CacheEntry<unknown>>();
+  private _initialized = false;
 
   constructor(contractService: ContractService, walletService?: unknown) {
-    this.contractService = contractService;
+    this._contractService = contractService;
     // Create a new WalletService if not provided - we'll fix this in app.ts
-    this.priceHistoryService = new PriceHistoryService((walletService as unknown) || contractService);
-    this.priceThresholdService = new PriceThresholdService();
+    this._priceHistoryService = new PriceHistoryService((walletService as unknown) || contractService);
+    this._priceThresholdService = new PriceThresholdService();
   }
 
   /**
    * Initialize service by loading collateral options
    */
   async initialize(): Promise<void> {
-    if (this.initialized) return;
-    this.collateralOptions = await this.contractService.loadCollateralOptions();
-    this.initialized = true;
+    if (this._initialized) return;
+    this._collateralOptions = await this._contractService.loadCollateralOptions();
+    this._initialized = true;
   }
 
   /**
    * Check if service has been initialized
    */
   isInitialized(): boolean {
-    return this.initialized;
+    return this._initialized;
   }
 
   /**
    * Get collateral options
    */
   getCollateralOptions(): CollateralOption[] {
-    return this.collateralOptions;
+    return this._collateralOptions;
   }
 
   /**
@@ -105,7 +105,7 @@ export class PriceService {
     if (index === 0) {
       return LUSD_COLLATERAL;
     }
-    return this.collateralOptions.find((c) => c.index === index);
+    return this._collateralOptions.find((c) => c.index === index);
   }
 
   /**
@@ -127,16 +127,16 @@ export class PriceService {
     }
 
     // Use optimized batch fetch for blockchain data
-    const batchData = await this.contractService.batchFetchMintData(collateralIndex, dollarAmount);
+    const batchData = await this._contractService.batchFetchMintData(collateralIndex, dollarAmount);
     const { collateralRatio, governancePrice } = batchData;
 
     // Get price thresholds dynamically from contract storage
-    const priceThresholds = await this.priceThresholdService.getPriceThresholds();
-    const twapPrice = await this.contractService.getLUSDOraclePrice();
+    const priceThresholds = await this._priceThresholdService.getPriceThresholds();
+    const twapPrice = await this._contractService.getLUSDOraclePrice();
     const mintPriceThreshold = priceThresholds.mintThreshold;
 
     // Calculate final collateral amount based on ratio mode - optimize to avoid extra RPC calls
-    const collateralAmount = this.calculateCollateralAmountForMint(batchData.collateralAmount, dollarAmount, collateralRatio, isForceCollateralOnly);
+    const collateralAmount = this._calculateCollateralAmountForMint(batchData.collateralAmount, dollarAmount, collateralRatio, isForceCollateralOnly);
 
     // Use pure calculation function
     const calculationInput: MintCalculationInput = {
@@ -181,14 +181,14 @@ export class PriceService {
 
     // Prepare async calls - conditionally include governance price
     const asyncCalls: Promise<unknown>[] = [
-      this.contractService.getCollateralRatio(),
-      this.contractService.getLUSDOraclePrice(),
-      this.priceThresholdService.getPriceThresholds(),
+      this._contractService.getCollateralRatio(),
+      this._contractService.getLUSDOraclePrice(),
+      this._priceThresholdService.getPriceThresholds(),
     ];
 
     // Only add governance price if not skipping (e.g., for LUSD-only redemptions)
     if (!skipGovernancePrice) {
-      void asyncCalls.splice(1, 0, this.contractService.getGovernancePrice());
+      void asyncCalls.splice(1, 0, this._contractService.getGovernancePrice());
     }
 
     // Get current blockchain prices and thresholds
@@ -211,7 +211,7 @@ export class PriceService {
 
     // Get collateral amount based on fee-adjusted dollar amount
     const dollarAfterFee = calculateRedeemFeeOutput(dollarAmount, collateral.redemptionFee);
-    const collateralAmount = await this.contractService.getDollarInCollateral(collateralIndex, dollarAfterFee);
+    const collateralAmount = await this._contractService.getDollarInCollateral(collateralIndex, dollarAfterFee);
 
     // Use pure calculation function
     const calculationInput: RedeemCalculationInput = {
@@ -241,14 +241,14 @@ export class PriceService {
    * Get current collateral ratio from blockchain
    */
   async getCurrentCollateralRatio(): Promise<bigint> {
-    return this.contractService.getCollateralRatio();
+    return this._contractService.getCollateralRatio();
   }
 
   /**
    * Get current governance price from blockchain
    */
   async getCurrentGovernancePrice(): Promise<bigint> {
-    return this.contractService.getGovernancePrice();
+    return this._contractService.getGovernancePrice();
   }
 
   /**
@@ -271,7 +271,7 @@ export class PriceService {
   /**
    * Calculate collateral amount for mint operation using pre-fetched data to avoid extra RPC calls
    */
-  private calculateCollateralAmountForMint(
+  private _calculateCollateralAmountForMint(
     fullCollateralAmount: bigint,
     dollarAmount: bigint,
     collateralRatio: bigint,
@@ -296,7 +296,7 @@ export class PriceService {
   /**
    * Get collateral amount needed for mint operation (legacy method for compatibility)
    */
-  private async getCollateralAmountForMint(
+  private async _getCollateralAmountForMint(
     collateral: CollateralOption,
     dollarAmount: bigint,
     collateralRatio: bigint,
@@ -306,14 +306,14 @@ export class PriceService {
 
     if (isForceCollateralOnly || collateralRatio >= poolPricePrecision) {
       // 100% collateral mode
-      return this.contractService.getDollarInCollateral(collateral.index, dollarAmount);
+      return this._contractService.getDollarInCollateral(collateral.index, dollarAmount);
     } else if (collateralRatio === 0n) {
       // 100% governance mode - no collateral needed
       return 0n;
     } else {
       // Mixed mode - get collateral for partial amount
       const dollarForCollateral = calculateDollarForCollateral(dollarAmount, collateralRatio);
-      return this.contractService.getDollarInCollateral(collateral.index, dollarForCollateral);
+      return this._contractService.getDollarInCollateral(collateral.index, dollarForCollateral);
     }
   }
 
@@ -321,7 +321,7 @@ export class PriceService {
    * Get current UUSD market price from blockchain
    */
   async getCurrentUUSDPrice(): Promise<string> {
-    const rawPrice = await this.contractService.getDollarPriceUsd();
+    const rawPrice = await this._contractService.getDollarPriceUsd();
     // Convert raw price (6 decimal precision) to USD format
     const priceInUsd = formatUnits(rawPrice, 6);
     return `$${parseFloat(priceInUsd).toFixed(6)}`;
@@ -331,7 +331,7 @@ export class PriceService {
    * Get UUSD price history for sparkline visualization
    */
   async getUUSDPriceHistory(): Promise<PriceDataPoint[]> {
-    return this.priceHistoryService.getUUSDPriceHistory({
+    return this._priceHistoryService.getUUSDPriceHistory({
       maxDataPoints: 168,
       timeRangeHours: 168,
       sampleIntervalMinutes: 60,
@@ -342,7 +342,7 @@ export class PriceService {
    * Get cached UUSD price history immediately (synchronous)
    */
   getCachedUUSDPriceHistory(): PriceDataPoint[] {
-    return this.priceHistoryService.getCachedPriceHistory({
+    return this._priceHistoryService.getCachedPriceHistory({
       maxDataPoints: 168,
       timeRangeHours: 168,
       sampleIntervalMinutes: 60,
@@ -353,13 +353,13 @@ export class PriceService {
    * Clear price history cache (useful for refreshing data)
    */
   clearPriceHistoryCache(): void {
-    this.priceHistoryService.clearCache();
+    this._priceHistoryService.clearCache();
   }
 
   /**
    * Refresh collateral options from blockchain
    */
   async refreshCollateralOptions(): Promise<void> {
-    this.collateralOptions = await this.contractService.loadCollateralOptions();
+    this._collateralOptions = await this._contractService.loadCollateralOptions();
   }
 }

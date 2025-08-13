@@ -3,6 +3,8 @@
  * and graceful fallback for stale oracle data
  */
 
+import type { ContractService } from "./contract-service.ts";
+
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
@@ -39,16 +41,16 @@ export const CACHE_CONFIGS = {
 } as const;
 
 export class CacheService {
-  private cache = new Map<string, CacheEntry<unknown>>();
-  private pendingRequests = new Map<string, Promise<unknown>>();
-  private maxCacheSize = 1000; // Prevent memory bloat
+  private _cache = new Map<string, CacheEntry<unknown>>();
+  private _pendingRequests = new Map<string, Promise<unknown>>();
+  private _maxCacheSize = 1000; // Prevent memory bloat
 
   /**
    * Get data from cache or fetch fresh data
    */
   async getOrFetch<T>(key: string, fetchFn: () => Promise<T>, options: CacheOptions = CACHE_CONFIGS.GOVERNANCE_PRICE): Promise<T> {
     const now = Date.now();
-    const cached = this.cache.get(key);
+    const cached = this._cache.get(key);
 
     // Return fresh cached data
     if (cached && now - cached.timestamp < cached.ttl) {
@@ -56,33 +58,36 @@ export class CacheService {
     }
 
     // Check if we have a pending request for this key
-    if (this.pendingRequests.has(key)) {
-      return this.pendingRequests.get(key)!;
+    if (this._pendingRequests.has(key)) {
+      const pendingRequest = this._pendingRequests.get(key);
+      if (pendingRequest) {
+        return pendingRequest;
+      }
     }
 
     // Create new fetch request
-    const fetchPromise = this.performFetch(key, fetchFn, options, cached);
-    this.pendingRequests.set(key, fetchPromise);
+    const fetchPromise = this._performFetch(key, fetchFn, options, cached);
+    this._pendingRequests.set(key, fetchPromise);
 
     try {
       const result = await fetchPromise;
       return result;
     } finally {
-      this.pendingRequests.delete(key);
+      this._pendingRequests.delete(key);
     }
   }
 
   /**
    * Perform the actual fetch with error handling and stale fallback
    */
-  private async performFetch<T>(key: string, fetchFn: () => Promise<T>, options: CacheOptions, cached?: CacheEntry<T>): Promise<T> {
+  private async _performFetch<T>(key: string, fetchFn: () => Promise<T>, options: CacheOptions, cached?: CacheEntry<T>): Promise<T> {
     const now = Date.now();
 
     try {
       const data = await fetchFn();
 
       // Store fresh data in cache
-      this.setCache(key, data, options);
+      this._setCache(key, data, options);
 
       return data;
     } catch (error) {
@@ -101,7 +106,7 @@ export class CacheService {
       }
 
       // If oracle-specific error, provide better error message
-      if (this.isOracleError(error)) {
+      if (this._isOracleError(error)) {
         // For oracle errors, we might want to use alternative calculation methods
         if (key.includes("governance-price") && cached) {
           cached.isStale = true;
@@ -117,13 +122,13 @@ export class CacheService {
   /**
    * Set data in cache with cleanup if needed
    */
-  private setCache<T>(key: string, data: T, options: CacheOptions): void {
+  private _setCache<T>(key: string, data: T, options: CacheOptions): void {
     // Clean up old entries if cache is getting too large
-    if (this.cache.size >= this.maxCacheSize) {
-      this.cleanup();
+    if (this._cache.size >= this._maxCacheSize) {
+      this._cleanup();
     }
 
-    this.cache.set(key, {
+    this._cache.set(key, {
       data,
       timestamp: Date.now(),
       ttl: options.ttl,
@@ -134,7 +139,7 @@ export class CacheService {
   /**
    * Check if error is oracle-related
    */
-  private isOracleError(error: unknown): boolean {
+  private _isOracleError(error: unknown): boolean {
     const errorMessage = (error as Error)?.message?.toLowerCase() || "";
     return errorMessage.includes("stale data") || errorMessage.includes("oracle") || errorMessage.includes("chainlink") || errorMessage.includes("price feed");
   }
@@ -142,25 +147,25 @@ export class CacheService {
   /**
    * Clean up old cache entries
    */
-  private cleanup(): void {
+  private _cleanup(): void {
     const now = Date.now();
     const entriesToDelete: string[] = [];
 
-    for (const [key, entry] of this.cache.entries()) {
+    for (const [key, entry] of this._cache.entries()) {
       const maxAge = 3600000; // 1 hour absolute max
       if (now - entry.timestamp > maxAge) {
         entriesToDelete.push(key);
       }
     }
 
-    entriesToDelete.forEach((key) => this.cache.delete(key));
+    entriesToDelete.forEach((key) => this._cache.delete(key));
   }
 
   /**
    * Invalidate specific cache key
    */
   invalidate(key: string): void {
-    this.cache.delete(key);
+    this._cache.delete(key);
   }
 
   /**
@@ -168,12 +173,12 @@ export class CacheService {
    */
   invalidatePattern(pattern: string): void {
     const keysToDelete: string[] = [];
-    for (const key of this.cache.keys()) {
+    for (const key of this._cache.keys()) {
       if (key.includes(pattern)) {
         keysToDelete.push(key);
       }
     }
-    keysToDelete.forEach((key) => this.cache.delete(key));
+    keysToDelete.forEach((key) => this._cache.delete(key));
   }
 
   /**
@@ -181,8 +186,8 @@ export class CacheService {
    */
   getStats(): { size: number; keys: string[]; hitRate?: number } {
     return {
-      size: this.cache.size,
-      keys: Array.from(this.cache.keys()),
+      size: this._cache.size,
+      keys: Array.from(this._cache.keys()),
     };
   }
 
@@ -190,7 +195,7 @@ export class CacheService {
    * Check if data is stale (for UI indicators)
    */
   isStale(key: string): boolean {
-    const cached = this.cache.get(key);
+    const cached = this._cache.get(key);
     return cached?.isStale === true;
   }
 
@@ -198,13 +203,13 @@ export class CacheService {
    * Clear all cache
    */
   clear(): void {
-    this.cache.clear();
+    this._cache.clear();
   }
 
   /**
    * Warm cache with commonly needed data
    */
-  async warmCache(contractService: unknown): Promise<void> {
+  async warmCache(contractService: ContractService): Promise<void> {
     const warmupTasks = [
       { key: "collateral-ratio", fn: () => contractService.getCollateralRatio(), config: CACHE_CONFIGS.COLLATERAL_RATIO },
       { key: "lusd-oracle-price", fn: () => contractService.getLUSDOraclePrice(), config: CACHE_CONFIGS.LUSD_ORACLE_PRICE },

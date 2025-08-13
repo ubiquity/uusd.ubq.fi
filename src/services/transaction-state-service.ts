@@ -15,14 +15,14 @@ export interface TransactionState {
 }
 
 export class TransactionStateService {
-  private static instance: TransactionStateService;
-  private transactions = new Map<string, TransactionState>();
+  private static _instance: TransactionStateService;
+  private _transactions = new Map<string, TransactionState>();
 
   static getInstance(): TransactionStateService {
-    if (!TransactionStateService.instance) {
-      TransactionStateService.instance = new TransactionStateService();
+    if (!TransactionStateService._instance) {
+      TransactionStateService._instance = new TransactionStateService();
     }
-    return TransactionStateService.instance;
+    return TransactionStateService._instance;
   }
 
   /**
@@ -32,9 +32,12 @@ export class TransactionStateService {
     const button = config.buttonElement;
 
     // Check if button is already registered
-    if (this.transactions.has(buttonId)) {
+    if (this._transactions.has(buttonId)) {
       // Already registered, just update config if needed
-      const existingState = this.transactions.get(buttonId)!;
+      const existingState = this._transactions.get(buttonId);
+      if (!existingState) {
+        throw new Error(`Transaction state not found for button: ${buttonId}`);
+      }
       existingState.config = config;
       return;
     }
@@ -49,16 +52,16 @@ export class TransactionStateService {
       originalClickHandler,
     };
 
-    this.transactions.set(buttonId, transactionState);
+    this._transactions.set(buttonId, transactionState);
 
     // Set up new click handler that manages state
     button.onclick = (event) => {
-      const state = this.transactions.get(buttonId);
+      const state = this._transactions.get(buttonId);
       if (!state) return;
 
       if (state.isLoading && state.hash) {
         // Button is pending - show transaction instead of executing new one
-        this.showTransactionDetails(state.hash);
+        this._showTransactionDetails(state.hash);
         event.preventDefault();
         return;
       }
@@ -83,7 +86,7 @@ export class TransactionStateService {
    * Start a transaction for a button - shows immediate loading state
    */
   startTransaction(buttonId: string, pendingText?: string): void {
-    const state = this.transactions.get(buttonId);
+    const state = this._transactions.get(buttonId);
     if (!state) {
       console.warn(`⚠️ Transaction button not found: ${buttonId}`);
       return;
@@ -107,7 +110,7 @@ export class TransactionStateService {
    * Handle approval needed - shows specific approval loading state
    */
   startApproval(buttonId: string, tokenSymbol: string): void {
-    const state = this.transactions.get(buttonId);
+    const state = this._transactions.get(buttonId);
     if (!state) {
       console.warn(`⚠️ Transaction button not found: ${buttonId}`);
       return;
@@ -127,7 +130,7 @@ export class TransactionStateService {
    * Handle approval complete - continue with transaction
    */
   completeApproval(buttonId: string): void {
-    const state = this.transactions.get(buttonId);
+    const state = this._transactions.get(buttonId);
     if (!state) return;
 
     // Keep the loading state, just update text to show main transaction is proceeding
@@ -139,7 +142,7 @@ export class TransactionStateService {
    * Update transaction hash - shows clickable link to view transaction
    */
   updateTransactionHash(buttonId: string, hash: string): void {
-    const state = this.transactions.get(buttonId);
+    const state = this._transactions.get(buttonId);
     if (!state) {
       console.warn(`⚠️ Transaction button not found: ${buttonId}`);
       return;
@@ -163,7 +166,7 @@ export class TransactionStateService {
    * Complete a transaction successfully
    */
   completeTransaction(buttonId: string, successText?: string): void {
-    const state = this.transactions.get(buttonId);
+    const state = this._transactions.get(buttonId);
     if (!state) {
       console.warn(`⚠️ Transaction button not found: ${buttonId}`);
       return;
@@ -195,7 +198,7 @@ export class TransactionStateService {
    * Handle transaction error
    */
   errorTransaction(buttonId: string, error: string, errorText?: string): void {
-    const state = this.transactions.get(buttonId);
+    const state = this._transactions.get(buttonId);
     if (!state) {
       console.warn(`⚠️ Transaction button not found: ${buttonId}`);
       return;
@@ -227,7 +230,7 @@ export class TransactionStateService {
    * Update button text (e.g., for approval state changes)
    */
   updateButtonText(buttonId: string, newText: string): void {
-    const state = this.transactions.get(buttonId);
+    const state = this._transactions.get(buttonId);
     if (!state || state.isLoading) {
       return; // Don't update if transaction is in progress
     }
@@ -240,14 +243,14 @@ export class TransactionStateService {
    * Get current state of a button
    */
   getButtonState(buttonId: string): TransactionState | undefined {
-    return this.transactions.get(buttonId);
+    return this._transactions.get(buttonId);
   }
 
   /**
    * Check if any transaction is in progress
    */
   hasActiveTransaction(): boolean {
-    return Array.from(this.transactions.values()).some((state) => state.isLoading);
+    return Array.from(this._transactions.values()).some((state) => state.isLoading);
   }
 
   /**
@@ -256,7 +259,7 @@ export class TransactionStateService {
   getActiveTransactions(): { buttonId: string; hash?: string }[] {
     const active: { buttonId: string; hash?: string }[] = [];
 
-    for (const [buttonId, state] of this.transactions.entries()) {
+    for (const [buttonId, state] of this._transactions.entries()) {
       if (state.isLoading) {
         active.push({ buttonId, hash: state.hash });
       }
@@ -268,7 +271,7 @@ export class TransactionStateService {
   /**
    * Show transaction details (open in explorer)
    */
-  private showTransactionDetails(hash: string): void {
+  private _showTransactionDetails(hash: string): void {
     // For Ethereum mainnet - adjust for other networks as needed
     const explorerUrl = `https://etherscan.io/tx/${hash}`;
     window.open(explorerUrl, "_blank", "noopener,noreferrer");
@@ -278,20 +281,20 @@ export class TransactionStateService {
    * Unregister a button (cleanup)
    */
   unregisterButton(buttonId: string): void {
-    const state = this.transactions.get(buttonId);
+    const state = this._transactions.get(buttonId);
     if (state && state.originalClickHandler) {
       // Restore original click handler
       state.buttonElement.onclick = state.originalClickHandler;
     }
 
-    this.transactions.delete(buttonId);
+    this._transactions.delete(buttonId);
   }
 
   /**
    * Reset all buttons to initial state (useful for wallet disconnect)
    */
   resetAllButtons(): void {
-    for (const [, state] of this.transactions.entries()) {
+    for (const [, state] of this._transactions.entries()) {
       if (state.isLoading) {
         state.isLoading = false;
         state.hash = undefined;

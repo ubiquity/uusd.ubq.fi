@@ -34,99 +34,99 @@ declare global {
  */
 class UUSDApp {
   // Services
-  private walletService: WalletService;
-  private contractService: ContractService;
-  private priceService: PriceService;
-  private curvePriceService: CurvePriceService;
-  private swapService: SwapService;
-  private transactionService: TransactionService;
+  private _walletService: WalletService;
+  private _contractService: ContractService;
+  private _priceService: PriceService;
+  private _curvePriceService: CurvePriceService;
+  private _swapService: SwapService;
+  private _transactionService: TransactionService;
 
   // Components
-  private notificationManager: NotificationManager;
-  private simplifiedExchangeComponent: SimplifiedExchangeComponent;
-  private inventoryBarComponent: InventoryBarComponent;
+  private _notificationManager: NotificationManager;
+  private _simplifiedExchangeComponent: SimplifiedExchangeComponent;
+  private _inventoryBarComponent: InventoryBarComponent;
 
   constructor() {
     // Initialize services with dependency injection
-    this.walletService = new WalletService();
-    this.contractService = new ContractService(this.walletService);
-    this.priceService = new PriceService(this.contractService, this.walletService);
-    this.curvePriceService = new CurvePriceService(this.walletService);
-    this.swapService = new SwapService(this.walletService, this.contractService);
-    this.transactionService = new TransactionService(this.walletService, this.contractService, this.priceService);
+    this._walletService = new WalletService();
+    this._contractService = new ContractService(this._walletService);
+    this._priceService = new PriceService(this._contractService, this._walletService);
+    this._curvePriceService = new CurvePriceService(this._walletService);
+    this._swapService = new SwapService(this._walletService, this._contractService);
+    this._transactionService = new TransactionService(this._walletService, this._contractService, this._priceService);
 
     // Initialize components
-    this.notificationManager = new NotificationManager();
+    this._notificationManager = new NotificationManager();
 
     const services = {
-      walletService: this.walletService,
-      contractService: this.contractService,
-      priceService: this.priceService,
-      curvePriceService: this.curvePriceService,
-      transactionService: this.transactionService,
-      swapService: this.swapService,
-      notificationManager: this.notificationManager,
+      walletService: this._walletService,
+      contractService: this._contractService,
+      priceService: this._priceService,
+      curvePriceService: this._curvePriceService,
+      transactionService: this._transactionService,
+      swapService: this._swapService,
+      notificationManager: this._notificationManager,
     };
 
     // Create inventory bar component first (needed by exchange component)
-    this.inventoryBarComponent = new InventoryBarComponent({
-      walletService: this.walletService,
-      contractService: this.contractService,
-      priceService: this.priceService,
-      notificationManager: this.notificationManager,
+    this._inventoryBarComponent = new InventoryBarComponent({
+      walletService: this._walletService,
+      contractService: this._contractService,
+      priceService: this._priceService,
+      notificationManager: this._notificationManager,
     });
 
     // Create simplified exchange component
-    this.simplifiedExchangeComponent = new SimplifiedExchangeComponent({
+    this._simplifiedExchangeComponent = new SimplifiedExchangeComponent({
       ...services,
-      inventoryBar: this.inventoryBarComponent,
+      inventoryBar: this._inventoryBarComponent,
     });
 
-    this.setupServiceEventHandlers();
+    this._setupServiceEventHandlers();
 
     // Expose to window for HTML onclick handlers and debugging
     (window as Record<string, unknown>).app = {
       ...this,
-      exchange: this.simplifiedExchangeComponent,
+      exchange: this._simplifiedExchangeComponent,
       connectWallet: () => this.connectWallet(),
       handleExchange: (event: Event) => this.handleExchange(event),
       demoTransactionUX: (buttonId?: string) => this.demoTransactionUX(buttonId),
       getTransactionStatus: () => this.getTransactionStatus(),
     };
 
-    void this.init();
+    void this._init();
   }
 
-  private async init() {
+  private async _init() {
     // Initialize dynamic date labels for chart
-    this.initializeDynamicDates();
+    this._initializeDynamicDates();
 
     // Show the exchange interface
-    this.showExchangeInterface();
+    this._showExchangeInterface();
 
     // Check for stored wallet connection and auto-reconnect
-    await this.checkAutoReconnect();
+    await this._checkAutoReconnect();
 
     // RENDER CACHED SPARKLINE IMMEDIATELY (synchronous)
-    this.renderCachedSparkline();
+    this._renderCachedSparkline();
 
     // Load UUSD price (separate from sparkline)
-    this.loadUUSDPrice().catch((error) => {
+    this._loadUUSDPrice().catch((error) => {
       console.warn("Failed to load UUSD price:", error);
     });
 
     // Load sparkline updates in parallel (separate from price)
-    this.loadRealPriceHistory().catch((error) => {
+    this._loadRealPriceHistory().catch((error) => {
       console.warn("Failed to load price history:", error);
     });
 
     // Initialize services for optimal route calculations
-    if (!this.priceService.isInitialized()) {
+    if (!this._priceService.isInitialized()) {
       try {
-        await this.priceService.initialize();
+        await this._priceService.initialize();
 
         // Warm cache with essential data for better responsiveness
-        await cacheService.warmCache(this.contractService);
+        await cacheService.warmCache(this._contractService);
       } catch (error) {
         console.warn("Failed to initialize price service:", error);
       }
@@ -139,7 +139,7 @@ class UUSDApp {
   /**
    * Show the exchange interface elements
    */
-  private showExchangeInterface(): void {
+  private _showExchangeInterface(): void {
     const directionToggle = document.querySelector(".direction-toggle") as HTMLElement;
     const exchangeForm = document.getElementById("exchangeForm") as HTMLElement;
 
@@ -155,24 +155,24 @@ class UUSDApp {
   /**
    * Load and display current UUSD price ONLY
    */
-  private async loadUUSDPrice(): Promise<void> {
+  private async _loadUUSDPrice(): Promise<void> {
     try {
-      const uusdPrice = await this.priceService.getCurrentUUSDPrice();
-      this.updateUUSDPriceDisplay(uusdPrice);
+      const uusdPrice = await this._priceService.getCurrentUUSDPrice();
+      this._updateUUSDPriceDisplay(uusdPrice);
     } catch (error: unknown) {
       console.warn("Failed to load UUSD price:", error);
-      this.updateUUSDPriceDisplay("Unavailable");
+      this._updateUUSDPriceDisplay("Unavailable");
     }
   }
 
   /**
    * Render cached sparkline immediately (synchronous)
    */
-  private renderCachedSparkline(): void {
+  private _renderCachedSparkline(): void {
     try {
-      const cachedHistory = this.priceService.getCachedUUSDPriceHistory();
+      const cachedHistory = this._priceService.getCachedUUSDPriceHistory();
       if (cachedHistory.length > 0) {
-        this.generateRealSparkline(cachedHistory);
+        this._generateRealSparkline(cachedHistory);
       }
     } catch (error: unknown) {
       // Ignore cache errors for immediate render
@@ -184,17 +184,17 @@ class UUSDApp {
    * Load real price history and generate dynamic sparkline
    * Uses "render-first, update-later" pattern for optimal UX
    */
-  private async loadRealPriceHistory(): Promise<void> {
+  private async _loadRealPriceHistory(): Promise<void> {
     try {
       // Get current cached state to compare
-      const cachedHistory = this.priceService.getCachedUUSDPriceHistory();
+      const cachedHistory = this._priceService.getCachedUUSDPriceHistory();
 
       // STEP 2: Fetch fresh data and update if different
-      const freshHistory = await this.priceService.getUUSDPriceHistory();
+      const freshHistory = await this._priceService.getUUSDPriceHistory();
 
       // Only re-render if we got more/different data
       if (freshHistory.length > cachedHistory.length || (freshHistory.length > 0 && cachedHistory.length === 0)) {
-        this.generateRealSparkline(freshHistory);
+        this._generateRealSparkline(freshHistory);
       }
     } catch (error: unknown) {
       console.warn("Failed to load price history:", error);
@@ -204,7 +204,7 @@ class UUSDApp {
   /**
    * Generate real sparkline from actual price data
    */
-  private generateRealSparkline(priceHistory: Array<{ price: bigint | number | string }>): void {
+  private _generateRealSparkline(priceHistory: Array<{ price: bigint | number | string }>): void {
     const chartElement = document.querySelector(".sparkline-chart") as HTMLElement;
     const strokeElement = document.querySelector(".sparkline-stroke") as HTMLElement;
 
@@ -268,7 +268,7 @@ class UUSDApp {
   /**
    * Update UUSD price display in the UI
    */
-  private updateUUSDPriceDisplay(price: string): void {
+  private _updateUUSDPriceDisplay(price: string): void {
     const priceElement = document.getElementById("uusdPrice");
     if (priceElement) {
       priceElement.textContent = price;
@@ -278,7 +278,7 @@ class UUSDApp {
   /**
    * Initialize dynamic date labels for the last 7 days
    */
-  private initializeDynamicDates(): void {
+  private _initializeDynamicDates(): void {
     const dateContainer = document.getElementById("dynamic-dates");
     if (!dateContainer) return;
 
@@ -307,28 +307,28 @@ class UUSDApp {
     });
   }
 
-  private setupServiceEventHandlers() {
+  private _setupServiceEventHandlers() {
     // Wallet service event handlers
-    this.walletService.setEventHandlers({
+    this._walletService.setEventHandlers({
       onConnect: (account: Address) => {
-        this.updateWalletUI(account);
-        this.simplifiedExchangeComponent.updateWalletConnection(true);
-        void this.inventoryBarComponent.handleWalletConnectionChange(account);
+        this._updateWalletUI(account);
+        this._simplifiedExchangeComponent.updateWalletConnection(true);
+        void this._inventoryBarComponent.handleWalletConnectionChange(account);
       },
       onDisconnect: () => {
-        this.updateWalletUI(null);
-        this.simplifiedExchangeComponent.updateWalletConnection(false);
-        void this.inventoryBarComponent.handleWalletConnectionChange(null);
+        this._updateWalletUI(null);
+        this._simplifiedExchangeComponent.updateWalletConnection(false);
+        void this._inventoryBarComponent.handleWalletConnectionChange(null);
       },
     });
 
     // Transaction service event handlers
-    this.transactionService.setEventHandlers({
+    this._transactionService.setEventHandlers({
       onTransactionStart: (_operation: string) => {
-        this.simplifiedExchangeComponent.handleTransactionStart();
+        this._simplifiedExchangeComponent.handleTransactionStart();
       },
       onTransactionSubmitted: (_operation: string, hash: string) => {
-        this.simplifiedExchangeComponent.handleTransactionSubmitted(hash);
+        this._simplifiedExchangeComponent.handleTransactionSubmitted(hash);
       },
       onTransactionSuccess: (_operation: string, _hash: string) => {
         // Note: handleTransactionSuccess doesn't exist in simplified component
@@ -347,7 +347,7 @@ class UUSDApp {
     });
   }
 
-  private updateWalletUI(account: Address | null) {
+  private _updateWalletUI(account: Address | null) {
     const connectButton = document.getElementById("connectWallet") as HTMLButtonElement;
 
     if (account) {
@@ -356,24 +356,27 @@ class UUSDApp {
       connectButton.textContent = "Disconnect";
       connectButton.disabled = false;
       connectButton.style.display = "unset";
-      document.getElementById("walletInfo")!.style.display = "unset";
-      document.getElementById("walletAddress")!.textContent = formatAddress(account);
+      const walletInfo = document.getElementById("walletInfo");
+      const walletAddress = document.getElementById("walletAddress");
+      if (walletInfo) walletInfo.style.display = "unset";
+      if (walletAddress) walletAddress.textContent = formatAddress(account);
     } else {
       // When disconnected, show connect button and hide wallet info
 
       connectButton.textContent = "Connect Wallet";
       connectButton.disabled = false;
       connectButton.style.display = "unset";
-      document.getElementById("walletInfo")!.style.display = "none";
+      const walletInfo = document.getElementById("walletInfo");
+      if (walletInfo) walletInfo.style.display = "none";
     }
   }
 
   /**
    * Check for stored wallet connection and attempt auto-reconnection
    */
-  private async checkAutoReconnect() {
+  private async _checkAutoReconnect() {
     try {
-      const reconnectedAddress = await this.walletService.checkStoredConnection();
+      const reconnectedAddress = await this._walletService.checkStoredConnection();
       if (reconnectedAddress) {
         // Auto-reconnection successful - UI updates handled by event handlers
       }
@@ -390,32 +393,32 @@ class UUSDApp {
 
     try {
       // Check if wallet is already connected
-      if (this.walletService.isConnected()) {
+      if (this._walletService.isConnected()) {
         // Set disconnecting state
         connectButton.textContent = "Disconnecting...";
         connectButton.disabled = true;
 
         // Disconnect wallet (this will clear localStorage)
-        this.walletService.disconnect();
+        this._walletService.disconnect();
         // Manually update UI after disconnection
         // Don't rely on event handlers as they may not fire immediately
-        this.updateWalletUI(null);
+        this._updateWalletUI(null);
         // Also manually update inventory bar since event may not fire
-        void this.inventoryBarComponent.handleWalletConnectionChange(null);
+        void this._inventoryBarComponent.handleWalletConnectionChange(null);
       } else {
         // Set connecting state
         connectButton.textContent = "Connecting...";
         connectButton.disabled = true;
 
         // Force wallet selection since user explicitly clicked connect
-        await this.walletService.connect(true);
+        await this._walletService.connect(true);
         // Manually update UI after successful connection
         // Don't rely on event handlers as they may not fire immediately
-        if (this.walletService.isConnected()) {
-          const account = this.walletService.getAccount();
-          this.updateWalletUI(account);
+        if (this._walletService.isConnected()) {
+          const account = this._walletService.getAccount();
+          this._updateWalletUI(account);
           // Also manually update inventory bar since event may not fire
-          void this.inventoryBarComponent.handleWalletConnectionChange(account);
+          void this._inventoryBarComponent.handleWalletConnectionChange(account);
         }
       }
     } catch (error: unknown) {
@@ -423,12 +426,12 @@ class UUSDApp {
       connectButton.textContent = originalText;
       connectButton.disabled = false;
       const message = error instanceof Error ? error.message : "Unknown error occurred";
-      this.notificationManager.showError("exchange", message);
+      this._notificationManager.showError("exchange", message);
     }
   }
 
   async handleExchange(event: Event) {
-    await this.simplifiedExchangeComponent.handleSubmit(event);
+    await this._simplifiedExchangeComponent.handleSubmit(event);
   }
 
   /**

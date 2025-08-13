@@ -57,69 +57,72 @@ export interface SwapResult {
  * Service for executing swaps through Curve pool
  */
 export class SwapService {
-  private walletService: WalletService;
-  private contractService: ContractService;
+  private _walletService: WalletService;
+  private _contractService: ContractService;
 
   // Curve LUSD/UUSD pool on mainnet
-  private readonly CURVE_POOL_ADDRESS: Address = "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f";
-  private readonly LUSD_INDEX = 0n;
-  private readonly UUSD_INDEX = 1n;
+  private readonly _curvePoolAddress: Address = "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f";
+  private readonly _lusdIndex = 0n;
+  private readonly _uusdIndex = 1n;
 
   // Token addresses
-  private readonly LUSD_ADDRESS: Address = "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0";
-  private readonly UUSD_ADDRESS: Address = "0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103";
+  private readonly _lusdAddress: Address = "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0";
+  private readonly _uusdAddress: Address = "0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103";
 
-  private readonly DEFAULT_SLIPPAGE = 0.005; // 0.5%
+  private readonly _defaultSlippage = 0.005; // 0.5%
 
   constructor(walletService: WalletService, contractService: ContractService) {
-    this.walletService = walletService;
-    this.contractService = contractService;
+    this._walletService = walletService;
+    this._contractService = contractService;
   }
 
   /**
    * Execute a swap through Curve pool
    */
   async executeSwap(params: SwapParams): Promise<SwapResult> {
-    if (!this.walletService.isConnected()) {
+    if (!this._walletService.isConnected()) {
       throw new Error("Wallet not connected");
     }
 
-    const account = this.walletService.getAccount()!;
+    const account = this._walletService.getAccount();
+    if (!account) {
+      throw new Error("Wallet not connected");
+    }
 
     // Validate swap parameters
-    this.validateSwapParams(params);
+    this._validateSwapParams(params);
 
     // Get token addresses and indices
-    const { fromTokenAddress, fromIndex, toIndex } = this.getSwapTokenInfo(params);
+    const { fromTokenAddress, fromIndex, toIndex } = this._getSwapTokenInfo(params);
 
     // Check and handle token approval
-    await this.ensureTokenApproval(fromTokenAddress, account, params.amountIn);
+    await this._ensureTokenApproval(fromTokenAddress, account, params.amountIn);
 
     // Get expected output first
-    const expectedOutput = await this.getSwapQuoteInternal(params.amountIn, fromIndex, toIndex);
+    const expectedOutput = await this._getSwapQuoteInternal(params.amountIn, fromIndex, toIndex);
 
     // Calculate minimum output with slippage protection
-    const slippage = params.slippageTolerance || this.DEFAULT_SLIPPAGE;
-    const minAmountOut = params.minAmountOut || this.calculateMinAmountOut(expectedOutput, slippage);
+    const slippage = params.slippageTolerance || this._defaultSlippage;
+    const minAmountOut = params.minAmountOut || this._calculateMinAmountOut(expectedOutput, slippage);
 
     try {
       // Execute the swap
-      const walletClient = this.walletService.getWalletClient();
+      const walletClient = this._walletService.getWalletClient();
       const hash = await walletClient.writeContract({
-        address: this.CURVE_POOL_ADDRESS,
+        address: this._curvePoolAddress,
         abi: CURVE_POOL_ABI,
         functionName: "exchange",
         args: [fromIndex, toIndex, params.amountIn, minAmountOut],
         account,
-        chain: this.walletService.getChain(),
+        chain: this._walletService.getChain(),
       });
 
       // Get actual output amount from transaction receipt
-      const publicClient = this.walletService.getPublicClient();
+      const publicClient = this._walletService.getPublicClient();
       await publicClient.waitForTransactionReceipt({ hash });
 
       // For now, estimate the output (in production, parse from logs)
-      const estimatedOutput = await this.getSwapQuoteInternal(params.amountIn, fromIndex, toIndex);
+      const estimatedOutput = await this._getSwapQuoteInternal(params.amountIn, fromIndex, toIndex);
 
       return {
         hash,
@@ -142,18 +145,18 @@ export class SwapService {
    * Get a quote for a swap without executing
    */
   async getSwapQuote(amountIn: bigint, fromToken: "LUSD" | "UUSD", toToken: "LUSD" | "UUSD"): Promise<bigint> {
-    const { fromIndex, toIndex } = this.getSwapTokenInfo({ fromToken, toToken });
-    return this.getSwapQuoteInternal(amountIn, fromIndex, toIndex);
+    const { fromIndex, toIndex } = this._getSwapTokenInfo({ fromToken, toToken });
+    return this._getSwapQuoteInternal(amountIn, fromIndex, toIndex);
   }
 
   /**
    * Get swap quote from Curve pool
    */
-  private async getSwapQuoteInternal(amountIn: bigint, fromIndex: bigint, toIndex: bigint): Promise<bigint> {
-    const publicClient = this.walletService.getPublicClient();
+  private async _getSwapQuoteInternal(amountIn: bigint, fromIndex: bigint, toIndex: bigint): Promise<bigint> {
+    const publicClient = this._walletService.getPublicClient();
 
     return (await publicClient.readContract({
-      address: this.CURVE_POOL_ADDRESS,
+      address: this._curvePoolAddress,
       abi: CURVE_POOL_ABI,
       functionName: "get_dy",
       args: [fromIndex, toIndex, amountIn],
@@ -163,18 +166,18 @@ export class SwapService {
   /**
    * Check token approval and approve if necessary
    */
-  private async ensureTokenApproval(tokenAddress: Address, account: Address, amount: bigint): Promise<void> {
-    const currentAllowance = await this.contractService.getAllowance(tokenAddress, account, this.CURVE_POOL_ADDRESS);
+  private async _ensureTokenApproval(tokenAddress: Address, account: Address, amount: bigint): Promise<void> {
+    const currentAllowance = await this._contractService.getAllowance(tokenAddress, account, this._curvePoolAddress);
 
     if (currentAllowance < amount) {
-      const approvalHash = await this.contractService.approveToken(
+      const approvalHash = await this._contractService.approveToken(
         tokenAddress,
-        this.CURVE_POOL_ADDRESS,
+        this._curvePoolAddress,
         maxUint256 // Approve unlimited to save gas on future swaps
       );
 
       // Wait for approval to be mined
-      const publicClient = this.walletService.getPublicClient();
+      const publicClient = this._walletService.getPublicClient();
       await publicClient.waitForTransactionReceipt({ hash: approvalHash as Hash });
     }
   }
@@ -182,7 +185,7 @@ export class SwapService {
   /**
    * Get token addresses and indices for swap
    */
-  private getSwapTokenInfo(params: Pick<SwapParams, "fromToken" | "toToken">): {
+  private _getSwapTokenInfo(params: Pick<SwapParams, "fromToken" | "toToken">): {
     fromTokenAddress: Address;
     toTokenAddress: Address;
     fromIndex: bigint;
@@ -194,19 +197,19 @@ export class SwapService {
     let toIndex: bigint;
 
     if (params.fromToken === "LUSD") {
-      fromTokenAddress = this.LUSD_ADDRESS;
-      fromIndex = this.LUSD_INDEX;
+      fromTokenAddress = this._lusdAddress;
+      fromIndex = this._lusdIndex;
     } else {
-      fromTokenAddress = this.UUSD_ADDRESS;
-      fromIndex = this.UUSD_INDEX;
+      fromTokenAddress = this._uusdAddress;
+      fromIndex = this._uusdIndex;
     }
 
     if (params.toToken === "LUSD") {
-      toTokenAddress = this.LUSD_ADDRESS;
-      toIndex = this.LUSD_INDEX;
+      toTokenAddress = this._lusdAddress;
+      toIndex = this._lusdIndex;
     } else {
-      toTokenAddress = this.UUSD_ADDRESS;
-      toIndex = this.UUSD_INDEX;
+      toTokenAddress = this._uusdAddress;
+      toIndex = this._uusdIndex;
     }
 
     return { fromTokenAddress, toTokenAddress, fromIndex, toIndex };
@@ -215,7 +218,7 @@ export class SwapService {
   /**
    * Calculate minimum amount out with slippage protection
    */
-  private calculateMinAmountOut(expectedAmount: bigint, slippageTolerance: number): bigint {
+  private _calculateMinAmountOut(expectedAmount: bigint, slippageTolerance: number): bigint {
     const slippageBps = BigInt(Math.floor(slippageTolerance * 10000)); // Convert to basis points
     return (expectedAmount * (10000n - slippageBps)) / 10000n;
   }
@@ -223,7 +226,7 @@ export class SwapService {
   /**
    * Validate swap parameters
    */
-  private validateSwapParams(params: SwapParams): void {
+  private _validateSwapParams(params: SwapParams): void {
     if (params.fromToken === params.toToken) {
       throw new Error("Cannot swap same token");
     }
@@ -250,7 +253,7 @@ export class SwapService {
    * Get pool address for external reference
    */
   getPoolAddress(): Address {
-    return this.CURVE_POOL_ADDRESS;
+    return this._curvePoolAddress;
   }
 
   /**

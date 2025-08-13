@@ -29,13 +29,13 @@ const CURVE_POOL_ABI = [
  * Service for interacting with Curve pools to get real market prices
  */
 export class CurvePriceService {
-  private walletService: WalletService;
-  private readonly CURVE_POOL_ADDRESS: Address = "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f";
-  private readonly LUSD_INDEX = 0n; // LUSD is index 0 in the pool
-  private readonly UUSD_INDEX = 1n; // UUSD is index 1 in the pool
+  private _walletService: WalletService;
+  private readonly _curvePoolAddress: Address = "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f";
+  private readonly _lusdIndex = 0n; // LUSD is index 0 in the pool
+  private readonly _uusdIndex = 1n; // UUSD is index 1 in the pool
 
   constructor(walletService: WalletService) {
-    this.walletService = walletService;
+    this._walletService = walletService;
   }
 
   /**
@@ -43,7 +43,7 @@ export class CurvePriceService {
    * Formula: UUSD_Price = LUSD_Price × (LUSD_amount_in / UUSD_amount_out)
    */
   async getUUSDMarketPrice(lusdPriceUsd: bigint): Promise<bigint> {
-    const publicClient = this.walletService.getPublicClient();
+    const publicClient = this._walletService.getPublicClient();
 
     // Use 1 LUSD as the test amount for calculating exchange rate
     const testAmount = parseEther("1"); // 1 LUSD
@@ -51,10 +51,10 @@ export class CurvePriceService {
     try {
       // Get how much UUSD we would receive for 1 LUSD
       const uusdReceived = (await publicClient.readContract({
-        address: this.CURVE_POOL_ADDRESS,
+        address: this._curvePoolAddress,
         abi: CURVE_POOL_ABI,
         functionName: "get_dy",
-        args: [this.LUSD_INDEX, this.UUSD_INDEX, testAmount],
+        args: [this._lusdIndex, this._uusdIndex, testAmount],
       })) as bigint;
 
       // Calculate the exchange rate: LUSD/UUSD
@@ -73,13 +73,13 @@ export class CurvePriceService {
    * Get the reverse exchange rate: how much LUSD for 1 UUSD
    */
   async getLUSDForUUSD(amount: bigint): Promise<bigint> {
-    const publicClient = this.walletService.getPublicClient();
+    const publicClient = this._walletService.getPublicClient();
 
     return (await publicClient.readContract({
-      address: this.CURVE_POOL_ADDRESS,
+      address: this._curvePoolAddress,
       abi: CURVE_POOL_ABI,
       functionName: "get_dy",
-      args: [this.UUSD_INDEX, this.LUSD_INDEX, amount],
+      args: [this._uusdIndex, this._lusdIndex, amount],
     })) as bigint;
   }
 
@@ -87,27 +87,27 @@ export class CurvePriceService {
    * Verify that the pool has the expected tokens
    */
   async verifyPoolConfiguration(): Promise<{ lusdAddress: Address; uusdAddress: Address }> {
-    const publicClient = this.walletService.getPublicClient();
+    const publicClient = this._walletService.getPublicClient();
 
     try {
       const [lusdAddress, uusdAddress] = await Promise.all([
         publicClient.readContract({
-          address: this.CURVE_POOL_ADDRESS,
+          address: this._curvePoolAddress,
           abi: CURVE_POOL_ABI,
           functionName: "coins",
-          args: [BigInt(this.LUSD_INDEX)],
+          args: [BigInt(this._lusdIndex)],
         }) as Promise<Address>,
         publicClient.readContract({
-          address: this.CURVE_POOL_ADDRESS,
+          address: this._curvePoolAddress,
           abi: CURVE_POOL_ABI,
           functionName: "coins",
-          args: [BigInt(this.UUSD_INDEX)],
+          args: [BigInt(this._uusdIndex)],
         }) as Promise<Address>,
       ]);
 
       console.log(`✅ Curve pool configuration verified:
-- Index ${this.LUSD_INDEX}: ${lusdAddress} (LUSD)
-- Index ${this.UUSD_INDEX}: ${uusdAddress} (UUSD)`);
+- Index ${this._lusdIndex}: ${lusdAddress} (LUSD)
+- Index ${this._uusdIndex}: ${uusdAddress} (UUSD)`);
 
       return { lusdAddress, uusdAddress };
     } catch (error) {

@@ -38,7 +38,7 @@ export interface BatchRequestResult {
  * Service for batching RPC requests to improve performance
  */
 export class RPCBatchService {
-  private requestId = 1;
+  private _requestId = 1;
 
   /**
    * Batch multiple block and contract calls into a single RPC request
@@ -50,7 +50,7 @@ export class RPCBatchService {
 
     // Create batch requests for block data
     for (const blockNumber of blockNumbers) {
-      const blockRequestId = this.getNextId();
+      const blockRequestId = this._getNextId();
       blockRequestIds.push(blockRequestId);
 
       requests.push({
@@ -63,12 +63,12 @@ export class RPCBatchService {
 
     // Create batch requests for price data (get_dy calls)
     for (const blockNumber of blockNumbers) {
-      const priceRequestId = this.getNextId();
+      const priceRequestId = this._getNextId();
       priceRequestIds.push(priceRequestId);
 
       // Encode get_dy function call
       const functionSelector = "0x5e0d443f"; // get_dy(int128,int128,uint256)
-      const params = this.encodeGetDyParams(0n, 1n, testAmount); // LUSD_INDEX=0, UUSD_INDEX=1
+      const params = this._encodeGetDyParams(0n, 1n, testAmount); // LUSD_INDEX=0, UUSD_INDEX=1
       const data = functionSelector + params;
 
       requests.push({
@@ -163,7 +163,7 @@ export class RPCBatchService {
   /**
    * Encode parameters for get_dy function call
    */
-  private encodeGetDyParams(i: bigint, j: bigint, dx: bigint): string {
+  private _encodeGetDyParams(i: bigint, j: bigint, dx: bigint): string {
     // Pad each parameter to 32 bytes (64 hex characters)
     const paddedI = i.toString(16).padStart(64, "0");
     const paddedJ = j.toString(16).padStart(64, "0");
@@ -175,7 +175,7 @@ export class RPCBatchService {
   /**
    * Get next request ID
    */
-  private getNextId(): number {
-    return this.requestId++;
+  private _getNextId(): number {
+    return this._requestId++;
   }
 }

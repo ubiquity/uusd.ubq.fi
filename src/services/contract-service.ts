@@ -66,12 +66,12 @@ export interface ContractWrites {
  * Service responsible for all blockchain contract interactions
  */
 export class ContractService implements ContractReads, ContractWrites {
-  private walletService: WalletService;
-  private curvePriceService: CurvePriceService;
+  private _walletService: WalletService;
+  private _curvePriceService: CurvePriceService;
 
   constructor(walletService: WalletService) {
-    this.walletService = walletService;
-    this.curvePriceService = new CurvePriceService(walletService);
+    this._walletService = walletService;
+    this._curvePriceService = new CurvePriceService(walletService);
   }
 
   /**
@@ -89,7 +89,7 @@ export class ContractService implements ContractReads, ContractWrites {
     return cacheService.getOrFetch(
       "collateral-ratio",
       async () => {
-        const publicClient = this.walletService.getPublicClient();
+        const publicClient = this._walletService.getPublicClient();
         return (await publicClient.readContract({
           address: ADDRESSES.DIAMOND,
           abi: DIAMOND_ABI,
@@ -107,7 +107,7 @@ export class ContractService implements ContractReads, ContractWrites {
     return cacheService.getOrFetch(
       "governance-price",
       async () => {
-        const publicClient = this.walletService.getPublicClient();
+        const publicClient = this._walletService.getPublicClient();
         return (await publicClient.readContract({
           address: ADDRESSES.DIAMOND,
           abi: DIAMOND_ABI,
@@ -125,7 +125,7 @@ export class ContractService implements ContractReads, ContractWrites {
     return cacheService.getOrFetch(
       "lusd-oracle-price",
       async () => {
-        const publicClient = this.walletService.getPublicClient();
+        const publicClient = this._walletService.getPublicClient();
         return (await publicClient.readContract({
           address: ADDRESSES.DIAMOND,
           abi: DIAMOND_ABI,
@@ -141,7 +141,7 @@ export class ContractService implements ContractReads, ContractWrites {
    */
   async getDollarPriceUsd(): Promise<bigint> {
     try {
-      const publicClient = this.walletService.getPublicClient();
+      const publicClient = this._walletService.getPublicClient();
 
       // Get LUSD oracle price from Diamond contract
       const lusdOraclePrice = (await publicClient.readContract({
@@ -151,14 +151,14 @@ export class ContractService implements ContractReads, ContractWrites {
       })) as bigint;
 
       // Calculate actual UUSD market price using Curve pool
-      const uusdMarketPrice = await this.curvePriceService.getUUSDMarketPrice(lusdOraclePrice);
+      const uusdMarketPrice = await this._curvePriceService.getUUSDMarketPrice(lusdOraclePrice);
 
       return uusdMarketPrice;
     } catch (error) {
       console.error("❌ Failed to get UUSD market price, falling back to oracle price:", error);
 
       // Fallback to original oracle price if Curve calculation fails
-      const publicClient = this.walletService.getPublicClient();
+      const publicClient = this._walletService.getPublicClient();
       return (await publicClient.readContract({
         address: ADDRESSES.DIAMOND,
         abi: DIAMOND_ABI,
@@ -171,7 +171,7 @@ export class ContractService implements ContractReads, ContractWrites {
    * Get collateral amount needed for a given dollar amount
    */
   async getDollarInCollateral(collateralIndex: number, dollarAmount: bigint): Promise<bigint> {
-    const publicClient = this.walletService.getPublicClient();
+    const publicClient = this._walletService.getPublicClient();
     return (await publicClient.readContract({
       address: ADDRESSES.DIAMOND,
       abi: DIAMOND_ABI,
@@ -185,7 +185,7 @@ export class ContractService implements ContractReads, ContractWrites {
    * This replaces 3 individual contract calls with 1 multicall
    */
   async batchFetchMintData(collateralIndex: number, dollarAmount: bigint): Promise<BatchMintData> {
-    const publicClient = this.walletService.getPublicClient();
+    const publicClient = this._walletService.getPublicClient();
 
     try {
       const results = await publicClient.multicall({
@@ -251,7 +251,7 @@ export class ContractService implements ContractReads, ContractWrites {
    * Batch fetch all page load data in a single RPC call
    */
   async batchFetchPageLoadData(): Promise<BatchPageLoadData> {
-    const publicClient = this.walletService.getPublicClient();
+    const publicClient = this._walletService.getPublicClient();
 
     try {
       const initialResults = await publicClient.multicall({
@@ -321,7 +321,7 @@ export class ContractService implements ContractReads, ContractWrites {
       console.error("❌ Page load batch fetch failed, falling back to individual calls:", error);
       const uusdPrice = await this.getDollarPriceUsd();
       // This part will be slow, but it's a fallback
-      const publicClient = this.walletService.getPublicClient();
+      const publicClient = this._walletService.getPublicClient();
       const addresses = (await publicClient.readContract({
         address: ADDRESSES.DIAMOND,
         abi: DIAMOND_ABI,
@@ -366,7 +366,7 @@ export class ContractService implements ContractReads, ContractWrites {
    * Get token allowance for a specific owner and spender
    */
   async getAllowance(tokenAddress: Address, owner: Address, spender: Address): Promise<bigint> {
-    const publicClient = this.walletService.getPublicClient();
+    const publicClient = this._walletService.getPublicClient();
     return (await publicClient.readContract({
       address: tokenAddress,
       abi: ERC20_ABI,
@@ -379,7 +379,7 @@ export class ContractService implements ContractReads, ContractWrites {
    * Get pending redemption balance for a user and collateral
    */
   async getRedeemCollateralBalance(userAddress: Address, collateralIndex: number): Promise<bigint> {
-    const publicClient = this.walletService.getPublicClient();
+    const publicClient = this._walletService.getPublicClient();
     return (await publicClient.readContract({
       address: ADDRESSES.DIAMOND,
       abi: DIAMOND_ABI,
@@ -392,10 +392,13 @@ export class ContractService implements ContractReads, ContractWrites {
    * Approve a token for spending by a spender
    */
   async approveToken(tokenAddress: Address, spender: Address, amount: bigint = maxUint256): Promise<string> {
-    this.walletService.validateConnection();
-    const walletClient = this.walletService.getWalletClient();
-    const publicClient = this.walletService.getPublicClient();
-    const account = this.walletService.getAccount()!;
+    this._walletService.validateConnection();
+    const walletClient = this._walletService.getWalletClient();
+    const publicClient = this._walletService.getPublicClient();
+    const account = this._walletService.getAccount();
+    if (!account) {
+      throw new Error("Wallet not connected");
+    }
 
     const args = [spender, amount];
 
@@ -423,7 +426,7 @@ export class ContractService implements ContractReads, ContractWrites {
       functionName: "approve",
       args,
       account,
-      chain: this.walletService.getChain(),
+      chain: this._walletService.getChain(),
       gas: gasLimit,
     });
 
@@ -442,10 +445,13 @@ export class ContractService implements ContractReads, ContractWrites {
     maxGovernanceIn: bigint = maxUint256,
     isOneToOne: boolean = false
   ): Promise<string> {
-    this.walletService.validateConnection();
-    const walletClient = this.walletService.getWalletClient();
-    const publicClient = this.walletService.getPublicClient();
-    const account = this.walletService.getAccount()!;
+    this._walletService.validateConnection();
+    const walletClient = this._walletService.getWalletClient();
+    const publicClient = this._walletService.getPublicClient();
+    const account = this._walletService.getAccount();
+    if (!account) {
+      throw new Error("Wallet not connected");
+    }
 
     const args: readonly [bigint, bigint, bigint, bigint, bigint, boolean] = [
       BigInt(collateralIndex),
@@ -502,7 +508,7 @@ export class ContractService implements ContractReads, ContractWrites {
       functionName: "mintDollar",
       args,
       account,
-      chain: this.walletService.getChain(),
+      chain: this._walletService.getChain(),
       gas: gasLimit,
     });
 
@@ -514,10 +520,13 @@ export class ContractService implements ContractReads, ContractWrites {
    * Execute redeem dollar transaction
    */
   async redeemDollar(collateralIndex: number, dollarAmount: bigint, governanceOutMin: bigint = 0n, collateralOutMin: bigint = 0n): Promise<string> {
-    this.walletService.validateConnection();
-    const walletClient = this.walletService.getWalletClient();
-    const publicClient = this.walletService.getPublicClient();
-    const account = this.walletService.getAccount()!;
+    this._walletService.validateConnection();
+    const walletClient = this._walletService.getWalletClient();
+    const publicClient = this._walletService.getPublicClient();
+    const account = this._walletService.getAccount();
+    if (!account) {
+      throw new Error("Wallet not connected");
+    }
 
     const args: readonly [bigint, bigint, bigint, bigint] = [BigInt(collateralIndex), dollarAmount, governanceOutMin, collateralOutMin];
 
@@ -584,7 +593,7 @@ export class ContractService implements ContractReads, ContractWrites {
       functionName: "redeemDollar",
       args,
       account,
-      chain: this.walletService.getChain(),
+      chain: this._walletService.getChain(),
       gas: gasLimit,
     });
 
@@ -596,10 +605,13 @@ export class ContractService implements ContractReads, ContractWrites {
    * Collect pending redemption
    */
   async collectRedemption(collateralIndex: number): Promise<string> {
-    this.walletService.validateConnection();
-    const walletClient = this.walletService.getWalletClient();
-    const publicClient = this.walletService.getPublicClient();
-    const account = this.walletService.getAccount()!;
+    this._walletService.validateConnection();
+    const walletClient = this._walletService.getWalletClient();
+    const publicClient = this._walletService.getPublicClient();
+    const account = this._walletService.getAccount();
+    if (!account) {
+      throw new Error("Wallet not connected");
+    }
 
     const hash = await walletClient.writeContract({
       address: ADDRESSES.DIAMOND,
@@ -607,7 +619,7 @@ export class ContractService implements ContractReads, ContractWrites {
       functionName: "collectRedemption",
       args: [BigInt(collateralIndex)],
       account,
-      chain: this.walletService.getChain(),
+      chain: this._walletService.getChain(),
     });
 
     await publicClient.waitForTransactionReceipt({ hash });
@@ -643,7 +655,7 @@ export class ContractService implements ContractReads, ContractWrites {
    * Get comprehensive protocol settings
    */
   async getProtocolSettings(collateralIndex: number = 0): Promise<ProtocolSettings> {
-    const publicClient = this.walletService.getPublicClient();
+    const publicClient = this._walletService.getPublicClient();
 
     try {
       const results = await publicClient.multicall({

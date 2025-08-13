@@ -16,12 +16,12 @@ export interface PriceThresholds {
  * NO FALLBACKS - will fail if storage cannot be read
  */
 export class PriceThresholdService {
-  private client: PublicClient;
-  private cache: PriceThresholds | null = null;
-  private lastCacheTime = 0;
+  private _client: PublicClient;
+  private _cache: PriceThresholds | null = null;
+  private _lastCacheTime = 0;
 
   constructor(rpcUrl?: string) {
-    this.client = createPublicClient({
+    this._client = createPublicClient({
       chain: mainnet,
       transport: http(rpcUrl || "https://mainnet.gateway.tenderly.co"),
     });
@@ -35,27 +35,27 @@ export class PriceThresholdService {
     const now = Date.now();
 
     // Return cached values if still valid
-    if (this.cache && now - this.lastCacheTime < PRICE_THRESHOLD_CONFIG.CACHE_DURATION) {
-      return this.cache;
+    if (this._cache && now - this._lastCacheTime < PRICE_THRESHOLD_CONFIG.CACHE_DURATION) {
+      return this._cache;
     }
 
     // Read from storage - no fallbacks allowed
-    const thresholds = await this.readThresholdsFromStorage();
+    const thresholds = await this._readThresholdsFromStorage();
 
-    this.cache = {
+    this._cache = {
       ...thresholds,
       lastUpdated: now,
     };
-    this.lastCacheTime = now;
-    return this.cache;
+    this._lastCacheTime = now;
+    return this._cache;
   }
 
   /**
    * Force refresh the cache by reading from storage
    */
   async refreshThresholds(): Promise<PriceThresholds> {
-    this.cache = null;
-    this.lastCacheTime = 0;
+    this._cache = null;
+    this._lastCacheTime = 0;
     return this.getPriceThresholds();
   }
 
@@ -66,8 +66,8 @@ export class PriceThresholdService {
   getCachedThresholds(): PriceThresholds | null {
     const now = Date.now();
 
-    if (this.cache && now - this.lastCacheTime < PRICE_THRESHOLD_CONFIG.CACHE_DURATION) {
-      return this.cache;
+    if (this._cache && now - this._lastCacheTime < PRICE_THRESHOLD_CONFIG.CACHE_DURATION) {
+      return this._cache;
     }
 
     return null;
@@ -77,7 +77,7 @@ export class PriceThresholdService {
    * Read thresholds from exact contract storage slots
    * Based on UbiquityPoolStorage struct layout analysis
    */
-  private async readThresholdsFromStorage(): Promise<{ mintThreshold: bigint; redeemThreshold: bigint }> {
+  private async _readThresholdsFromStorage(): Promise<{ mintThreshold: bigint; redeemThreshold: bigint }> {
     const { UBIQUITY_POOL_STORAGE_BASE } = PRICE_THRESHOLD_CONFIG;
 
     /*
@@ -103,11 +103,11 @@ export class PriceThresholdService {
     const redeemThresholdSlot = UBIQUITY_POOL_STORAGE_BASE + 13n;
 
     // Read both values in parallel
-    const [mintThreshold, redeemThreshold] = await Promise.all([this.readStorageSlot(mintThresholdSlot), this.readStorageSlot(redeemThresholdSlot)]);
+    const [mintThreshold, redeemThreshold] = await Promise.all([this._readStorageSlot(mintThresholdSlot), this._readStorageSlot(redeemThresholdSlot)]);
 
     // NOTE: 0 is a valid threshold value - it means that feature is disabled
     // Only validate that values are within reasonable bounds
-    if (!this.isValidThreshold(mintThreshold) || !this.isValidThreshold(redeemThreshold)) {
+    if (!this._isValidThreshold(mintThreshold) || !this._isValidThreshold(redeemThreshold)) {
       throw new Error(`Price thresholds out of valid range: mint=${mintThreshold}, redeem=${redeemThreshold}`);
     }
 
@@ -117,9 +117,9 @@ export class PriceThresholdService {
   /**
    * Read a storage slot value
    */
-  private async readStorageSlot(slot: bigint): Promise<bigint> {
+  private async _readStorageSlot(slot: bigint): Promise<bigint> {
     try {
-      const storageValue = await this.client.getStorageAt({
+      const storageValue = await this._client.getStorageAt({
         address: ADDRESSES.DIAMOND,
         slot: toHex(slot),
       });
@@ -137,7 +137,7 @@ export class PriceThresholdService {
   /**
    * Check if a value looks like a valid price threshold
    */
-  private isValidThreshold(value: bigint): boolean {
+  private _isValidThreshold(value: bigint): boolean {
     const { MIN_VALID_THRESHOLD, MAX_VALID_THRESHOLD } = PRICE_THRESHOLD_CONFIG;
     return value >= MIN_VALID_THRESHOLD && value <= MAX_VALID_THRESHOLD;
   }
@@ -146,7 +146,7 @@ export class PriceThresholdService {
    * Clear the cache
    */
   clearCache(): void {
-    this.cache = null;
-    this.lastCacheTime = 0;
+    this._cache = null;
+    this._lastCacheTime = 0;
   }
 }
