@@ -2,72 +2,76 @@
 
 ## Current Work Focus:
 
-The primary focus has been implementing an optimal route selection system that automatically provides users with the best deal between mint/redeem operations and Curve swaps, eliminating the need for users to understand complex protocol mechanics.
+### 1. Precision Loss Audit (In Progress)
+- **Critical Issue Discovered**: JavaScript float precision causing "transfer amount exceeds balance" errors
+- **Root Cause**: `parseFloat()` in balance calculations truncates precision beyond ~15 digits
+- **Affected File**: `src/utils/balance-utils.ts` line with `parseFloat(formattedBalance).toString()`
+- **Impact**: Users can't send max balance transactions - attempting to send 7405.818888349438 UUSD when actual balance is 7405.818888349437578870
+- **Solution Strategy**: Replace all parseFloat usage with string-based precision-preserving methods throughout codebase
+
+### 2. Redemption Checkbox Fix (Completed)
+- **Fixed Critical Bug**: Users were shown redemption options even when protocol redemptions disabled
+- **Corrected Logic**: `src/services/price-service.ts` line 235 - changed from `twapPrice <= redeemPriceThreshold` to `twapPrice >= redeemPriceThreshold`
+- **UI Enhancement**: Added `redemptionsDisabled` state tracking in simplified-exchange-component
+- **Result**: Checkbox now correctly hidden when TWAP < $1.00 threshold, forcing Curve swap only
 
 ## Recent Changes:
 
-### 1. OptimalRouteService Implementation
-- **Core Logic**: Analyzes market conditions to determine optimal exchange routes
-- **Market Analysis**: Real-time comparison of mint/redeem rates vs Curve swap rates
-- **Route Decision Logic**:
-  - Protocol-controlled availability → Check `isMintingAllowed` and `isRedeemingAllowed` flags
-  - Dynamic output comparison → Compare actual calculated outputs from mint/redeem vs Curve swap
-  - Market-responsive selection → Use real-time oracle and Curve prices for optimal route
-- **Comprehensive Logging**: Detailed console output for debugging and transparency
+### Successfully Completed Fixes:
+1. **Redemption Logic Correction**:
+   - Fixed inverted threshold comparison in price-service
+   - Updated MIN_VALID_THRESHOLD to accept 0n in constants
+   - Enhanced price-threshold-service to accept $0 as valid
 
-### 2. UnifiedExchangeComponent Creation
-- **Bank-like UX**: Replaced technical "Mint/Redeem" with intuitive "Deposit/Withdraw"
-- **Automatic Best Deal**: Users enter amounts and automatically get optimal routes
-- **Visual Feedback**: Clear route type indicators (🔨 Minting, 🔄 Redeeming, 🔀 Swapping)
-- **Savings Display**: Shows percentage savings when optimal route provides better rates
-- **Smart Form Handling**: Debounced calculations, direction switching, form clearing
+2. **Swap Service Enhancement**:
+   - Fixed slippage calculation to use expected output instead of input amount
+   - Prevents minAmountOut calculation errors
 
-### 3. Enhanced User Experience
-- **Transparent Explanations**: Clear reasons for route selection (e.g., "UUSD below peg, redeeming gives better rate")
-- **Real-time Updates**: Live market data integration with 300ms debounced calculations
-- **Expected Output Display**: Shows exact amounts user will receive
-- **Responsive Interface**: Smooth transitions between deposit/withdraw modes
+3. **UI State Management**:
+   - Added redemptionsDisabled state separate from forceSwapOnly
+   - Ensures checkbox cannot be toggled when redemptions protocol-disabled
+   - Implements immediate DOM updates for better UX
 
 ## Next Steps:
 
-### Immediate Priority
-1. **Fix Display Issue**: Correct withdraw mode output to show LUSD amount instead of UUSD
-2. **Wallet Integration**: Complete transaction execution for optimal routes
-3. **Error Handling**: Enhance error messages and fallback scenarios
+### Immediate Priority (User Async Work)
+1. **Float Precision Audit**: Full codebase audit to identify and fix all parseFloat usage
+2. **Pattern Replacement**: Implement string-based trimming throughout:
+   ```typescript
+   // Replace this pattern:
+   parseFloat(formattedBalance).toString()
+   // With:
+   formattedBalance.replace(/\.?0+$/, '')
+   ```
 
 ### Short-term Goals
-1. **Testing**: Comprehensive testing of route selection logic across different market conditions
-2. **Performance**: Optimize route calculations for faster response times
-3. **UX Polish**: Refine loading states and transition animations
-
-### Long-term Objectives
-1. **Advanced Route Intelligence**: Implement more sophisticated market analysis
-2. **Historical Analytics**: Add route performance tracking and user savings metrics
-3. **Mobile Optimization**: Ensure optimal experience across all device types
+1. **Testing**: Verify max balance transactions work after precision fixes
+2. **Edge Cases**: Test dust amounts and high-precision values
+3. **Documentation**: Update technical docs with precision handling guidelines
 
 ## Active Decisions and Considerations:
 
-### Design Philosophy
-- **Simplicity First**: Users should get the best deal without needing technical knowledge
-- **Transparency**: Always explain why specific routes are chosen
-- **Performance**: Real-time calculations without blocking UI
+### Precision Handling Philosophy
+- **Never Use parseFloat**: For critical financial calculations
+- **Preserve Full Precision**: Until final display to user
+- **Use BigInt**: For all contract interactions
+- **String Manipulation**: For formatting without precision loss
 
-### Technical Approach
-- **Service-Oriented Architecture**: Clean separation between route logic and UI components
-- **Strategy Pattern**: Flexible route selection strategies for future enhancements
-- **Observer Pattern**: Reactive updates based on market condition changes
-
-### User Experience Priorities
-- **Best Deal Guarantee**: Always provide most favorable available rate
-- **Clear Communication**: Explain route decisions in plain language
-- **Minimal Friction**: Reduce steps needed to complete exchanges
+### Protocol State Management
+- **Clear Separation**: Protocol state (redemptionsDisabled) vs user preference (forceSwapOnly)
+- **Fail-Safe Defaults**: When in doubt, force safer Curve swap route
+- **Real-time Monitoring**: Check redemption status every 30 seconds
 
 ## Current State:
 
-✅ **Route Selection Logic**: Fully implemented and tested
-✅ **Unified Interface**: Bank-like UX successfully abstracts protocol complexity
-✅ **Market Integration**: Real-time price feeds and calculations working
-🟡 **Transaction Execution**: Basic structure in place, wallet integration pending
-🔴 **Display Bug**: Minor token symbol issue in withdraw mode needs fixing
+✅ **Redemption Checkbox Fix**: Complete and verified working
+✅ **Swap Service Fix**: Slippage calculation corrected
+✅ **UI State Management**: Properly tracks protocol redemption status
+🟡 **Float Precision Audit**: User working on comprehensive fix
+� **Max Balance Transactions**: Failing due to precision loss
 
-The optimal route selection system represents a significant UX improvement, transforming the interface from a technical protocol interaction tool into an intuitive financial service that automatically provides users with the best possible deals.
+## Debug Tools Created:
+- `tools/debug-curve-swap.ts`: Diagnoses swap failures and token approvals
+- `tools/check-redemption-status.ts`: Verifies protocol redemption state
+
+The system now correctly handles redemption availability and forces Curve swaps when appropriate. The remaining critical issue is precision handling throughout the codebase.

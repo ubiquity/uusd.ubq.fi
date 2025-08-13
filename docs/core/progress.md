@@ -1,26 +1,47 @@
 # Progress: uusd.ubq.fi
 
 ## What Works:
-- The core monorepo structure is established, separating smart contracts and the dapp.
-- Smart contract development and testing environment (Foundry) is set up.
-- Frontend development environment (Next.js, React, TypeScript, Bun) is configured.
-- Basic interaction with the blockchain from the frontend is functional through services.
-- **Optimal Route Selection System**: Automatically provides users with the best deal (mint/redeem vs Curve swap)
+- **Redemption Status Management**: Protocol correctly disables redemptions when TWAP < threshold
+- **Forced Curve Swap UI**: Checkbox properly hidden when redemptions disabled
+- **Swap Service**: Correct slippage calculations using expected output
+- **Route Selection System**: Automatically provides users with the best deal (mint/redeem vs Curve swap)
 - **Unified Exchange Interface**: Bank-like "Deposit/Withdraw" UX eliminates need for technical knowledge
 - **Real-time Market Analysis**: Live comparison of mint/redeem rates vs Curve swap rates
-- **Smart Route Logic**: Protocol-controlled availability checks, dynamic output comparison for optimal selection
-- **User Experience**: Clear explanations, savings display, and automatic best deal selection
+- **Protocol State Tracking**: Separate management of redemptionsDisabled vs forceSwapOnly states
+- **Debug Tools**: Comprehensive diagnostic tools for swap issues and redemption status
 
 ## What's Left to Build:
-- Full implementation and integration of all Algorithmic Market Operations (AMOs).
-- Wallet connection and transaction execution for the optimal routes.
-- Additional user interface enhancements and feature completeness for the dapp.
+- **Precision Handling**: Complete audit and fix of all parseFloat usage in codebase
+- **Max Balance Feature**: Enable users to send exact maximum balance without precision errors
+- **Additional Testing**: Edge cases for dust amounts and high-precision values
+- **Documentation**: Technical guidelines for precision-safe number handling
 
 ## Current Status:
 - **Phase 1 Complete**: Optimal route selection and unified exchange interface implemented
-- Core protocol components are in place and being enhanced with intelligent routing
-- Bank-like UX successfully abstracts complex mint/redeem mechanics from users
+- **Phase 2 Complete**: Redemption checkbox visibility and protocol state management fixed
+- **Phase 3 In Progress**: Float precision audit and systematic fixes throughout codebase
 
 ## Known Issues:
-- Minor display issue in withdraw mode showing incorrect token symbol in output (shows UUSD instead of LUSD)
-- Transaction execution pending wallet integration completion
+
+### Critical (Being Fixed):
+- **Precision Loss**: parseFloat() causing "transfer amount exceeds balance" errors
+  - Example: Trying to send 7405.818888349438 when balance is 7405.818888349437578870
+  - Root cause: JavaScript float limited to ~15 digit precision
+  - Location: `src/utils/balance-utils.ts` and potentially other files
+
+### Resolved:
+- ✅ Redemption checkbox shown when protocol redemptions disabled
+- ✅ Incorrect threshold comparison logic (was <= instead of >=)
+- ✅ Swap slippage calculation using wrong base amount
+- ✅ UI state confusion between protocol state and user preference
+
+## Testing Results:
+- **Redemption Threshold**: Correctly blocks redemptions when TWAP ($0.997) < threshold ($1.00)
+- **Curve Pool Health**: 26,165 LUSD and 42,413 UUSD reserves, sufficient liquidity
+- **Token Approvals**: UUSD properly approved for Curve pool (max uint256)
+- **Exchange Rates**: ~0.57% slippage on 100 UUSD swaps
+
+## Performance Metrics:
+- Route calculation: 300ms debounced
+- Protocol status check: Every 30 seconds
+- Transaction confirmation: Standard block time
