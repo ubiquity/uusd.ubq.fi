@@ -84,8 +84,15 @@ class UUSDApp {
 
         this.setupServiceEventHandlers();
 
-        // Expose to window for HTML onclick handlers
-        (window as any).app = this;
+        // Expose to window for HTML onclick handlers and debugging
+        (window as any).app = {
+            ...this,
+            exchange: this.simplifiedExchangeComponent,
+            connectWallet: () => this.connectWallet(),
+            handleExchange: (event: Event) => this.handleExchange(event),
+            demoTransactionUX: (buttonId?: string) => this.demoTransactionUX(buttonId),
+            getTransactionStatus: () => this.getTransactionStatus()
+        };
 
         this.init();
     }

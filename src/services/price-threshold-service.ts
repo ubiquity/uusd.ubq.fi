@@ -108,11 +108,8 @@ export class PriceThresholdService {
             this.readStorageSlot(redeemThresholdSlot)
         ]);
 
-        // Validate that we got reasonable values
-        if (mintThreshold === 0n || redeemThreshold === 0n) {
-            throw new Error(`Invalid price thresholds read from storage: mint=${mintThreshold}, redeem=${redeemThreshold}`);
-        }
-
+        // NOTE: 0 is a valid threshold value - it means that feature is disabled
+        // Only validate that values are within reasonable bounds
         if (!this.isValidThreshold(mintThreshold) || !this.isValidThreshold(redeemThreshold)) {
             throw new Error(`Price thresholds out of valid range: mint=${mintThreshold}, redeem=${redeemThreshold}`);
         }

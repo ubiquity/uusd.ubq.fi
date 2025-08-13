@@ -107,27 +107,38 @@ export class OptimalRouteService {
             let isEnabled = true;
             let disabledReason: string | undefined;
 
-            if (!mixedMintResult.isMintingAllowed) {
-                // Minting disabled, use swap
-                routeType = 'swap';
-                expectedOutput = swapOutputUUSD;
-                // reason = 'Minting disabled due to price conditions. Using Curve swap.';
-            } else if (isForceCollateralOnly) {
-                // User explicitly chose LUSD-only mode - always use collateral-only mint
-                routeType = 'mint';
-                expectedOutput = collateralOnlyMintResult.totalDollarMint;
-                // reason = 'LUSD-only mode: Using 100% LUSD (no UBQ discount).';
+            if (!isForceCollateralOnly) {
+                // User wants UBQ discount - ALWAYS use mixed mint (can't swap UBQ on Curve)
+                if (!mixedMintResult.isMintingAllowed) {
+                    // Minting disabled, can't use UBQ discount
+                    routeType = 'mint';
+                    expectedOutput = 0n;
+                    isEnabled = false;
+                    disabledReason = 'UBQ discount not available - minting is currently disabled';
+                } else {
+                    routeType = 'mint';
+                    expectedOutput = mixedMintResult.totalDollarMint;
+                    // reason = `Minting with 95% LUSD + 5% UBQ discount.`;
+                }
             } else {
-                // User allows UBQ discount - always use mixed mint to show the discount
-                routeType = 'mint';
-                expectedOutput = mixedMintResult.totalDollarMint;
-
-                // Calculate discount percentage: ((mixed - collateralOnly) / collateralOnly) * 100
-                const mixedOutput = BigInt(mixedMintResult.totalDollarMint);
-                const collateralOnlyOutput = BigInt(collateralOnlyMintResult.totalDollarMint);
-                const discountBigInt = (mixedOutput - collateralOnlyOutput) * 10000n / collateralOnlyOutput;
-                const discount = Number(discountBigInt) / 100;
-                // reason = `Minting with 95% LUSD + 5% UBQ.`;
+                // User doesn't want UBQ discount - compare mint vs swap for best rate
+                if (!collateralOnlyMintResult.isMintingAllowed) {
+                    // Minting disabled, use swap
+                    routeType = 'swap';
+                    expectedOutput = swapOutputUUSD;
+                    // reason = 'Minting disabled. Using Curve swap.';
+                } else {
+                    // Compare collateral-only mint vs swap
+                    if (collateralOnlyMintResult.totalDollarMint >= swapOutputUUSD) {
+                        routeType = 'mint';
+                        expectedOutput = collateralOnlyMintResult.totalDollarMint;
+                        // reason = 'Protocol mint offers better rate than Curve swap.';
+                    } else {
+                        routeType = 'swap';
+                        expectedOutput = swapOutputUUSD;
+                        // reason = 'Curve swap offers better rate than protocol mint.';
+                    }
+                }
             }
 
             // Calculate alternative output for savings comparison

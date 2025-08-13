@@ -26,7 +26,8 @@ export const PRICE_THRESHOLD_CONFIG = {
     // The previous value was based on a miscalculation of the keccak256 hash. This is the correct value.
     UBIQUITY_POOL_STORAGE_BASE: BigInt("0x2a1c4d9e43cc908458204ba8dd637dd73ede6adc739c3209ac617ae953246c00"),
     // Expected value ranges for validation
-    MIN_VALID_THRESHOLD: 500000n, // $0.50
+    // 0 is valid - it means the feature is disabled
+    MIN_VALID_THRESHOLD: 0n, // $0.00 (disabled)
     MAX_VALID_THRESHOLD: 1500000n, // $1.50
     // Cache duration in milliseconds
     CACHE_DURATION: 60000, // 1 minute

@@ -39,6 +39,7 @@ export class SimplifiedExchangeComponent {
         amount: '',
         useUbqDiscount: false,
         forceSwapOnly: false,
+        redemptionsDisabled: false, // Track protocol redemption status separately
         protocolSettings: null as ProtocolSettings | null,
         routeResult: null as OptimalRouteResult | null,
         isCalculating: false
@@ -58,10 +59,27 @@ export class SimplifiedExchangeComponent {
 
     private async init() {
         await this.loadProtocolSettings();
+
+        // ALWAYS check redemption status on init so state is correct from the start
+        console.log('[INIT] Checking redemption status on startup...');
+        await this.checkRedemptionStatus();
+
         this.registerTransactionButton();
         this.setupEventListeners();
         this.setupBalanceSubscription();
+
         this.render();
+
+        // Periodically refresh protocol settings and redemption status (every 30 seconds)
+        setInterval(async () => {
+            await this.loadProtocolSettings();
+            await this.checkRedemptionStatus();
+
+            // Only re-render options if on withdraw view
+            if (this.state.direction === 'withdraw') {
+                this.renderOptions();
+            }
+        }, 30000);
     }
 
     /**
@@ -109,6 +127,17 @@ export class SimplifiedExchangeComponent {
 
             if (swapOnlyCheckbox) {
                 swapOnlyCheckbox.addEventListener('change', (e) => {
+                    // CRITICAL: Never allow user to change this when redemptions are disabled
+                    if (this.state.redemptionsDisabled) {
+                        console.warn('Redemptions disabled - ignoring user checkbox change');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Force checkbox back to checked state
+                        swapOnlyCheckbox.checked = true;
+                        return;
+                    }
+
+                    // Only allow changes when redemptions are enabled
                     this.state.forceSwapOnly = (e.target as HTMLInputElement).checked;
                     this.calculateRoute();
                 });
@@ -137,6 +166,8 @@ export class SimplifiedExchangeComponent {
      * Switch between buy and sell
      */
     private async switchDirection(direction: ExchangeDirection) {
+        console.log('[SWITCH DIRECTION] Starting switch to:', direction);
+
         // Clear current state
         this.state.direction = direction;
         this.state.amount = '';
@@ -145,6 +176,26 @@ export class SimplifiedExchangeComponent {
         // Clear input
         const amountInput = document.getElementById('exchangeAmount') as HTMLInputElement;
         if (amountInput) amountInput.value = '';
+
+        // IMPORTANT: Never reset redemptionsDisabled - it's a protocol state, not a UI state!
+        // Only reset forceSwapOnly for deposits (user preference)
+        if (direction === 'deposit') {
+            this.state.forceSwapOnly = false;
+        }
+
+        // For withdrawals, ensure checkbox is hidden if redemptions are disabled
+        if (direction === 'withdraw' && this.state.redemptionsDisabled) {
+            // Force the state
+            this.state.forceSwapOnly = true;
+
+            // Hide checkbox IMMEDIATELY
+            const swapOnlyDiv = document.getElementById('swapOnlyOption');
+            if (swapOnlyDiv) {
+                swapOnlyDiv.style.display = 'none';
+                swapOnlyDiv.style.visibility = 'hidden';
+                console.log('[SWITCH DIRECTION] Redemptions disabled - hiding checkbox immediately');
+            }
+        }
 
         // Re-render UI
         this.render();
@@ -175,8 +226,10 @@ export class SimplifiedExchangeComponent {
                 const forceCollateralOnly = !this.state.useUbqDiscount;
                 routeResult = await this.optimalRouteService.getOptimalDepositRoute(inputAmount, forceCollateralOnly);
             } else {
-                // For withdrawals, check if user wants swap-only
-                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount, this.state.forceSwapOnly);
+                // For withdrawals, ALWAYS use forceSwapOnly when redemptions are disabled
+                const forceSwap = this.state.redemptionsDisabled || this.state.forceSwapOnly;
+                console.log('[CALCULATE ROUTE] Withdraw route - forceSwap:', forceSwap, 'redemptionsDisabled:', this.state.redemptionsDisabled);
+                routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount, forceSwap);
             }
 
             this.state.routeResult = routeResult;
@@ -222,11 +275,84 @@ export class SimplifiedExchangeComponent {
     }
 
     /**
+     * Check redemption status and update state
+     */
+    private async checkRedemptionStatus() {
+        console.log('[REDEMPTION CHECK] Starting redemption status check...');
+
+        try {
+            // Check if redemptions are allowed
+            const testAmount = parseEther('1'); // Test with 1 UUSD
+            console.log('[REDEMPTION CHECK] Calling calculateRedeemOutput with test amount:', testAmount.toString());
+
+            const redeemResult = await this.services.priceService.calculateRedeemOutput({
+                dollarAmount: testAmount,
+                collateralIndex: LUSD_COLLATERAL.index
+            });
+
+            console.log('[REDEMPTION CHECK] Result from calculateRedeemOutput:', {
+                isRedeemingAllowed: redeemResult.isRedeemingAllowed,
+                raw: redeemResult
+            });
+
+            // Update redemption disabled state
+            this.state.redemptionsDisabled = !redeemResult.isRedeemingAllowed;
+
+            // Force swap-only if redemptions are disabled
+            if (this.state.redemptionsDisabled) {
+                this.state.forceSwapOnly = true;
+                console.log('[REDEMPTION CHECK] Protocol redemptions DISABLED - forcing Curve swap only');
+
+                // Immediately hide and disable the checkbox
+                const swapOnlyDiv = document.getElementById('swapOnlyOption');
+                const swapOnlyCheckbox = document.getElementById('forceSwapOnly') as HTMLInputElement;
+
+                if (swapOnlyDiv) {
+                    swapOnlyDiv.style.display = 'none';
+                }
+
+                if (swapOnlyCheckbox) {
+                    swapOnlyCheckbox.checked = true;
+                    swapOnlyCheckbox.disabled = true;
+                }
+            } else {
+                // Only reset if redemptions are enabled
+                this.state.redemptionsDisabled = false;
+                this.state.forceSwapOnly = false;
+                console.log('[REDEMPTION CHECK] Protocol redemptions ENABLED - user can choose route');
+            }
+        } catch (error) {
+            console.error('[REDEMPTION CHECK] Error caught:', error);
+            // On error, assume redemptions are disabled to be safe
+            this.state.redemptionsDisabled = true;
+            this.state.forceSwapOnly = true;
+
+            // Hide checkbox on error too
+            const swapOnlyDiv = document.getElementById('swapOnlyOption');
+            if (swapOnlyDiv) {
+                swapOnlyDiv.style.display = 'none';
+            }
+        }
+
+        console.log('[REDEMPTION CHECK] Complete. Final State:', {
+            redemptionsDisabled: this.state.redemptionsDisabled,
+            forceSwapOnly: this.state.forceSwapOnly
+        });
+    }
+
+    /**
      * Render options based on protocol state
      */
     private renderOptions() {
+        console.log('[RENDER OPTIONS] Starting render with state:', {
+            direction: this.state.direction,
+            redemptionsDisabled: this.state.redemptionsDisabled,
+            forceSwapOnly: this.state.forceSwapOnly
+        });
+
         const ubqOptionDiv = document.getElementById('ubqDiscountOption');
         const swapOnlyDiv = document.getElementById('swapOnlyOption');
+        const swapOnlyCheckbox = document.getElementById('forceSwapOnly') as HTMLInputElement;
 
         if (!this.state.protocolSettings) {
             // Hide all options if settings not loaded
@@ -247,10 +373,38 @@ export class SimplifiedExchangeComponent {
                 swapOnlyDiv.style.display = 'none';
             }
         } else {
-            // For withdrawals: Show swap-only option if redemption might be disabled
-            if (swapOnlyDiv) {
-                // Always show this option to let users force Curve swap
-                swapOnlyDiv.style.display = 'block';
+            // For withdrawals: Check redemption status
+            if (this.state.redemptionsDisabled) {
+                // REDEMPTIONS DISABLED - HIDE EVERYTHING, NO USER CHOICE
+                console.log('[RENDER OPTIONS] Redemptions disabled - hiding checkbox completely');
+
+                if (swapOnlyDiv) {
+                    swapOnlyDiv.style.display = 'none';
+                    swapOnlyDiv.style.visibility = 'hidden'; // Extra safety
+                }
+
+                if (swapOnlyCheckbox) {
+                    swapOnlyCheckbox.checked = true;
+                    swapOnlyCheckbox.disabled = true;
+                    // Remove any event listeners to prevent interaction
+                    const newCheckbox = swapOnlyCheckbox.cloneNode(true) as HTMLInputElement;
+                    swapOnlyCheckbox.parentNode?.replaceChild(newCheckbox, swapOnlyCheckbox);
+                }
+            } else {
+                // REDEMPTIONS ENABLED - Show option for user choice
+                console.log('[RENDER OPTIONS] Redemptions enabled - showing checkbox for user choice');
+
+                if (swapOnlyDiv && swapOnlyCheckbox) {
+                    swapOnlyDiv.style.display = 'block';
+                    swapOnlyDiv.style.visibility = 'visible';
+                    swapOnlyCheckbox.disabled = false;
+                    swapOnlyCheckbox.checked = this.state.forceSwapOnly;
+
+                    const label = swapOnlyDiv.querySelector('label[for="forceSwapOnly"]');
+                    if (label) {
+                        label.textContent = 'Use Curve swap only';
+                    }
+                }
             }
 
             // Hide UBQ option for withdrawals
@@ -258,6 +412,13 @@ export class SimplifiedExchangeComponent {
                 ubqOptionDiv.style.display = 'none';
             }
         }
+
+        console.log('[RENDER OPTIONS] Complete. DOM state:', {
+            swapOnlyDisplay: swapOnlyDiv?.style.display,
+            swapOnlyVisibility: swapOnlyDiv?.style.visibility,
+            checkboxChecked: swapOnlyCheckbox?.checked,
+            checkboxDisabled: swapOnlyCheckbox?.disabled
+        });
     }
 
     /**

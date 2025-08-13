@@ -239,7 +239,9 @@ export class PriceService {
             governancePrice,
             twapPrice,
             redeemPriceThreshold,
-            isRedeemingAllowed: twapPrice <= redeemPriceThreshold
+            // Redemptions are allowed when TWAP is ABOVE the threshold
+            // When TWAP < $1.00, redemptions are DISABLED
+            isRedeemingAllowed: twapPrice >= redeemPriceThreshold
         };
     }
 
