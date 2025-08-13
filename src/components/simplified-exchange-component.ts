@@ -457,12 +457,12 @@ export class SimplifiedExchangeComponent {
             expectedOutputEl.textContent = outputText;
         }
 
-        // Update route type indicator
-        const routeIndicator = document.getElementById('routeIndicator');
-        if (routeIndicator) {
-            const routeText = this.getRouteTypeText(this.state.routeResult.routeType);
-            routeIndicator.textContent = routeText;
-        }
+        // // Update route type indicator
+        // const routeIndicator = document.getElementById('routeIndicator');
+        // if (routeIndicator) {
+        //     const routeText = this.getRouteTypeText(this.state.routeResult.routeType);
+        //     routeIndicator.textContent = routeText;
+        // }
 
         // Update button
         this.updateActionButton();

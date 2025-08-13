@@ -332,7 +332,7 @@ export class PriceService {
         const rawPrice = await this.contractService.getDollarPriceUsd();
         // Convert raw price (6 decimal precision) to USD format
         const priceInUsd = formatUnits(rawPrice, 6);
-        return `$${priceInUsd.toFixed(6)}`;
+        return `$${parseFloat(priceInUsd).toFixed(6)}`;
     }
 
     /**
