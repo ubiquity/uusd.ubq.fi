@@ -61,7 +61,7 @@ export class SimplifiedExchangeComponent {
         await this.loadProtocolSettings();
 
         // ALWAYS check redemption status on init so state is correct from the start
-        console.log('[INIT] Checking redemption status on startup...');
+
         await this.checkRedemptionStatus();
 
         this.registerTransactionButton();
@@ -102,15 +102,15 @@ export class SimplifiedExchangeComponent {
     private setupWalletEventListeners() {
         this.services.walletService.setEventHandlers({
             onConnect: (account: Address) => {
-                console.log('[WALLET] Wallet connected event received:', account);
+
                 this.render();
             },
             onDisconnect: () => {
-                console.log('[WALLET] Wallet disconnected event received');
+
                 this.render();
             },
             onAccountChanged: (account: Address | null) => {
-                console.log('[WALLET] Wallet account changed event received:', account);
+
                 this.render();
             }
         });
@@ -188,7 +188,7 @@ export class SimplifiedExchangeComponent {
      * Switch between buy and sell
      */
     private async switchDirection(direction: ExchangeDirection) {
-        console.log('[SWITCH DIRECTION] Starting switch to:', direction);
+
 
         // Clear current state
         this.state.direction = direction;
@@ -215,7 +215,7 @@ export class SimplifiedExchangeComponent {
             if (swapOnlyDiv) {
                 swapOnlyDiv.style.display = 'none';
                 swapOnlyDiv.style.visibility = 'hidden';
-                console.log('[SWITCH DIRECTION] Redemptions disabled - hiding checkbox immediately');
+
             }
         }
 
@@ -250,7 +250,7 @@ export class SimplifiedExchangeComponent {
             } else {
                 // For withdrawals, ALWAYS use forceSwapOnly when redemptions are disabled
                 const forceSwap = this.state.redemptionsDisabled || this.state.forceSwapOnly;
-                console.log('[CALCULATE ROUTE] Withdraw route - forceSwap:', forceSwap, 'redemptionsDisabled:', this.state.redemptionsDisabled);
+
                 routeResult = await this.optimalRouteService.getOptimalWithdrawRoute(inputAmount, forceSwap);
             }
 
@@ -268,8 +268,8 @@ export class SimplifiedExchangeComponent {
      * Render the main UI
      */
     private render() {
-        console.log('[RENDER] Starting render with direction:', this.state.direction);
-        
+
+
         // Update direction buttons
         const depositButton = document.getElementById('depositButton');
         const withdrawButton = document.getElementById('withdrawButton');
@@ -315,12 +315,12 @@ export class SimplifiedExchangeComponent {
      * Check redemption status and update state
      */
     private async checkRedemptionStatus() {
-        console.log('[REDEMPTION CHECK] Starting redemption status check...');
+
 
         try {
             // Check if redemptions are allowed
             const testAmount = parseEther('1'); // Test with 1 UUSD
-            console.log('[REDEMPTION CHECK] Calling calculateRedeemOutput with test amount:', testAmount.toString());
+
 
             const redeemResult = await this.services.priceService.calculateRedeemOutput({
                 dollarAmount: testAmount,
@@ -338,7 +338,7 @@ export class SimplifiedExchangeComponent {
             // Force swap-only if redemptions are disabled
             if (this.state.redemptionsDisabled) {
                 this.state.forceSwapOnly = true;
-                console.log('[REDEMPTION CHECK] Protocol redemptions DISABLED - forcing Curve swap only');
+
 
                 // Immediately hide and disable the checkbox
                 const swapOnlyDiv = document.getElementById('swapOnlyOption');
@@ -356,7 +356,7 @@ export class SimplifiedExchangeComponent {
                 // Only reset if redemptions are enabled
                 this.state.redemptionsDisabled = false;
                 this.state.forceSwapOnly = false;
-                console.log('[REDEMPTION CHECK] Protocol redemptions ENABLED - user can choose route');
+
             }
         } catch (error) {
             console.error('[REDEMPTION CHECK] Error caught:', error);
@@ -413,7 +413,7 @@ export class SimplifiedExchangeComponent {
             // For withdrawals: Check redemption status
             if (this.state.redemptionsDisabled) {
                 // REDEMPTIONS DISABLED - HIDE EVERYTHING, NO USER CHOICE
-                console.log('[RENDER OPTIONS] Redemptions disabled - hiding checkbox completely');
+
 
                 if (swapOnlyDiv) {
                     swapOnlyDiv.style.display = 'none';
@@ -429,7 +429,7 @@ export class SimplifiedExchangeComponent {
                 }
             } else {
                 // REDEMPTIONS ENABLED - Show option for user choice
-                console.log('[RENDER OPTIONS] Redemptions enabled - showing checkbox for user choice');
+
 
                 if (swapOnlyDiv && swapOnlyCheckbox) {
                     swapOnlyDiv.style.display = 'block';
@@ -462,18 +462,18 @@ export class SimplifiedExchangeComponent {
         const exchangeContainer = document.querySelector('.exchange-container');
         const amountInput = document.getElementById('amountInput') as HTMLInputElement;
         const executeButton = document.getElementById('executeButton') as HTMLButtonElement;
-        
+
         if (amountInput) {
             amountInput.disabled = true;
             amountInput.placeholder = 'No tokens available';
             amountInput.value = '';
         }
-        
+
         if (executeButton) {
             executeButton.disabled = true;
             executeButton.textContent = 'Connect wallet with tokens to continue';
         }
-        
+
         let noTokensMessage = document.getElementById('noTokensMessage');
         if (!noTokensMessage) {
             noTokensMessage = document.createElement('div');
@@ -483,12 +483,12 @@ export class SimplifiedExchangeComponent {
                 <p>No LUSD or UUSD tokens found in your wallet.</p>
                 <p>Please acquire tokens to use the exchange.</p>
             `;
-            
+
             if (exchangeContainer) {
                 exchangeContainer.appendChild(noTokensMessage);
             }
         }
-        
+
         noTokensMessage.style.display = 'block';
     }
 
@@ -725,11 +725,11 @@ export class SimplifiedExchangeComponent {
         setTimeout(() => {
             const button = document.getElementById('exchangeButton') as HTMLButtonElement;
             if (button) {
-                console.log('Registering exchange button');
+
 
                 // Set up direct click handler
                 button.onclick = async () => {
-                    console.log('Exchange button clicked');
+
                     await this.executeTransaction();
                 };
 
@@ -749,9 +749,9 @@ export class SimplifiedExchangeComponent {
     private setupBalanceSubscription() {
         if (this.services.inventoryBar) {
             this.services.inventoryBar.onBalancesUpdated(() => {
-                console.log('[BALANCE UPDATE] Balance subscription triggered');
-                console.log('[BALANCE UPDATE] Has LUSD:', hasAvailableBalance(this.services.inventoryBar, 'LUSD'));
-                console.log('[BALANCE UPDATE] Has UUSD:', hasAvailableBalance(this.services.inventoryBar, 'UUSD'));
+
+
+
                 this.autoPopulateMaxBalance();
             });
         }

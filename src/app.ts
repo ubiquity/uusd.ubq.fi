@@ -320,18 +320,18 @@ class UUSDApp {
         // Wallet service event handlers
         this.walletService.setEventHandlers({
             onConnect: (account: Address) => {
-                console.log('🔌 DEBUG: onConnect event fired for account:', account);
+
                 this.updateWalletUI(account);
                 this.simplifiedExchangeComponent.updateWalletConnection(true);
                 this.inventoryBarComponent.handleWalletConnectionChange(account);
-                console.log('🔌 DEBUG: onConnect event handling completed');
+
             },
             onDisconnect: () => {
-                console.log('🔌 DEBUG: onDisconnect event fired');
+
                 this.updateWalletUI(null);
                 this.simplifiedExchangeComponent.updateWalletConnection(false);
                 this.inventoryBarComponent.handleWalletConnectionChange(null);
-                console.log('🔌 DEBUG: onDisconnect event handling completed');
+
             }
         });
 
@@ -361,13 +361,13 @@ class UUSDApp {
     }
 
     private updateWalletUI(account: Address | null) {
-        console.log('🔌 DEBUG: updateWalletUI called with account:', account);
+
         const connectButton = document.getElementById('connectWallet') as HTMLButtonElement;
-        console.log('🔌 DEBUG: connectButton found:', !!connectButton, 'current text:', connectButton?.textContent);
+
 
         if (account) {
             // When connected, show disconnect button and wallet info
-            console.log('🔌 DEBUG: Setting button to Disconnect state');
+
             connectButton.textContent = 'Disconnect';
             connectButton.disabled = false;
             connectButton.style.display = 'unset';
@@ -375,13 +375,13 @@ class UUSDApp {
             document.getElementById('walletAddress')!.textContent = formatAddress(account);
         } else {
             // When disconnected, show connect button and hide wallet info
-            console.log('🔌 DEBUG: Setting button to Connect Wallet state');
+
             connectButton.textContent = 'Connect Wallet';
             connectButton.disabled = false;
             connectButton.style.display = 'unset';
             document.getElementById('walletInfo')!.style.display = 'none';
         }
-        console.log('🔌 DEBUG: updateWalletUI completed, button text now:', connectButton?.textContent);
+
     }
 
     /**
@@ -392,7 +392,7 @@ class UUSDApp {
             const reconnectedAddress = await this.walletService.checkStoredConnection();
             if (reconnectedAddress) {
                 // Auto-reconnection successful - UI updates handled by event handlers
-                console.log('Auto-reconnected to wallet:', reconnectedAddress);
+
             }
         } catch (error) {
             // Auto-reconnection failed silently
