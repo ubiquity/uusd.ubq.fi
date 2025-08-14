@@ -56,7 +56,10 @@ export class OptimalRouteService {
 
   /**
    * Get optimal route for depositing LUSD to get UUSD
-   * Compares: mint vs swap
+   * Compares mint vs swap routes and returns the most economical option
+   * @param lusdAmount - Amount of LUSD to deposit (in wei)
+   * @param isForceCollateralOnly - If true, only considers pure LUSD options (no UBQ discount)
+   * @returns Promise<OptimalRouteResult> containing route details and expected outputs
    */
   async getOptimalDepositRoute(lusdAmount: bigint, isForceCollateralOnly: boolean = false): Promise<OptimalRouteResult> {
     try {
@@ -158,7 +161,13 @@ export class OptimalRouteService {
         isUbqOperation: routeType === "mint" && !isForceCollateralOnly,
       };
     } catch (error) {
-      console.error("Error calculating optimal deposit route:", error);
+      // Log error details for production monitoring
+      console.error("Error calculating optimal deposit route:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        lusdAmount: lusdAmount.toString(),
+        timestamp: new Date().toISOString(),
+      });
 
       // Fallback to swap if calculations fail
       try {
@@ -174,16 +183,25 @@ export class OptimalRouteService {
           // reason: 'Using Curve swap (fallback due to calculation error).',
           isEnabled: true,
         };
-      } catch {
-        throw new Error(`Failed to calculate optimal route: ${error}`);
+      } catch (fallbackError) {
+        // Log fallback error for monitoring
+        console.error("Fallback swap calculation also failed:", {
+          error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+          originalError: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+        });
+        throw new Error(`Failed to calculate optimal route: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }
 
   /**
    * Get optimal route for withdrawing UUSD to get LUSD
-   * Compares: redeem vs swap
-   * NOTE: For withdrawing, we should NEVER return 'mint' as a route type
+   * Compares redeem vs swap routes and returns the most economical option
+   * @param uusdAmount - Amount of UUSD to withdraw (in wei)
+   * @param isLusdOnlyRedemption - If true, only accepts pure LUSD redemptions (no UBQ mix)
+   * @returns Promise<OptimalRouteResult> containing route details and expected outputs
+   * @note For withdrawing, this method will NEVER return 'mint' as a route type
    */
   async getOptimalWithdrawRoute(uusdAmount: bigint, isLusdOnlyRedemption: boolean = false): Promise<OptimalRouteResult> {
     try {

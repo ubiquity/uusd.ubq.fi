@@ -212,6 +212,10 @@ export class CentralizedRefreshService {
     });
 
     // Extract prices - throw error if critical data missing
+    if (!multicallResults || multicallResults.length < 4) {
+      throw new Error(`Insufficient multicall results: expected 4, got ${multicallResults?.length || 0}`);
+    }
+
     if (multicallResults[1].status !== "success") {
       throw new Error("Failed to fetch LUSD price from Diamond contract");
     }

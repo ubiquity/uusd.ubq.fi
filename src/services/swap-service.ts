@@ -1,6 +1,7 @@
 import { type Address, type Hash, parseEther as _parseEther, formatEther as _formatEther, maxUint256 } from "viem";
 import type { WalletService } from "./wallet-service.ts";
 import type { ContractService } from "./contract-service.ts";
+import { BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 
 /**
  * Curve Pool ABI for swaps
@@ -78,6 +79,9 @@ export class SwapService {
 
   /**
    * Execute a swap through Curve pool
+   * @param params - Swap parameters including amount, tokens, and slippage
+   * @returns Promise<SwapResult> containing transaction hash and output amounts
+   * @throws Error if wallet not connected or swap fails
    */
   async executeSwap(params: SwapParams): Promise<SwapResult> {
     if (!this._walletService.isConnected()) {
@@ -143,6 +147,10 @@ export class SwapService {
 
   /**
    * Get a quote for a swap without executing
+   * @param amountIn - Amount to swap (in wei)
+   * @param fromToken - Source token (LUSD or UUSD)
+   * @param toToken - Destination token (LUSD or UUSD)
+   * @returns Promise<bigint> Expected output amount (in wei)
    */
   async getSwapQuote(amountIn: bigint, fromToken: "LUSD" | "UUSD", toToken: "LUSD" | "UUSD"): Promise<bigint> {
     const { fromIndex, toIndex } = this._getSwapTokenInfo({ fromToken, toToken });
@@ -219,8 +227,8 @@ export class SwapService {
    * Calculate minimum amount out with slippage protection
    */
   private _calculateMinAmountOut(expectedAmount: bigint, slippageTolerance: number): bigint {
-    const slippageBps = BigInt(Math.floor(slippageTolerance * 10000)); // Convert to basis points
-    return (expectedAmount * (10000n - slippageBps)) / 10000n;
+    const slippageBps = BigInt(Math.floor(slippageTolerance * Number(BASIS_POINTS_DIVISOR)));
+    return (expectedAmount * (BASIS_POINTS_DIVISOR - slippageBps)) / BASIS_POINTS_DIVISOR;
   }
 
   /**

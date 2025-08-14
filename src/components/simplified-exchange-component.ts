@@ -227,7 +227,7 @@ export class SimplifiedExchangeComponent {
 
     this._debounceTimer = setTimeout(() => {
       void this._calculateRoute();
-    }, 300);
+    }, 150);
   }
 
   /**
@@ -854,17 +854,25 @@ export class SimplifiedExchangeComponent {
     }
   }
 
+  private _autoPopulateRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+
   /**
    * Auto-populate with max balance
    */
   private _autoPopulateMaxBalance(retryCount: number = 0) {
+    // Cancel any pending retries when called
+    if (this._autoPopulateRetryTimeout) {
+      clearTimeout(this._autoPopulateRetryTimeout);
+      this._autoPopulateRetryTimeout = null;
+    }
+
     if (!this._services.walletService.isConnected()) return;
 
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
     if (!amountInput) {
       // Retry if DOM element not ready (max 3 retries)
       if (retryCount < 3) {
-        setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 50);
+        this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 50);
       }
       return;
     }
@@ -881,7 +889,7 @@ export class SimplifiedExchangeComponent {
         void this._calculateRoute();
       } else if (retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
         // If balances not loaded yet, retry
-        setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
+        this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
       }
     } catch {
       // Silent fail

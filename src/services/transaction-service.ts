@@ -4,6 +4,7 @@ import { validateTransactionParams } from "../utils/validation-utils.ts";
 import type { WalletService } from "./wallet-service.ts";
 import type { ContractService, CollateralOption } from "./contract-service.ts";
 import type { PriceService, MintPriceResult } from "./price-service.ts";
+import { BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 
 /**
  * Interface for transaction execution events
@@ -128,7 +129,7 @@ export class TransactionService {
       // Execute mint transaction with slippage tolerance
       // Add 0.5% slippage tolerance
       const slippageBasisPoints = 50n; // 0.5%
-      const basisPointsDivisor = 10000n;
+      const basisPointsDivisor = BASIS_POINTS_DIVISOR;
 
       // Reduce minimum output by slippage amount
       const dollarOutMin = (mintResult.totalDollarMint * (basisPointsDivisor - slippageBasisPoints)) / basisPointsDivisor;
@@ -258,7 +259,7 @@ export class TransactionService {
       // Execute redeem transaction with slippage tolerance
       // Add 0.5% slippage tolerance
       const slippageBasisPoints = 50n; // 0.5%
-      const basisPointsDivisor = 10000n;
+      const basisPointsDivisor = BASIS_POINTS_DIVISOR;
 
       // Reduce minimum outputs by slippage amount
       const governanceOutMin = (redeemResult.governanceRedeemed * (basisPointsDivisor - slippageBasisPoints)) / basisPointsDivisor;
