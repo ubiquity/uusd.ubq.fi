@@ -165,7 +165,7 @@ export class SwapService {
   private async _getSwapQuoteInternal(amountIn: bigint, fromIndex: bigint, toIndex: bigint): Promise<bigint> {
     // Create cache key that includes all parameters
     const cacheKey = `curve-dy-${fromIndex}-${toIndex}-${amountIn.toString()}`;
-    
+
     return await cacheService.getOrFetch(
       cacheKey,
       async () => {

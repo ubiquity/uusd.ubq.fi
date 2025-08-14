@@ -374,7 +374,7 @@ export class OptimalRouteService {
       // For LUSD → UUSD, we need to calculate based on the amount
       // Create cache key for this specific swap
       const cacheKey = `curve-dy-lusd-to-uusd-${amount.toString()}`;
-      
+
       return await cacheService.getOrFetch(
         cacheKey,
         async () => {

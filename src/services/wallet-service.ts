@@ -32,7 +32,7 @@ export class WalletService {
   private _account: Address | null = null;
   private _eventListeners: Map<WalletEvent, Array<(address?: Address | null) => void>> = new Map();
   private static readonly _storageKey = "uusd_wallet_address";
-  
+
   // Store MetaMask event handlers for cleanup
   private _metaMaskHandlers: {
     accountsChanged?: (...args: unknown[]) => void;
@@ -354,7 +354,7 @@ export class WalletService {
     this._metaMaskHandlers.accountsChanged = (...args: unknown[]) => {
       const accounts = args[0] as string[];
       console.log("🔄 MetaMask account change detected:", accounts);
-      void this._handleAccountsChanged(accounts).catch(error => {
+      void this._handleAccountsChanged(accounts).catch((error) => {
         console.error("Error handling account change:", error);
       });
     };

@@ -23,32 +23,32 @@ interface CacheOptions {
  */
 export const CACHE_CONFIGS = {
   // Oracle prices (frequently changing, but can use stale data)
-  GOVERNANCE_PRICE: { ttl: 15000, fallbackToStale: true, maxAge: 300000 }, // 15s TTL, 5min max age
-  LUSD_ORACLE_PRICE: { ttl: 15000, fallbackToStale: true, maxAge: 300000 },
-  UUSD_MARKET_PRICE: { ttl: 10000, fallbackToStale: true, maxAge: 180000 },
+  GOVERNANCE_PRICE: { ttl: 15000, fallbackToStale: true, maxAge: 300000 }, // 15s TTL (1 block+), 5min max age
+  LUSD_ORACLE_PRICE: { ttl: 15000, fallbackToStale: true, maxAge: 300000 }, // 15s TTL (1 block+), 5min max age
+  UUSD_MARKET_PRICE: { ttl: 15000, fallbackToStale: true, maxAge: 180000 }, // 15s TTL (1 block+), 3min max age
 
   // Protocol settings (less frequent changes)
-  COLLATERAL_RATIO: { ttl: 30000, fallbackToStale: true, maxAge: 600000 }, // 30s TTL, 10min max age
-  PROTOCOL_SETTINGS: { ttl: 60000, fallbackToStale: true, maxAge: 600000 },
+  COLLATERAL_RATIO: { ttl: 30000, fallbackToStale: true, maxAge: 600000 }, // 30s TTL (~2 blocks), 10min max age
+  PROTOCOL_SETTINGS: { ttl: 60000, fallbackToStale: true, maxAge: 600000 }, // 60s TTL (~5 blocks), 10min max age
 
-  // User-specific data (needs frequent updates)
-  USER_BALANCES: { ttl: 10000, fallbackToStale: false, maxAge: 60000 }, // 10s TTL, 1min max age
-  ALLOWANCES: { ttl: 15000, fallbackToStale: false, maxAge: 120000 },
+  // User-specific data (needs frequent updates but not faster than block time)
+  USER_BALANCES: { ttl: 15000, fallbackToStale: false, maxAge: 60000 }, // 15s TTL (1 block+), 1min max age
+  ALLOWANCES: { ttl: 15000, fallbackToStale: false, maxAge: 120000 }, // 15s TTL (1 block+), 2min max age
 
   // Static/semi-static data
-  COLLATERAL_OPTIONS: { ttl: 300000, fallbackToStale: true, maxAge: 3600000 }, // 5min TTL, 1hr max age
-  PRICE_THRESHOLDS: { ttl: 120000, fallbackToStale: true, maxAge: 600000 }, // 2min TTL, 10min max age
-  
+  COLLATERAL_OPTIONS: { ttl: 300000, fallbackToStale: true, maxAge: 3600000 }, // 5min TTL (~25 blocks), 1hr max age
+  PRICE_THRESHOLDS: { ttl: 120000, fallbackToStale: true, maxAge: 600000 }, // 2min TTL (~10 blocks), 10min max age
+
   // Curve pool exchange rates
-  CURVE_EXCHANGE_RATE: { ttl: 15000, fallbackToStale: true, maxAge: 300000 }, // 15s TTL, 5min max age
-  CURVE_DY_QUOTE: { ttl: 10000, fallbackToStale: true, maxAge: 180000 }, // 10s TTL, 3min max age
-  
+  CURVE_EXCHANGE_RATE: { ttl: 15000, fallbackToStale: true, maxAge: 300000 }, // 15s TTL (1 block+), 5min max age
+  CURVE_DY_QUOTE: { ttl: 15000, fallbackToStale: true, maxAge: 180000 }, // 15s TTL (1 block+), 3min max age
+
   // Contract reads
-  DOLLAR_IN_COLLATERAL: { ttl: 30000, fallbackToStale: true, maxAge: 300000 }, // 30s TTL, 5min max age
-  REDEEM_COLLATERAL_BALANCE: { ttl: 15000, fallbackToStale: false, maxAge: 120000 }, // 15s TTL, 2min max age
-  
+  DOLLAR_IN_COLLATERAL: { ttl: 30000, fallbackToStale: true, maxAge: 300000 }, // 30s TTL (~2 blocks), 5min max age
+  REDEEM_COLLATERAL_BALANCE: { ttl: 15000, fallbackToStale: false, maxAge: 120000 }, // 15s TTL (1 block+), 2min max age
+
   // Price history (can be cached longer)
-  PRICE_HISTORY: { ttl: 300000, fallbackToStale: true, maxAge: 1800000 }, // 5min TTL, 30min max age
+  PRICE_HISTORY: { ttl: 300000, fallbackToStale: true, maxAge: 1800000 }, // 5min TTL (~25 blocks), 30min max age
 } as const;
 
 export class CacheService {
@@ -154,7 +154,7 @@ export class CacheService {
     };
 
     this._cache.set(key, entry);
-    
+
     // Also save to localStorage if enabled
     if (this._localStorageEnabled) {
       this._saveToLocalStorage(key, entry);
@@ -191,7 +191,7 @@ export class CacheService {
    */
   invalidate(key: string): void {
     this._cache.delete(key);
-    
+
     // Also remove from localStorage
     if (this._localStorageEnabled) {
       try {
@@ -247,12 +247,12 @@ export class CacheService {
    */
   clear(): void {
     this._cache.clear();
-    
+
     // Clear all localStorage entries
     if (this._localStorageEnabled) {
       try {
         const keys = Object.keys(localStorage);
-        keys.forEach(key => {
+        keys.forEach((key) => {
           if (key.startsWith(this._localStoragePrefix)) {
             localStorage.removeItem(key);
           }
@@ -289,24 +289,24 @@ export class CacheService {
    */
   private _loadFromLocalStorage(): void {
     if (!this._localStorageEnabled) return;
-    
+
     try {
       const keys = Object.keys(localStorage);
       const now = Date.now();
-      
-      keys.forEach(key => {
+
+      keys.forEach((key) => {
         if (key.startsWith(this._localStoragePrefix)) {
           const cacheKey = key.substring(this._localStoragePrefix.length);
           const stored = localStorage.getItem(key);
-          
+
           if (stored) {
             try {
               const entry = this._deserializeFromStorage(stored);
-              
+
               // Check if entry is still valid based on maxAge
               const age = now - entry.timestamp;
               const maxAge = 3600000; // 1 hour absolute max for localStorage
-              
+
               if (age < maxAge) {
                 this._cache.set(cacheKey, entry);
               } else {
@@ -320,7 +320,7 @@ export class CacheService {
           }
         }
       });
-      
+
       console.log(`📦 Loaded ${this._cache.size} entries from localStorage cache`);
     } catch (error) {
       console.warn("Failed to load from localStorage cache:", error);
@@ -336,7 +336,7 @@ export class CacheService {
       localStorage.setItem(this._localStoragePrefix + key, serialized);
     } catch (error) {
       // Ignore quota errors or other localStorage issues
-      if (error instanceof Error && error.name === 'QuotaExceededError') {
+      if (error instanceof Error && error.name === "QuotaExceededError") {
         // Try to clean up old entries and retry once
         this._cleanupLocalStorage();
         try {
@@ -355,12 +355,12 @@ export class CacheService {
   private _serializeForStorage(entry: CacheEntry<unknown>): string {
     return JSON.stringify(entry, (key, value) => {
       // Convert bigints to strings
-      if (typeof value === 'bigint') {
-        return { __type: 'bigint', value: value.toString() };
+      if (typeof value === "bigint") {
+        return { __type: "bigint", value: value.toString() };
       }
       // Handle Map objects
       if (value instanceof Map) {
-        return { __type: 'Map', value: Array.from(value.entries()) };
+        return { __type: "Map", value: Array.from(value.entries()) };
       }
       return value;
     });
@@ -372,11 +372,11 @@ export class CacheService {
   private _deserializeFromStorage(stored: string): CacheEntry<unknown> {
     return JSON.parse(stored, (key, value) => {
       // Restore bigints
-      if (value && typeof value === 'object' && value.__type === 'bigint') {
+      if (value && typeof value === "object" && value.__type === "bigint") {
         return BigInt(value.value);
       }
       // Restore Map objects
-      if (value && typeof value === 'object' && value.__type === 'Map') {
+      if (value && typeof value === "object" && value.__type === "Map") {
         return new Map(value.value);
       }
       return value;
@@ -390,9 +390,9 @@ export class CacheService {
     try {
       const keys = Object.keys(localStorage);
       const cacheEntries: Array<{ key: string; timestamp: number }> = [];
-      
+
       // Collect all cache entries with timestamps
-      keys.forEach(key => {
+      keys.forEach((key) => {
         if (key.startsWith(this._localStoragePrefix)) {
           const stored = localStorage.getItem(key);
           if (stored) {
@@ -406,11 +406,11 @@ export class CacheService {
           }
         }
       });
-      
+
       // Sort by timestamp (oldest first) and remove oldest 25%
       cacheEntries.sort((a, b) => a.timestamp - b.timestamp);
       const toRemove = Math.ceil(cacheEntries.length * 0.25);
-      
+
       for (let i = 0; i < toRemove; i++) {
         localStorage.removeItem(cacheEntries[i].key);
       }

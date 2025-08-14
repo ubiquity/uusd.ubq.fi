@@ -77,7 +77,9 @@ export class TransactionService {
    */
   setSlippageTolerance(slippageBps: bigint): void {
     if (slippageBps < MIN_SLIPPAGE_BPS || slippageBps > MAX_SLIPPAGE_BPS) {
-      throw new Error(`Slippage must be between ${MIN_SLIPPAGE_BPS} (${Number(MIN_SLIPPAGE_BPS) / 100}%) and ${MAX_SLIPPAGE_BPS} (${Number(MAX_SLIPPAGE_BPS) / 100}%) basis points`);
+      throw new Error(
+        `Slippage must be between ${MIN_SLIPPAGE_BPS} (${Number(MIN_SLIPPAGE_BPS) / 100}%) and ${MAX_SLIPPAGE_BPS} (${Number(MAX_SLIPPAGE_BPS) / 100}%) basis points`
+      );
     }
     this._slippageBps = slippageBps;
   }

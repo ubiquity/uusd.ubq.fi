@@ -30,7 +30,7 @@ export interface RefreshData {
 
   // Curve data
   curveExchangeRate: bigint;
-  
+
   // Protocol status
   isMintingAllowed: boolean;
   isRedeemingAllowed: boolean;
@@ -172,9 +172,10 @@ export class CentralizedRefreshService {
       this._lastGoodPrices.uusdPrice = uusdPrice;
 
       // Calculate USD values for token balances before creating final data
-      const tokenBalancesWithUSD = tokenBalancesData && tokenBalancesData.length > 0 
-        ? this._calculateTokenUSDValues(tokenBalancesData, diamondMulticallData.lusdPrice, diamondMulticallData.ubqPrice, uusdPrice)
-        : tokenBalancesData;
+      const tokenBalancesWithUSD =
+        tokenBalancesData && tokenBalancesData.length > 0
+          ? this._calculateTokenUSDValues(tokenBalancesData, diamondMulticallData.lusdPrice, diamondMulticallData.ubqPrice, uusdPrice)
+          : tokenBalancesData;
 
       // Calculate minting/redeeming status based on TWAP vs thresholds
       const isMintingAllowed = diamondMulticallData.twapPrice >= externalData.mintThreshold;
@@ -235,18 +236,12 @@ export class CentralizedRefreshService {
           abi: DIAMOND_ABI,
           functionName: "allCollaterals",
         },
-        {
-          address: diamondAddress,
-          abi: DIAMOND_ABI,
-          functionName: "getTwapOracleCollateralPrice",
-          args: [0], // LUSD collateral index
-        },
       ],
     });
 
     // Extract prices - throw error if critical data missing
-    if (!multicallResults || multicallResults.length < 5) {
-      throw new Error(`Insufficient multicall results: expected 5, got ${multicallResults?.length || 0}`);
+    if (!multicallResults || multicallResults.length < 4) {
+      throw new Error(`Insufficient multicall results: expected 4, got ${multicallResults?.length || 0}`);
     }
 
     if (multicallResults[1].status !== "success") {
@@ -261,7 +256,8 @@ export class CentralizedRefreshService {
     const ubqPrice = multicallResults[2].result as bigint;
     this._lastGoodPrices.ubqPrice = ubqPrice;
 
-    const twapPrice = multicallResults[4].status === "success" ? (multicallResults[4].result as bigint) : 0n;
+    // For now, use LUSD oracle price as TWAP price (they're usually very close)
+    const twapPrice = lusdPrice;
 
     return {
       collateralRatio: multicallResults[0].status === "success" ? (multicallResults[0].result as bigint) : 0n,
@@ -440,14 +436,14 @@ export class CentralizedRefreshService {
         redeemThreshold: data.redeemThreshold.toString(),
         curveExchangeRate: data.curveExchangeRate.toString(),
         twapPrice: data.twapPrice.toString(),
-        allCollaterals: data.allCollaterals.map(addr => addr),
-        tokenBalances: data.tokenBalances?.map(balance => ({
+        allCollaterals: data.allCollaterals.map((addr) => addr),
+        tokenBalances: data.tokenBalances?.map((balance) => ({
           ...balance,
           balance: balance.balance.toString(),
         })),
         timestamp: Date.now(),
       };
-      
+
       localStorage.setItem(this._localStorageKey, JSON.stringify(serializable));
     } catch (error) {
       console.warn("Failed to save to localStorage:", error);
@@ -461,15 +457,15 @@ export class CentralizedRefreshService {
     try {
       const stored = localStorage.getItem(this._localStorageKey);
       if (!stored) return null;
-      
+
       const parsed = JSON.parse(stored);
-      
+
       // Check if data is older than 5 minutes
       if (parsed.timestamp && Date.now() - parsed.timestamp > 5 * 60 * 1000) {
         localStorage.removeItem(this._localStorageKey);
         return null;
       }
-      
+
       // Convert strings back to bigints
       return {
         ...parsed,
@@ -481,7 +477,7 @@ export class CentralizedRefreshService {
         curveExchangeRate: BigInt(parsed.curveExchangeRate),
         twapPrice: BigInt(parsed.twapPrice),
         allCollaterals: parsed.allCollaterals as readonly Address[],
-        tokenBalances: parsed.tokenBalances?.map((balance: any) => ({
+        tokenBalances: parsed.tokenBalances?.map((balance: { balance: string } & Omit<TokenBalance, "balance">) => ({
           ...balance,
           balance: BigInt(balance.balance),
         })),

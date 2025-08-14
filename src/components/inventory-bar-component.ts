@@ -37,10 +37,10 @@ export class InventoryBarComponent {
   private _balanceUpdateCallbacks: BalanceUpdateCallback[] = [];
   private _initialLoadPromise: Promise<void> | null = null;
   private _initialLoadResolver: (() => void) | null = null;
-  
+
   // Store bound method reference for proper cleanup
   private _boundHandleRefreshData: ((data: RefreshData) => void) | null = null;
-  
+
   // Debounce timer for balance refreshes
   private _refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly _refreshDebounceMs = 1000; // 1 second debounce
@@ -78,7 +78,7 @@ export class InventoryBarComponent {
   private _setupCentralizedRefresh(): void {
     // Create and store bound method reference
     this._boundHandleRefreshData = this._handleRefreshData.bind(this);
-    
+
     // Subscribe to centralized refresh data
     this._services.centralizedRefreshService.subscribe(this._boundHandleRefreshData);
 
@@ -466,12 +466,14 @@ export class InventoryBarComponent {
     // Create a promise that resolves when the debounced refresh completes
     return new Promise<void>((resolve) => {
       this._refreshDebounceTimer = setTimeout(() => {
-        void this._loadBalances(false).then(() => {
-          resolve();
-        }).catch(error => {
-          console.error("Error refreshing balances:", error);
-          resolve(); // Resolve anyway to not block the caller
-        });
+        void this._loadBalances(false)
+          .then(() => {
+            resolve();
+          })
+          .catch((error) => {
+            console.error("Error refreshing balances:", error);
+            resolve(); // Resolve anyway to not block the caller
+          });
       }, this._refreshDebounceMs);
     });
   }
@@ -569,13 +571,13 @@ export class InventoryBarComponent {
       this._services.centralizedRefreshService.unsubscribe(this._boundHandleRefreshData);
       this._boundHandleRefreshData = null;
     }
-    
+
     // Clear any pending refresh timer
     if (this._refreshDebounceTimer) {
       clearTimeout(this._refreshDebounceTimer);
       this._refreshDebounceTimer = null;
     }
-    
+
     this._balanceUpdateCallbacks = [];
   }
 }

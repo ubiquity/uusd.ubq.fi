@@ -105,7 +105,7 @@ class UUSDApp {
       getTransactionStatus: () => this.getTransactionStatus(),
     };
 
-    void this._init().catch(error => {
+    void this._init().catch((error) => {
       console.error("Failed to initialize app:", error);
     });
   }
@@ -384,7 +384,7 @@ class UUSDApp {
     this._walletService.addEventListener(WALLET_EVENTS.CONNECT, (account?: Address | null) => {
       this._updateWalletUI(account ?? null);
       this._simplifiedExchangeComponent.updateWalletConnection(true);
-      void this._inventoryBarComponent.handleWalletConnectionChange(account ?? null).catch(error => {
+      void this._inventoryBarComponent.handleWalletConnectionChange(account ?? null).catch((error) => {
         console.error("Error updating inventory bar after wallet connection:", error);
       });
     });
@@ -392,7 +392,7 @@ class UUSDApp {
     this._walletService.addEventListener(WALLET_EVENTS.DISCONNECT, () => {
       this._updateWalletUI(null);
       this._simplifiedExchangeComponent.updateWalletConnection(false);
-      void this._inventoryBarComponent.handleWalletConnectionChange(null).catch(error => {
+      void this._inventoryBarComponent.handleWalletConnectionChange(null).catch((error) => {
         console.error("Error updating inventory bar after wallet disconnect:", error);
       });
     });

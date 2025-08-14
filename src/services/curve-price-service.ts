@@ -47,7 +47,7 @@ export class CurvePriceService {
   async getUUSDMarketPrice(lusdPriceUsd: bigint): Promise<bigint> {
     // Use 1 LUSD as the test amount for calculating exchange rate
     const testAmount = parseEther("1"); // 1 LUSD
-    
+
     // Create cache key that includes the LUSD price to ensure we recalculate when price changes
     const cacheKey = `curve-uusd-price-${lusdPriceUsd.toString()}`;
 
@@ -56,7 +56,7 @@ export class CurvePriceService {
         cacheKey,
         async () => {
           const publicClient = this._walletService.getPublicClient();
-          
+
           // Get how much UUSD we would receive for 1 LUSD
           const uusdReceived = (await publicClient.readContract({
             address: this._curvePoolAddress,
@@ -86,12 +86,12 @@ export class CurvePriceService {
   async getLUSDForUUSD(amount: bigint): Promise<bigint> {
     // Create cache key that includes the amount
     const cacheKey = `curve-dy-uusd-to-lusd-${amount.toString()}`;
-    
+
     return await cacheService.getOrFetch(
       cacheKey,
       async () => {
         const publicClient = this._walletService.getPublicClient();
-        
+
         return (await publicClient.readContract({
           address: this._curvePoolAddress,
           abi: CURVE_POOL_ABI,
