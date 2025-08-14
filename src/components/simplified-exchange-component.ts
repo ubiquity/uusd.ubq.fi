@@ -157,8 +157,7 @@ export class SimplifiedExchangeComponent {
    */
   private _setupEventListeners() {
     // Use requestAnimationFrame to ensure DOM is ready
-    const self = this;
-    function setupListeners() {
+    const setupListeners = () => {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
@@ -172,28 +171,28 @@ export class SimplifiedExchangeComponent {
       }
 
       if (amountInput) {
-        amountInput.addEventListener("input", () => self._handleAmountChange());
+        amountInput.addEventListener("input", () => this._handleAmountChange());
       }
 
       if (depositButton) {
-        depositButton.addEventListener("click", () => self._switchDirection("deposit"));
+        depositButton.addEventListener("click", () => this._switchDirection("deposit"));
       }
 
       if (withdrawButton) {
-        withdrawButton.addEventListener("click", () => self._switchDirection("withdraw"));
+        withdrawButton.addEventListener("click", () => this._switchDirection("withdraw"));
       }
 
       if (ubqDiscountCheckbox) {
         ubqDiscountCheckbox.addEventListener("change", (e) => {
-          self._state.useUbqDiscount = (e.target as HTMLInputElement).checked;
-          void self._calculateRoute();
+          this._state.useUbqDiscount = (e.target as HTMLInputElement).checked;
+          void this._calculateRoute();
         });
       }
 
       if (swapOnlyCheckbox) {
         swapOnlyCheckbox.addEventListener("change", (e) => {
           // CRITICAL: Never allow user to change this when redemptions are disabled
-          if (self._state.redemptionsDisabled) {
+          if (this._state.redemptionsDisabled) {
             console.warn("Redemptions disabled - ignoring user checkbox change");
             e.preventDefault();
             e.stopPropagation();
@@ -203,11 +202,11 @@ export class SimplifiedExchangeComponent {
           }
 
           // Only allow changes when redemptions are enabled
-          self._state.forceSwapOnly = (e.target as HTMLInputElement).checked;
-          void self._calculateRoute();
+          this._state.forceSwapOnly = (e.target as HTMLInputElement).checked;
+          void this._calculateRoute();
         });
       }
-    }
+    };
 
     requestAnimationFrame(setupListeners);
   }
@@ -836,6 +835,8 @@ export class SimplifiedExchangeComponent {
   private _setupBalanceSubscription() {
     if (this._services.inventoryBar) {
       this._services.inventoryBar.onBalancesUpdated(() => {
+        // Re-render the UI to update button visibility based on new balances
+        this._render();
         this._autoPopulateMaxBalance();
       });
     }

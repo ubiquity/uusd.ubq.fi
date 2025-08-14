@@ -690,12 +690,12 @@ export class ContractService implements ContractReads, ContractWrites {
         redemptionFee: bigint;
       } | null = null;
       if (collateralAddresses.length > collateralIndex) {
-        collateralInfo = await publicClient.readContract({
+        collateralInfo = (await publicClient.readContract({
           address: ADDRESSES.DIAMOND,
           abi: DIAMOND_ABI,
           functionName: "collateralInformation",
           args: [collateralAddresses[collateralIndex]],
-        }) as {
+        })) as {
           isMintPaused: boolean;
           isRedeemPaused: boolean;
           mintingFee: bigint;

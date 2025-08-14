@@ -320,6 +320,14 @@ class UUSDApp {
         this._simplifiedExchangeComponent.updateWalletConnection(false);
         void this._inventoryBarComponent.handleWalletConnectionChange(null);
       },
+      onAccountChanged: (account: Address | null) => {
+        this._updateWalletUI(account);
+        if (account) {
+          void this._inventoryBarComponent.handleWalletConnectionChange(account);
+        } else {
+          void this._inventoryBarComponent.handleWalletConnectionChange(null);
+        }
+      },
     });
 
     // Transaction service event handlers
