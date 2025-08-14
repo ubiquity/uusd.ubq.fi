@@ -158,7 +158,7 @@ export class SimplifiedExchangeComponent {
    */
   private _setupEventListeners() {
     // Use requestAnimationFrame to ensure DOM is ready
-    const setupListeners = () => {
+    function setupListeners() {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
@@ -207,7 +207,7 @@ export class SimplifiedExchangeComponent {
           void this._calculateRoute();
         });
       }
-    };
+    }
 
     requestAnimationFrame(setupListeners);
   }

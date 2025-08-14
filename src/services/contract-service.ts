@@ -1,4 +1,4 @@
-import { type Address, type PublicClient, type WalletClient, maxUint256, formatUnits } from "viem";
+import { type Address, maxUint256, formatUnits } from "viem";
 import { ADDRESSES, DIAMOND_ABI, ERC20_ABI } from "../contracts/constants.ts";
 import type { CollateralInfo } from "../utils/calculation-utils.ts";
 import type { WalletService } from "./wallet-service.ts";

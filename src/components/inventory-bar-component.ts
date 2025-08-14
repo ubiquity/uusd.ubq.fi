@@ -4,8 +4,8 @@ import type { WalletService } from "../services/wallet-service.ts";
 import type { ContractService } from "../services/contract-service.ts";
 import type { PriceService } from "../services/price-service.ts";
 import type { NotificationManager } from "./notification-manager.ts";
-import type { TokenBalance, InventoryBarState, TokenMetadata, INVENTORY_TOKENS } from "../types/inventory.types.ts";
-import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero, createBalanceDisplayText } from "../utils/token-utils.ts";
+import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
+import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
 import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
 
 import icons from "./icons.ts";

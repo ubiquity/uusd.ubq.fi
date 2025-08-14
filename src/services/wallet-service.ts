@@ -15,13 +15,22 @@ export const WALLET_EVENTS = {
 export type WalletEvent = (typeof WALLET_EVENTS)[keyof typeof WALLET_EVENTS];
 
 /**
+ * Event listener types for wallet events
+ */
+type WalletEventListener<T extends WalletEvent> = T extends typeof WALLET_EVENTS.CONNECT | typeof WALLET_EVENTS.ACCOUNT_CHANGED
+  ? (address: Address | null) => void
+  : T extends typeof WALLET_EVENTS.DISCONNECT
+    ? () => void
+    : never;
+
+/**
  * Service responsible for wallet connection and management
  */
 export class WalletService {
   private _walletClient: WalletClient | null = null;
   private _publicClient: PublicClient;
   private _account: Address | null = null;
-  private _eventListeners: Map<WalletEvent, Array<(...args: any[]) => void>> = new Map();
+  private _eventListeners: Map<WalletEvent, Array<(address?: Address | null) => void>> = new Map();
   private static readonly _storageKey = "uusd_wallet_address";
 
   constructor() {
@@ -37,7 +46,7 @@ export class WalletService {
   /**
    * Add an event listener for wallet events
    */
-  addEventListener(event: WalletEvent, listener: (...args: any[]) => void): void {
+  addEventListener<T extends WalletEvent>(event: T, listener: WalletEventListener<T>): void {
     if (!this._eventListeners.has(event)) {
       this._eventListeners.set(event, []);
     }
@@ -50,7 +59,7 @@ export class WalletService {
   /**
    * Remove an event listener for wallet events
    */
-  removeEventListener(event: WalletEvent, listener: (...args: any[]) => void): void {
+  removeEventListener<T extends WalletEvent>(event: T, listener: WalletEventListener<T>): void {
     const listeners = this._eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(listener);
@@ -63,12 +72,12 @@ export class WalletService {
   /**
    * Emit an event to all listeners
    */
-  private _emit(event: WalletEvent, ...args: any[]): void {
+  private _emit(event: WalletEvent, address?: Address | null): void {
     const listeners = this._eventListeners.get(event);
     if (listeners) {
       listeners.forEach((listener) => {
         try {
-          listener(...args);
+          listener(address);
         } catch (error) {
           console.error(`Error in ${event} listener:`, error);
         }
