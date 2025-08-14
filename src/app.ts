@@ -106,6 +106,9 @@ class UUSDApp {
         this.loadRealPriceHistory().catch(error => {
             console.warn('Failed to load price history:', error);
         });
+
+        // Attempt auto-reconnect if wallet was previously connected
+        this.attemptAutoReconnect();
     }
 
     /**
@@ -288,6 +291,26 @@ class UUSDApp {
                 this.mintComponent.updateWalletConnection(false);
                 this.redeemComponent.updateWalletConnection(false);
                 this.inventoryBarComponent.handleWalletConnectionChange(null);
+            },
+            onAccountChanged: (account: Address | null) => {
+                if (account) {
+                    this.updateWalletUI(account);
+                    this.mintComponent.updateWalletConnection(true);
+                    this.redeemComponent.updateWalletConnection(true);
+                    this.redeemComponent.checkForPendingRedemptions(account);
+                    this.inventoryBarComponent.handleWalletConnectionChange(account);
+                    this.notificationManager.showSuccess('mint', 'Wallet account changed');
+                } else {
+                    this.updateWalletUI(null);
+                    this.tabManager.updateWalletConnection(false);
+                    this.mintComponent.updateWalletConnection(false);
+                    this.redeemComponent.updateWalletConnection(false);
+                    this.inventoryBarComponent.handleWalletConnectionChange(null);
+                }
+            },
+            onChainChanged: (chainId: string) => {
+                this.notificationManager.showError('mint', 'Network changed. Page will reload...');
+                // The wallet service already handles the reload
             }
         });
 
@@ -363,7 +386,7 @@ class UUSDApp {
     }
 
     // Public methods called from HTML
-    async connectWallet() {
+    async connectWallet(forceAccountSelection = false) {
         const connectButton = document.getElementById('connectWallet') as HTMLButtonElement;
         const originalText = connectButton.textContent;
 
@@ -372,7 +395,7 @@ class UUSDApp {
             connectButton.textContent = 'Connecting...';
             connectButton.disabled = true;
 
-            await this.walletService.connect();
+            await this.walletService.connect(forceAccountSelection);
             // UI updates are handled by event handlers
         } catch (error: any) {
             // Reset button state on error
@@ -392,6 +415,32 @@ class UUSDApp {
 
     async handleRedeem(event: Event) {
         await this.redeemComponent.handleSubmit(event);
+    }
+
+    /**
+     * Attempt to auto-reconnect wallet if previously connected
+     */
+    private async attemptAutoReconnect(): Promise<void> {
+        try {
+            const storedAccount = await this.walletService.checkStoredConnection();
+            if (storedAccount) {
+                console.log('🔌 Auto-reconnecting to previously connected wallet...');
+                // Update UI to show connecting state
+                const connectButton = document.getElementById('connectWallet') as HTMLButtonElement;
+                if (connectButton) {
+                    connectButton.textContent = 'Reconnecting...';
+                    connectButton.disabled = true;
+                }
+            }
+        } catch (error) {
+            console.warn('Auto-reconnect failed:', error);
+            // Reset UI state on failure
+            const connectButton = document.getElementById('connectWallet') as HTMLButtonElement;
+            if (connectButton) {
+                connectButton.textContent = 'Connect Wallet';
+                connectButton.disabled = false;
+            }
+        }
     }
 }
 
