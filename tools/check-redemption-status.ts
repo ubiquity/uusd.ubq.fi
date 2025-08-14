@@ -33,8 +33,9 @@ async function checkRedemptionStatus() {
         console.log(`🎯 Redeem Threshold: $${formatUnits(redeemThreshold, 6)}`);
 
         // Check if redemptions are allowed
-        // Redemptions are allowed when TWAP is ABOVE threshold (e.g. TWAP > $1.00)
-        const isRedeemingAllowed = twapPrice >= redeemThreshold;
+        // Redemptions are allowed when TWAP is BELOW OR EQUAL to threshold (e.g. TWAP $0.99 <= $1.00)
+        // This matches contract logic: require(getDollarPriceUsd() <= poolStorage.redeemPriceThreshold)
+        const isRedeemingAllowed = twapPrice <= redeemThreshold;
         console.log(`\n✅ Redemptions Allowed: ${isRedeemingAllowed ? 'YES' : 'NO'}`);
 
         if (!isRedeemingAllowed) {

@@ -41,6 +41,7 @@ export class SimplifiedExchangeComponent {
     amount: "",
     useUbqDiscount: false,
     forceSwapOnly: false,
+    acceptFractionalRedemption: false,
     redemptionsDisabled: false, // Track protocol redemption status separately
     protocolSettings: null as ProtocolSettings | null,
     routeResult: null as OptimalRouteResult | null,
@@ -165,6 +166,7 @@ export class SimplifiedExchangeComponent {
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
       const ubqDiscountCheckbox = document.getElementById("useUbqDiscount") as HTMLInputElement;
       const swapOnlyCheckbox = document.getElementById("forceSwapOnly") as HTMLInputElement;
+      const fractionalRedemptionCheckbox = document.getElementById("acceptFractionalRedemption") as HTMLInputElement;
 
       // Check if critical elements exist, if not retry
       if (!amountInput || !depositButton || !withdrawButton) {
@@ -205,6 +207,13 @@ export class SimplifiedExchangeComponent {
 
           // Only allow changes when redemptions are enabled
           this._state.forceSwapOnly = (e.target as HTMLInputElement).checked;
+          void this._calculateRoute();
+        });
+      }
+
+      if (fractionalRedemptionCheckbox) {
+        fractionalRedemptionCheckbox.addEventListener("change", (e) => {
+          this._state.acceptFractionalRedemption = (e.target as HTMLInputElement).checked;
           void this._calculateRoute();
         });
       }
@@ -495,11 +504,14 @@ export class SimplifiedExchangeComponent {
     const ubqOptionDiv = document.getElementById("ubqDiscountOption");
     const swapOnlyDiv = document.getElementById("swapOnlyOption");
     const swapOnlyCheckbox = document.getElementById("forceSwapOnly") as HTMLInputElement;
+    const fractionalRedemptionDiv = document.getElementById("fractionalRedemptionOption");
+    const fractionalRedemptionCheckbox = document.getElementById("acceptFractionalRedemption") as HTMLInputElement;
 
     if (!this._state.protocolSettings) {
       // Hide all options if settings not loaded
       if (ubqOptionDiv) ubqOptionDiv.style.display = "none";
       if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
+      if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
       return;
     }
 
@@ -510,54 +522,58 @@ export class SimplifiedExchangeComponent {
         ubqOptionDiv.style.display = shouldShowUbqOption ? "block" : "none";
       }
 
-      // Hide swap-only option for deposits
-      if (swapOnlyDiv) {
-        swapOnlyDiv.style.display = "none";
-      }
+      // Hide swap-only and fractional redemption options for deposits
+      if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
+      if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
     } else {
-      // For withdrawals: Check redemption status
+      // WITHDRAWALS: Intelligent routing based on protocol economics
+      const settings = this._state.protocolSettings;
+
       if (this._state.redemptionsDisabled) {
-        // REDEMPTIONS DISABLED - HIDE EVERYTHING, NO USER CHOICE
+        // Case 1: Price too high OR protocol conditions don't allow redemption
+        // Force Curve swap only, hide all choices to declutter UI
 
-        if (swapOnlyDiv) {
-          swapOnlyDiv.style.display = "none";
-          swapOnlyDiv.style.visibility = "hidden"; // Extra safety
-        }
-
+        this._state.forceSwapOnly = true;
+        if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
+        if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
         if (swapOnlyCheckbox) {
           swapOnlyCheckbox.checked = true;
           swapOnlyCheckbox.disabled = true;
-          // Remove any event listeners to prevent interaction
-          const newCheckbox = swapOnlyCheckbox.cloneNode(true) as HTMLInputElement;
-          swapOnlyCheckbox.parentNode?.replaceChild(newCheckbox, swapOnlyCheckbox);
         }
-      } else {
-        // REDEMPTIONS ENABLED - Show option for user choice
+      } else if (settings.isFullyCollateralized) {
+        // Case 2: Protocol 100%+ collateralized AND price below peg
+        // Show swap vs redemption choice (both give pure LUSD)
 
         if (swapOnlyDiv && swapOnlyCheckbox) {
           swapOnlyDiv.style.display = "block";
-          swapOnlyDiv.style.visibility = "visible";
           swapOnlyCheckbox.disabled = false;
           swapOnlyCheckbox.checked = this._state.forceSwapOnly;
+        }
+        if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
+      } else if (settings.isFractional) {
+        // Case 3: Protocol fractionally collateralized (~65%) AND price below peg
+        // Default to Curve swap (pure LUSD), allow opt-in to fractional redemption (LUSD+UBQ)
 
-          const label = swapOnlyDiv.querySelector('label[for="forceSwapOnly"]');
-          if (label) {
-            label.textContent = "Use Curve swap only";
-          }
+        this._state.forceSwapOnly = !this._state.acceptFractionalRedemption;
+        if (swapOnlyDiv) swapOnlyDiv.style.display = "none"; // Hide the old swap checkbox
+
+        if (fractionalRedemptionDiv && fractionalRedemptionCheckbox) {
+          fractionalRedemptionDiv.style.display = "block";
+          fractionalRedemptionCheckbox.checked = this._state.acceptFractionalRedemption;
         }
       }
 
       // Hide UBQ option for withdrawals
-      if (ubqOptionDiv) {
-        ubqOptionDiv.style.display = "none";
-      }
+      if (ubqOptionDiv) ubqOptionDiv.style.display = "none";
     }
 
     console.log("[RENDER OPTIONS] Complete. DOM state:", {
       swapOnlyDisplay: swapOnlyDiv?.style.display,
-      swapOnlyVisibility: swapOnlyDiv?.style.visibility,
-      checkboxChecked: swapOnlyCheckbox?.checked,
-      checkboxDisabled: swapOnlyCheckbox?.disabled,
+      fractionalRedemptionDisplay: fractionalRedemptionDiv?.style.display,
+      forceSwapOnly: this._state.forceSwapOnly,
+      acceptFractionalRedemption: this._state.acceptFractionalRedemption,
+      swapOnlyCheckboxChecked: swapOnlyCheckbox?.checked,
+      fractionalRedemptionCheckboxChecked: fractionalRedemptionCheckbox?.checked,
     });
   }
 

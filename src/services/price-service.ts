@@ -235,9 +235,11 @@ export class PriceService {
       governancePrice,
       twapPrice,
       redeemPriceThreshold,
-      // Redemptions are allowed when TWAP is ABOVE the threshold
-      // When TWAP < $1.00, redemptions are DISABLED
-      isRedeemingAllowed: twapPrice >= redeemPriceThreshold,
+      // Protocol redemptions are available when:
+      // 1. TWAP price is at or below threshold (e.g. TWAP $0.99 <= $1.00 threshold)
+      // 2. When fractionally collateralized (~65%), default to Curve swap since users get LUSD+UBQ mix
+      //    and UBQ doesn't have mature market liquidity yet - require explicit opt-in
+      isRedeemingAllowed: twapPrice <= redeemPriceThreshold,
     };
   }
 

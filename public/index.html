@@ -61,6 +61,18 @@
                     </div>
                 </div>
 
+                <!-- Optional: Accept Fractional Redemption (for withdrawals when protocol is undercollateralized) -->
+                <div id="fractionalRedemptionOption" class="form-group" style="display: none;">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="acceptFractionalRedemption" />
+                        <label for="acceptFractionalRedemption">Accept protocol redemption (will receive LUSD + UBQ tokens)</label>
+                    </div>
+                    <small style="color: #888; margin-left: 24px; display: block; margin-top: 4px;">
+                        ⚠️ Note: UBQ tokens don't have mature market liquidity yet<br>
+                        💡 Protocol uses TWAP prices for protection against flash loan attacks
+                    </small>
+                </div>
+
                 <!-- Output Display -->
                 <div id="exchangeOutput" class="output-section" style="display: none;">
                     <!-- <div class="output-row">
