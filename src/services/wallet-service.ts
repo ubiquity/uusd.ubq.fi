@@ -4,13 +4,15 @@ import { validateWalletConnection } from "../utils/validation-utils.ts";
 import { RPC_URL } from "../../tools/config.ts";
 
 /**
- * Interface for wallet service events
+ * Wallet events that can be emitted
  */
-export interface WalletServiceEvents {
-  onAccountChanged: (account: Address | null) => void;
-  onConnect: (account: Address) => void;
-  onDisconnect: () => void;
-}
+export const WALLET_EVENTS = {
+  CONNECT: "wallet:connect",
+  DISCONNECT: "wallet:disconnect",
+  ACCOUNT_CHANGED: "wallet:account-changed",
+} as const;
+
+export type WalletEvent = (typeof WALLET_EVENTS)[keyof typeof WALLET_EVENTS];
 
 /**
  * Service responsible for wallet connection and management
@@ -19,7 +21,7 @@ export class WalletService {
   private _walletClient: WalletClient | null = null;
   private _publicClient: PublicClient;
   private _account: Address | null = null;
-  private _events: Partial<WalletServiceEvents> = {};
+  private _eventListeners: Map<WalletEvent, Array<(...args: any[]) => void>> = new Map();
   private static readonly _storageKey = "uusd_wallet_address";
 
   constructor() {
@@ -27,13 +29,51 @@ export class WalletService {
       chain: mainnet,
       transport: http(RPC_URL),
     });
+
+    // Set up MetaMask event listeners for automatic account switching
+    this._setupMetaMaskListeners();
   }
 
   /**
-   * Set event handlers for wallet service events
+   * Add an event listener for wallet events
    */
-  setEventHandlers(events: Partial<WalletServiceEvents>) {
-    this._events = { ...this._events, ...events };
+  addEventListener(event: WalletEvent, listener: (...args: any[]) => void): void {
+    if (!this._eventListeners.has(event)) {
+      this._eventListeners.set(event, []);
+    }
+    const listeners = this._eventListeners.get(event);
+    if (listeners) {
+      listeners.push(listener);
+    }
+  }
+
+  /**
+   * Remove an event listener for wallet events
+   */
+  removeEventListener(event: WalletEvent, listener: (...args: any[]) => void): void {
+    const listeners = this._eventListeners.get(event);
+    if (listeners) {
+      const index = listeners.indexOf(listener);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  /**
+   * Emit an event to all listeners
+   */
+  private _emit(event: WalletEvent, ...args: any[]): void {
+    const listeners = this._eventListeners.get(event);
+    if (listeners) {
+      listeners.forEach((listener) => {
+        try {
+          listener(...args);
+        } catch (error) {
+          console.error(`Error in ${event} listener:`, error);
+        }
+      });
+    }
   }
 
   /**
@@ -71,9 +111,9 @@ export class WalletService {
       // Store the connected wallet address in localStorage
       localStorage.setItem(WalletService._storageKey, address);
 
-      this._events.onConnect?.(address);
+      this._emit(WALLET_EVENTS.CONNECT, address);
 
-      this._events.onAccountChanged?.(address);
+      this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, address);
 
       return address;
     } catch (error) {
@@ -92,8 +132,8 @@ export class WalletService {
     // Clear stored wallet address from localStorage
     localStorage.removeItem(WalletService._storageKey);
 
-    this._events.onDisconnect?.();
-    this._events.onAccountChanged?.(null);
+    this._emit(WALLET_EVENTS.DISCONNECT);
+    this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, null);
   }
 
   /**
@@ -169,8 +209,8 @@ export class WalletService {
 
       if (availableAddresses.includes(storedAddress as Address)) {
         this._account = storedAddress as Address;
-        this._events.onConnect?.(this._account);
-        this._events.onAccountChanged?.(this._account);
+        this._emit(WALLET_EVENTS.CONNECT, this._account);
+        this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, this._account);
         return this._account;
       } else {
         // Stored address is no longer available, clear it
@@ -181,6 +221,88 @@ export class WalletService {
       // Auto-reconnection failed, clear stored address
       localStorage.removeItem(WalletService._storageKey);
       return null;
+    }
+  }
+
+  /**
+   * Set up MetaMask event listeners for automatic account switching
+   */
+  private _setupMetaMaskListeners(): void {
+    // Only set up listeners if MetaMask is available
+    if (!window.ethereum) {
+      return;
+    }
+
+    // Listen for account changes in MetaMask
+    window.ethereum.on("accountsChanged", (...args: unknown[]) => {
+      const accounts = args[0] as string[];
+      console.log("🔄 MetaMask account change detected:", accounts);
+      void this._handleAccountsChanged(accounts);
+    });
+
+    // Listen for chain changes (optional, for better UX)
+    window.ethereum.on("chainChanged", (...args: unknown[]) => {
+      const chainId = args[0] as string;
+      console.log("🔗 MetaMask chain change detected:", chainId);
+      // For now, just log - you might want to handle chain changes in the future
+    });
+
+    // Listen for wallet disconnect/lock
+    window.ethereum.on("disconnect", () => {
+      console.log("🔌 MetaMask disconnect detected");
+      // Handle wallet disconnect
+      if (this.isConnected()) {
+        this.disconnect();
+      }
+    });
+  }
+
+  /**
+   * Handle MetaMask account changes
+   */
+  private async _handleAccountsChanged(accounts: string[]): Promise<void> {
+    try {
+      // If no accounts available (wallet locked or disconnected)
+      if (!accounts || accounts.length === 0) {
+        console.log("🔒 No accounts available - wallet may be locked");
+        if (this.isConnected()) {
+          this.disconnect();
+        }
+        return;
+      }
+
+      const newAccount = accounts[0] as Address;
+      const currentAccount = this._account;
+
+      // If the account actually changed and we were connected
+      if (this.isConnected() && currentAccount !== newAccount) {
+        console.log("🔄 Account switched from", currentAccount, "to", newAccount);
+
+        // Update internal state
+        this._account = newAccount;
+
+        // Update stored address
+        localStorage.setItem(WalletService._storageKey, newAccount);
+
+        // Create new wallet client for the new account
+        if (window.ethereum) {
+          this._walletClient = createWalletClient({
+            chain: mainnet,
+            transport: custom(window.ethereum),
+          });
+        }
+
+        // Notify listeners of the account change
+        this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, newAccount);
+
+        console.log("✅ Account switch completed successfully");
+      } else if (!this.isConnected() && newAccount) {
+        // If we weren't connected but now have an account, don't auto-connect
+        // Let the user manually connect if they want to
+        console.log("📱 New account detected but not auto-connecting. User must manually connect.");
+      }
+    } catch (error) {
+      console.error("❌ Error handling account change:", error);
     }
   }
 

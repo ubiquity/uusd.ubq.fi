@@ -7,6 +7,7 @@ import type { TransactionService } from "../services/transaction-service.ts";
 import type { SwapService } from "../services/swap-service.ts";
 import { TransactionStateService } from "../services/transaction-state-service.ts";
 import { OptimalRouteService, type OptimalRouteResult, type ExchangeDirection } from "../services/optimal-route-service.ts";
+import { WALLET_EVENTS } from "../services/wallet-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
@@ -108,47 +109,47 @@ export class SimplifiedExchangeComponent {
   }
 
   private _setupWalletEventListeners() {
-    this._services.walletService.setEventHandlers({
-      onConnect: async (_account: Address) => {
-        // Clear state and re-evaluate on wallet connect
-        this._state.amount = "";
-        this._state.routeResult = null;
+    this._services.walletService.addEventListener(WALLET_EVENTS.CONNECT, async (_account: Address) => {
+      // Clear state and re-evaluate on wallet connect
+      this._state.amount = "";
+      this._state.routeResult = null;
 
-        // Wait for balances to load before rendering
+      // Wait for balances to load before rendering
+      await this._services.inventoryBar.waitForInitialLoad();
+
+      this._render();
+      this._autoPopulateMaxBalance();
+    });
+
+    this._services.walletService.addEventListener(WALLET_EVENTS.DISCONNECT, () => {
+      // Clear all state on disconnect
+      this._state.amount = "";
+      this._state.routeResult = null;
+      this._state.direction = "deposit"; // Reset to default
+      const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+      if (amountInput) amountInput.value = "";
+      this._render();
+    });
+
+    this._services.walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, async (account: Address | null) => {
+      // Clear state and force re-evaluation when switching accounts
+      this._state.amount = "";
+      this._state.routeResult = null;
+      const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+      if (amountInput) amountInput.value = "";
+
+      // If connected, wait for balance load
+      if (account) {
         await this._services.inventoryBar.waitForInitialLoad();
+      }
 
-        this._render();
+      // Force a fresh render that will auto-select the correct direction
+      this._render();
+
+      // If connected, auto-populate balance for the new account
+      if (account) {
         this._autoPopulateMaxBalance();
-      },
-      onDisconnect: () => {
-        // Clear all state on disconnect
-        this._state.amount = "";
-        this._state.routeResult = null;
-        this._state.direction = "deposit"; // Reset to default
-        const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
-        if (amountInput) amountInput.value = "";
-        this._render();
-      },
-      onAccountChanged: async (account: Address | null) => {
-        // Clear state and force re-evaluation when switching accounts
-        this._state.amount = "";
-        this._state.routeResult = null;
-        const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
-        if (amountInput) amountInput.value = "";
-
-        // If connected, wait for balance load
-        if (account) {
-          await this._services.inventoryBar.waitForInitialLoad();
-        }
-
-        // Force a fresh render that will auto-select the correct direction
-        this._render();
-
-        // If connected, auto-populate balance for the new account
-        if (account) {
-          this._autoPopulateMaxBalance();
-        }
-      },
+      }
     });
   }
 

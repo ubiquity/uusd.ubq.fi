@@ -19,6 +19,7 @@ export interface InventoryBarState {
   isLoading: boolean;
   balances: TokenBalance[];
   totalUsdValue: number;
+  currentAccount: Address | null; // Track which account the current balances belong to
 }
 
 /**

@@ -45,6 +45,7 @@ export class InventoryBarComponent {
       isLoading: false,
       balances: [],
       totalUsdValue: 0,
+      currentAccount: null,
     };
 
     // Create initial load promise
@@ -82,15 +83,32 @@ export class InventoryBarComponent {
   /**
    * Handle wallet connection
    */
-  private async _handleWalletConnect(_account: Address): Promise<void> {
+  private async _handleWalletConnect(account: Address): Promise<void> {
     this._state.isConnected = true;
     this._updateConnectionState();
 
-    // Use background refresh if we already have some balances (reconnection)
-    // Use initial load if no balances exist (fresh connection)
-    const isReconnection = this._state.balances.length > 0;
+    // Check if this is an account change (different from current account)
+    const isAccountChange = this._state.currentAccount && this._state.currentAccount !== account;
 
-    await this._loadBalances(!isReconnection); // Background refresh for reconnections
+    if (isAccountChange) {
+      console.log(`🔄 Account changed from ${this._state.currentAccount} to ${account} - clearing stale balance data`);
+
+      // Clear stale balance data immediately for account changes
+      this._state.balances = [];
+      this._state.totalUsdValue = 0;
+      this._state.currentAccount = account;
+
+      // Force a fresh load (not background refresh) so user sees loading state
+      await this._loadBalances(false); // false = initial load with loading state
+    } else {
+      // Same account reconnection or first connection
+      this._state.currentAccount = account;
+
+      // Use background refresh if we already have some balances (reconnection)
+      // Use initial load if no balances exist (fresh connection)
+      const isReconnection = this._state.balances.length > 0;
+      await this._loadBalances(!isReconnection); // Background refresh for reconnections
+    }
 
     this._startPeriodicUpdates();
   }
@@ -102,6 +120,7 @@ export class InventoryBarComponent {
     this._state.isConnected = false;
     this._state.balances = [];
     this._state.totalUsdValue = 0;
+    this._state.currentAccount = null;
     console.log("[InventoryBar] State after disconnect:", {
       isConnected: this._state.isConnected,
       balances: this._state.balances,

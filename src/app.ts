@@ -1,7 +1,7 @@
 import { type Address, formatUnits } from "viem";
 
 // Import services
-import { WalletService } from "./services/wallet-service.ts";
+import { WalletService, WALLET_EVENTS } from "./services/wallet-service.ts";
 import { ContractService } from "./services/contract-service.ts";
 import { PriceService } from "./services/price-service.ts";
 import { CurvePriceService } from "./services/curve-price-service.ts";
@@ -308,26 +308,26 @@ class UUSDApp {
   }
 
   private _setupServiceEventHandlers() {
-    // Wallet service event handlers
-    this._walletService.setEventHandlers({
-      onConnect: (account: Address) => {
-        this._updateWalletUI(account);
-        this._simplifiedExchangeComponent.updateWalletConnection(true);
+    // Wallet service event handlers using new event system
+    this._walletService.addEventListener(WALLET_EVENTS.CONNECT, (account: Address) => {
+      this._updateWalletUI(account);
+      this._simplifiedExchangeComponent.updateWalletConnection(true);
+      void this._inventoryBarComponent.handleWalletConnectionChange(account);
+    });
+
+    this._walletService.addEventListener(WALLET_EVENTS.DISCONNECT, () => {
+      this._updateWalletUI(null);
+      this._simplifiedExchangeComponent.updateWalletConnection(false);
+      void this._inventoryBarComponent.handleWalletConnectionChange(null);
+    });
+
+    this._walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, (account: Address | null) => {
+      this._updateWalletUI(account);
+      if (account) {
         void this._inventoryBarComponent.handleWalletConnectionChange(account);
-      },
-      onDisconnect: () => {
-        this._updateWalletUI(null);
-        this._simplifiedExchangeComponent.updateWalletConnection(false);
+      } else {
         void this._inventoryBarComponent.handleWalletConnectionChange(null);
-      },
-      onAccountChanged: (account: Address | null) => {
-        this._updateWalletUI(account);
-        if (account) {
-          void this._inventoryBarComponent.handleWalletConnectionChange(account);
-        } else {
-          void this._inventoryBarComponent.handleWalletConnectionChange(null);
-        }
-      },
+      }
     });
 
     // Transaction service event handlers
