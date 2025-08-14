@@ -44,6 +44,7 @@ export class SimplifiedExchangeComponent {
     forceSwapOnly: false,
     acceptFractionalRedemption: false,
     redemptionsDisabled: false, // Track protocol redemption status separately
+    mintingDisabled: true, // Default to true until we verify minting is allowed
     protocolSettings: null as ProtocolSettings | null,
     routeResult: null as OptimalRouteResult | null,
     isCalculating: false,
@@ -60,9 +61,17 @@ export class SimplifiedExchangeComponent {
   private async _init() {
     await this._loadProtocolSettings();
 
-    // ALWAYS check redemption status on init so state is correct from the start
-
+    // Check redemption status on init
     await this._checkRedemptionStatus();
+    
+    // Get minting status from centralized refresh service
+    this._updateFromCentralizedData();
+    
+    console.log("[INIT] Initial state after status checks:", {
+      mintingDisabled: this._state.mintingDisabled,
+      redemptionsDisabled: this._state.redemptionsDisabled,
+      direction: this._state.direction
+    });
 
     this._registerTransactionButton();
     this._setupEventListeners();
@@ -81,8 +90,63 @@ export class SimplifiedExchangeComponent {
       // Balances are guaranteed to be loaded now
       this._autoPopulateMaxBalance();
     }
+    
+    // If we're starting on deposit mode, immediately hide UBQ option if minting disabled
+    if (this._state.direction === "deposit" && this._state.mintingDisabled) {
+      const ubqOptionDiv = document.getElementById("ubqDiscountOption");
+      if (ubqOptionDiv) {
+        ubqOptionDiv.style.display = "none";
+      }
+    }
 
     // Protocol settings and redemption status are now handled by centralized refresh service
+  }
+
+  /**
+   * Update state from centralized refresh data
+   */
+  private _updateFromCentralizedData() {
+    // Get the centralized refresh service instance through app
+    const app = (window as any).app;
+    if (!app?.centralizedRefreshService) {
+      console.warn("[SIMPLIFIED EXCHANGE] Centralized refresh service not available");
+      return;
+    }
+    
+    const refreshData = app.centralizedRefreshService.getLastData();
+    if (refreshData) {
+      // Update minting disabled state from centralized data
+      this._state.mintingDisabled = !refreshData.isMintingAllowed;
+      
+      // If minting is disabled, ensure UBQ discount is unchecked
+      if (this._state.mintingDisabled) {
+        this._state.useUbqDiscount = false;
+      }
+      
+      console.log("[CENTRALIZED DATA] Updated minting state:", {
+        mintingDisabled: this._state.mintingDisabled,
+        isMintingAllowed: refreshData.isMintingAllowed,
+        twapPrice: refreshData.twapPrice?.toString(),
+        mintThreshold: refreshData.mintThreshold?.toString(),
+      });
+    }
+    
+    // Subscribe to updates
+    app.centralizedRefreshService.subscribe((data: any) => {
+      const previousMintingState = this._state.mintingDisabled;
+      this._state.mintingDisabled = !data.isMintingAllowed;
+      
+      // If minting became disabled, uncheck UBQ discount
+      if (this._state.mintingDisabled && !previousMintingState) {
+        this._state.useUbqDiscount = false;
+      }
+      
+      // Re-render if minting state changed and we're on deposit
+      if (this._state.direction === "deposit" && previousMintingState !== this._state.mintingDisabled) {
+        console.log("[CENTRALIZED UPDATE] Minting state changed, re-rendering");
+        this._renderOptions();
+      }
+    });
   }
 
   /**
@@ -179,7 +243,22 @@ export class SimplifiedExchangeComponent {
       }
 
       if (ubqDiscountCheckbox) {
-        ubqDiscountCheckbox.addEventListener("change", (e) => {
+        ubqDiscountCheckbox.addEventListener("change", async (e) => {
+          // Double-check minting is allowed before accepting the change
+          if (this._state.direction === "deposit" && this._state.mintingDisabled) {
+            console.warn("[UBQ DISCOUNT] Minting disabled - preventing UBQ discount selection");
+            e.preventDefault();
+            (e.target as HTMLInputElement).checked = false;
+            this._state.useUbqDiscount = false;
+            
+            // Hide the option immediately
+            const ubqOptionDiv = document.getElementById("ubqDiscountOption");
+            if (ubqOptionDiv) {
+              ubqOptionDiv.style.display = "none";
+            }
+            return;
+          }
+          
           this._state.useUbqDiscount = (e.target as HTMLInputElement).checked;
           void this._calculateRoute();
         });
@@ -422,6 +501,7 @@ export class SimplifiedExchangeComponent {
     this._renderOutput();
   }
 
+
   /**
    * Check redemption status and update state
    */
@@ -490,7 +570,9 @@ export class SimplifiedExchangeComponent {
     console.log("[RENDER OPTIONS] Starting render with state:", {
       direction: this._state.direction,
       redemptionsDisabled: this._state.redemptionsDisabled,
+      mintingDisabled: this._state.mintingDisabled,
       forceSwapOnly: this._state.forceSwapOnly,
+      protocolIsFractional: this._state.protocolSettings?.isFractional,
     });
 
     const ubqOptionDiv = document.getElementById("ubqDiscountOption");
@@ -508,10 +590,27 @@ export class SimplifiedExchangeComponent {
     }
 
     if (this._state.direction === "deposit") {
-      // For deposits: Show UBQ discount option only if protocol is fractional (not 100% collateralized)
+      // For deposits: Show UBQ discount option only if protocol is fractional AND minting is allowed
       if (ubqOptionDiv) {
-        const shouldShowUbqOption = this._state.protocolSettings.isFractional;
+        // Only show UBQ option if fractional AND minting is allowed
+        const shouldShowUbqOption = this._state.protocolSettings.isFractional && !this._state.mintingDisabled;
+        
+        console.log("[UBQ DISCOUNT] Visibility check:", {
+          isFractional: this._state.protocolSettings.isFractional,
+          mintingDisabled: this._state.mintingDisabled,
+          shouldShow: shouldShowUbqOption,
+          currentDisplay: ubqOptionDiv.style.display
+        });
+        
         ubqOptionDiv.style.display = shouldShowUbqOption ? "block" : "none";
+        
+        // If minting not allowed, ensure the checkbox is unchecked
+        if (this._state.mintingDisabled) {
+          const ubqDiscountCheckbox = document.getElementById("useUbqDiscount") as HTMLInputElement;
+          if (ubqDiscountCheckbox) {
+            ubqDiscountCheckbox.checked = false;
+          }
+        }
       }
 
       // Hide swap-only and fractional redemption options for deposits
@@ -560,10 +659,13 @@ export class SimplifiedExchangeComponent {
     }
 
     console.log("[RENDER OPTIONS] Complete. DOM state:", {
+      ubqDiscountDisplay: ubqOptionDiv?.style.display,
       swapOnlyDisplay: swapOnlyDiv?.style.display,
       fractionalRedemptionDisplay: fractionalRedemptionDiv?.style.display,
       forceSwapOnly: this._state.forceSwapOnly,
       acceptFractionalRedemption: this._state.acceptFractionalRedemption,
+      useUbqDiscount: this._state.useUbqDiscount,
+      mintingDisabled: this._state.mintingDisabled,
       swapOnlyCheckboxChecked: swapOnlyCheckbox?.checked,
       fractionalRedemptionCheckboxChecked: fractionalRedemptionCheckbox?.checked,
     });

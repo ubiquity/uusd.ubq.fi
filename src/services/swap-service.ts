@@ -3,6 +3,7 @@ import type { WalletService } from "./wallet-service.ts";
 import type { ContractService } from "./contract-service.ts";
 import { BASIS_POINTS_DIVISOR, DEFAULT_SLIPPAGE_PERCENT } from "../constants/numeric-constants.ts";
 import { ADDRESSES, LUSD_COLLATERAL } from "../contracts/constants.ts";
+import { cacheService, CACHE_CONFIGS } from "./cache-service.ts";
 
 /**
  * Curve Pool ABI for swaps
@@ -162,14 +163,23 @@ export class SwapService {
    * Get swap quote from Curve pool
    */
   private async _getSwapQuoteInternal(amountIn: bigint, fromIndex: bigint, toIndex: bigint): Promise<bigint> {
-    const publicClient = this._walletService.getPublicClient();
+    // Create cache key that includes all parameters
+    const cacheKey = `curve-dy-${fromIndex}-${toIndex}-${amountIn.toString()}`;
+    
+    return await cacheService.getOrFetch(
+      cacheKey,
+      async () => {
+        const publicClient = this._walletService.getPublicClient();
 
-    return (await publicClient.readContract({
-      address: this._curvePoolAddress,
-      abi: CURVE_POOL_ABI,
-      functionName: "get_dy",
-      args: [fromIndex, toIndex, amountIn],
-    })) as bigint;
+        return (await publicClient.readContract({
+          address: this._curvePoolAddress,
+          abi: CURVE_POOL_ABI,
+          functionName: "get_dy",
+          args: [fromIndex, toIndex, amountIn],
+        })) as bigint;
+      },
+      CACHE_CONFIGS.CURVE_DY_QUOTE
+    );
   }
 
   /**

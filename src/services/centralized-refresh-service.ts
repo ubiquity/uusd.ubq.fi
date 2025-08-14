@@ -30,6 +30,11 @@ export interface RefreshData {
 
   // Curve data
   curveExchangeRate: bigint;
+  
+  // Protocol status
+  isMintingAllowed: boolean;
+  isRedeemingAllowed: boolean;
+  twapPrice: bigint;
 }
 
 /**
@@ -56,6 +61,7 @@ export class CentralizedRefreshService {
   private _callbacks: RefreshDataCallback[] = [];
   private _lastData: RefreshData | null = null;
   private readonly _intervalMs = 15000; // 15 seconds - aligned with Ethereum block time
+  private readonly _localStorageKey = "ubiquity_refresh_data";
 
   // Cache last successful price values
   private _lastGoodPrices: {
@@ -78,7 +84,15 @@ export class CentralizedRefreshService {
   public start(): void {
     this.stop(); // Clear any existing interval
 
-    // Initial refresh
+    // Load cached data immediately for instant UI
+    const cachedData = this._loadFromLocalStorage();
+    if (cachedData) {
+      this._lastData = cachedData;
+      this._notifyCallbacks(cachedData);
+      console.log("📦 Loaded cached data from localStorage");
+    }
+
+    // Initial refresh (will update with fresh data)
     this._performRefresh().catch((error) => {
       console.warn("Initial centralized refresh failed:", error);
     });
@@ -162,6 +176,10 @@ export class CentralizedRefreshService {
         ? this._calculateTokenUSDValues(tokenBalancesData, diamondMulticallData.lusdPrice, diamondMulticallData.ubqPrice, uusdPrice)
         : tokenBalancesData;
 
+      // Calculate minting/redeeming status based on TWAP vs thresholds
+      const isMintingAllowed = diamondMulticallData.twapPrice >= externalData.mintThreshold;
+      const isRedeemingAllowed = diamondMulticallData.twapPrice <= externalData.redeemThreshold;
+
       // Compile all data
       const refreshData: RefreshData = {
         uusdPrice,
@@ -173,10 +191,14 @@ export class CentralizedRefreshService {
         mintThreshold: externalData.mintThreshold,
         redeemThreshold: externalData.redeemThreshold,
         curveExchangeRate: 0n, // Not needed since we use price service
+        isMintingAllowed,
+        isRedeemingAllowed,
+        twapPrice: diamondMulticallData.twapPrice,
       };
 
       // Cache and notify
       this._lastData = refreshData;
+      this._saveToLocalStorage(refreshData);
       this._notifyCallbacks(refreshData);
     } catch (error) {
       console.error("Centralized refresh failed:", error);
@@ -213,12 +235,18 @@ export class CentralizedRefreshService {
           abi: DIAMOND_ABI,
           functionName: "allCollaterals",
         },
+        {
+          address: diamondAddress,
+          abi: DIAMOND_ABI,
+          functionName: "getTwapOracleCollateralPrice",
+          args: [0], // LUSD collateral index
+        },
       ],
     });
 
     // Extract prices - throw error if critical data missing
-    if (!multicallResults || multicallResults.length < 4) {
-      throw new Error(`Insufficient multicall results: expected 4, got ${multicallResults?.length || 0}`);
+    if (!multicallResults || multicallResults.length < 5) {
+      throw new Error(`Insufficient multicall results: expected 5, got ${multicallResults?.length || 0}`);
     }
 
     if (multicallResults[1].status !== "success") {
@@ -233,11 +261,14 @@ export class CentralizedRefreshService {
     const ubqPrice = multicallResults[2].result as bigint;
     this._lastGoodPrices.ubqPrice = ubqPrice;
 
+    const twapPrice = multicallResults[4].status === "success" ? (multicallResults[4].result as bigint) : 0n;
+
     return {
       collateralRatio: multicallResults[0].status === "success" ? (multicallResults[0].result as bigint) : 0n,
       lusdPrice,
       ubqPrice,
       allCollaterals: multicallResults[3].status === "success" ? (multicallResults[3].result as readonly Address[]) : [],
+      twapPrice,
     };
   }
 
@@ -392,5 +423,72 @@ export class CentralizedRefreshService {
     this.stop();
     this._callbacks = [];
     this._lastData = null;
+  }
+
+  /**
+   * Save refresh data to localStorage
+   */
+  private _saveToLocalStorage(data: RefreshData): void {
+    try {
+      // Convert bigints to strings for JSON serialization
+      const serializable = {
+        ...data,
+        lusdPrice: data.lusdPrice.toString(),
+        ubqPrice: data.ubqPrice.toString(),
+        collateralRatio: data.collateralRatio.toString(),
+        mintThreshold: data.mintThreshold.toString(),
+        redeemThreshold: data.redeemThreshold.toString(),
+        curveExchangeRate: data.curveExchangeRate.toString(),
+        twapPrice: data.twapPrice.toString(),
+        allCollaterals: data.allCollaterals.map(addr => addr),
+        tokenBalances: data.tokenBalances?.map(balance => ({
+          ...balance,
+          balance: balance.balance.toString(),
+        })),
+        timestamp: Date.now(),
+      };
+      
+      localStorage.setItem(this._localStorageKey, JSON.stringify(serializable));
+    } catch (error) {
+      console.warn("Failed to save to localStorage:", error);
+    }
+  }
+
+  /**
+   * Load refresh data from localStorage
+   */
+  private _loadFromLocalStorage(): RefreshData | null {
+    try {
+      const stored = localStorage.getItem(this._localStorageKey);
+      if (!stored) return null;
+      
+      const parsed = JSON.parse(stored);
+      
+      // Check if data is older than 5 minutes
+      if (parsed.timestamp && Date.now() - parsed.timestamp > 5 * 60 * 1000) {
+        localStorage.removeItem(this._localStorageKey);
+        return null;
+      }
+      
+      // Convert strings back to bigints
+      return {
+        ...parsed,
+        lusdPrice: BigInt(parsed.lusdPrice),
+        ubqPrice: BigInt(parsed.ubqPrice),
+        collateralRatio: BigInt(parsed.collateralRatio),
+        mintThreshold: BigInt(parsed.mintThreshold),
+        redeemThreshold: BigInt(parsed.redeemThreshold),
+        curveExchangeRate: BigInt(parsed.curveExchangeRate),
+        twapPrice: BigInt(parsed.twapPrice),
+        allCollaterals: parsed.allCollaterals as readonly Address[],
+        tokenBalances: parsed.tokenBalances?.map((balance: any) => ({
+          ...balance,
+          balance: BigInt(balance.balance),
+        })),
+      };
+    } catch (error) {
+      console.warn("Failed to load from localStorage:", error);
+      return null;
+    }
   }
 }

@@ -4,6 +4,7 @@ import type { CurvePriceService } from "./curve-price-service.ts";
 import type { ContractService } from "./contract-service.ts";
 import type { WalletService } from "./wallet-service.ts";
 import { LUSD_COLLATERAL, ADDRESSES } from "../contracts/constants.ts";
+import { cacheService, CACHE_CONFIGS } from "./cache-service.ts";
 
 /**
  * Route types for optimal execution
@@ -371,29 +372,36 @@ export class OptimalRouteService {
 
     if (fromToken === "LUSD" && toToken === "UUSD") {
       // For LUSD → UUSD, we need to calculate based on the amount
-      // Since CurvePriceService.getUUSDMarketPrice expects LUSD price and returns UUSD price per unit,
-      // we need to simulate the actual swap amount
-      const publicClient = this._walletService.getPublicClient();
-      return (await publicClient.readContract({
-        address: ADDRESSES.CURVE_POOL,
-        abi: [
-          {
-            name: "get_dy",
-            type: "function",
-            stateMutability: "view",
-            inputs: [
-              { name: "i", type: "int128" },
-              { name: "j", type: "int128" },
-              { name: "dx", type: "uint256" },
+      // Create cache key for this specific swap
+      const cacheKey = `curve-dy-lusd-to-uusd-${amount.toString()}`;
+      
+      return await cacheService.getOrFetch(
+        cacheKey,
+        async () => {
+          const publicClient = this._walletService.getPublicClient();
+          return (await publicClient.readContract({
+            address: ADDRESSES.CURVE_POOL,
+            abi: [
+              {
+                name: "get_dy",
+                type: "function",
+                stateMutability: "view",
+                inputs: [
+                  { name: "i", type: "int128" },
+                  { name: "j", type: "int128" },
+                  { name: "dx", type: "uint256" },
+                ],
+                outputs: [{ type: "uint256" }],
+              },
             ],
-            outputs: [{ type: "uint256" }],
-          },
-        ],
-        functionName: "get_dy",
-        args: [0n, 1n, amount], // LUSD index 0, UUSD index 1
-      })) as bigint;
+            functionName: "get_dy",
+            args: [0n, 1n, amount], // LUSD index 0, UUSD index 1
+          })) as bigint;
+        },
+        CACHE_CONFIGS.CURVE_DY_QUOTE
+      );
     } else if (fromToken === "UUSD" && toToken === "LUSD") {
-      // Use existing method for UUSD → LUSD
+      // Use existing method for UUSD → LUSD (already cached in CurvePriceService)
       return this._curvePriceService.getLUSDForUUSD(amount);
     } else {
       throw new Error(`Unsupported swap pair: ${fromToken} → ${toToken}`);

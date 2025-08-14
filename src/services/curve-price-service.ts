@@ -1,6 +1,7 @@
 import { type Address, type PublicClient as _PublicClient, parseEther } from "viem";
 import type { WalletService } from "./wallet-service.ts";
 import { ADDRESSES } from "../contracts/constants.ts";
+import { cacheService, CACHE_CONFIGS } from "./cache-service.ts";
 
 /**
  * Curve Pool ABI - minimal interface for price calculations
@@ -44,26 +45,35 @@ export class CurvePriceService {
    * Formula: UUSD_Price = LUSD_Price × (LUSD_amount_in / UUSD_amount_out)
    */
   async getUUSDMarketPrice(lusdPriceUsd: bigint): Promise<bigint> {
-    const publicClient = this._walletService.getPublicClient();
-
     // Use 1 LUSD as the test amount for calculating exchange rate
     const testAmount = parseEther("1"); // 1 LUSD
+    
+    // Create cache key that includes the LUSD price to ensure we recalculate when price changes
+    const cacheKey = `curve-uusd-price-${lusdPriceUsd.toString()}`;
 
     try {
-      // Get how much UUSD we would receive for 1 LUSD
-      const uusdReceived = (await publicClient.readContract({
-        address: this._curvePoolAddress,
-        abi: CURVE_POOL_ABI,
-        functionName: "get_dy",
-        args: [this._lusdIndex, this._uusdIndex, testAmount],
-      })) as bigint;
+      return await cacheService.getOrFetch(
+        cacheKey,
+        async () => {
+          const publicClient = this._walletService.getPublicClient();
+          
+          // Get how much UUSD we would receive for 1 LUSD
+          const uusdReceived = (await publicClient.readContract({
+            address: this._curvePoolAddress,
+            abi: CURVE_POOL_ABI,
+            functionName: "get_dy",
+            args: [this._lusdIndex, this._uusdIndex, testAmount],
+          })) as bigint;
 
-      // Calculate the exchange rate: LUSD/UUSD
-      // If 1 LUSD = 1.03 UUSD, then 1 UUSD = LUSD_price / 1.03
-      // UUSD_Price = LUSD_Price × (1 LUSD / UUSD_received)
-      const uusdPriceUsd = (lusdPriceUsd * testAmount) / uusdReceived;
+          // Calculate the exchange rate: LUSD/UUSD
+          // If 1 LUSD = 1.03 UUSD, then 1 UUSD = LUSD_price / 1.03
+          // UUSD_Price = LUSD_Price × (1 LUSD / UUSD_received)
+          const uusdPriceUsd = (lusdPriceUsd * testAmount) / uusdReceived;
 
-      return uusdPriceUsd;
+          return uusdPriceUsd;
+        },
+        CACHE_CONFIGS.CURVE_EXCHANGE_RATE
+      );
     } catch (error) {
       console.error("❌ Failed to get UUSD price from Curve pool:", error);
       throw new Error("Unable to fetch UUSD market price from Curve pool");
@@ -74,14 +84,23 @@ export class CurvePriceService {
    * Get the reverse exchange rate: how much LUSD for 1 UUSD
    */
   async getLUSDForUUSD(amount: bigint): Promise<bigint> {
-    const publicClient = this._walletService.getPublicClient();
-
-    return (await publicClient.readContract({
-      address: this._curvePoolAddress,
-      abi: CURVE_POOL_ABI,
-      functionName: "get_dy",
-      args: [this._uusdIndex, this._lusdIndex, amount],
-    })) as bigint;
+    // Create cache key that includes the amount
+    const cacheKey = `curve-dy-uusd-to-lusd-${amount.toString()}`;
+    
+    return await cacheService.getOrFetch(
+      cacheKey,
+      async () => {
+        const publicClient = this._walletService.getPublicClient();
+        
+        return (await publicClient.readContract({
+          address: this._curvePoolAddress,
+          abi: CURVE_POOL_ABI,
+          functionName: "get_dy",
+          args: [this._uusdIndex, this._lusdIndex, amount],
+        })) as bigint;
+      },
+      CACHE_CONFIGS.CURVE_DY_QUOTE
+    );
   }
 
   /**
