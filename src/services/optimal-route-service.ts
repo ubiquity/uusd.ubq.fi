@@ -3,7 +3,7 @@ import type { PriceService, MintPriceResult, RedeemPriceResult } from "./price-s
 import type { CurvePriceService } from "./curve-price-service.ts";
 import type { ContractService } from "./contract-service.ts";
 import type { WalletService } from "./wallet-service.ts";
-import { LUSD_COLLATERAL } from "../contracts/constants.ts";
+import { LUSD_COLLATERAL, ADDRESSES } from "../contracts/constants.ts";
 
 /**
  * Route types for optimal execution
@@ -375,7 +375,7 @@ export class OptimalRouteService {
       // we need to simulate the actual swap amount
       const publicClient = this._walletService.getPublicClient();
       return (await publicClient.readContract({
-        address: "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f",
+        address: ADDRESSES.CURVE_POOL,
         abi: [
           {
             name: "get_dy",

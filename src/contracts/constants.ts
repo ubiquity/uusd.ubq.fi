@@ -6,6 +6,7 @@ export const ADDRESSES: ContractAddresses = {
   DIAMOND: "0xED3084c98148e2528DaDCB53C56352e549C488fA" as Address,
   DOLLAR: "0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103" as Address,
   GOVERNANCE: "0x4e38d89362f7e5db0096ce44ebd021c3962aa9a0" as Address,
+  CURVE_POOL: "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f" as Address,
 };
 
 // Hardcoded LUSD collateral configuration
@@ -16,6 +17,11 @@ export const LUSD_COLLATERAL = {
   mintingFee: 0,
   redemptionFee: 0,
   missingDecimals: 0,
+} as const;
+
+// Event signatures
+export const EVENT_SIGNATURES = {
+  CURVE_TOKEN_EXCHANGE: "0x8b3e96f2b889fa771c53c981b40daf005f63f637f1869f707052d15a3dd97140",
 } as const;
 
 // Price threshold configuration - these are read dynamically from contract storage

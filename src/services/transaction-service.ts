@@ -4,7 +4,7 @@ import { validateTransactionParams } from "../utils/validation-utils.ts";
 import type { WalletService } from "./wallet-service.ts";
 import type { ContractService, CollateralOption } from "./contract-service.ts";
 import type { PriceService, MintPriceResult } from "./price-service.ts";
-import { BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
+import { BASIS_POINTS_DIVISOR, DEFAULT_SLIPPAGE_BPS, MIN_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS } from "../constants/numeric-constants.ts";
 
 /**
  * Interface for transaction execution events
@@ -55,6 +55,7 @@ export class TransactionService {
   private _contractService: ContractService;
   private _priceService: PriceService;
   private _events: TransactionEvents = {};
+  private _slippageBps: bigint = DEFAULT_SLIPPAGE_BPS;
 
   constructor(walletService: WalletService, contractService: ContractService, priceService: PriceService) {
     this._walletService = walletService;
@@ -67,6 +68,25 @@ export class TransactionService {
    */
   setEventHandlers(events: TransactionEvents) {
     this._events = { ...this._events, ...events };
+  }
+
+  /**
+   * Set slippage tolerance in basis points
+   * @param slippageBps - Slippage in basis points (e.g. 50 = 0.5%)
+   * @throws Error if slippage is outside valid range
+   */
+  setSlippageTolerance(slippageBps: bigint): void {
+    if (slippageBps < MIN_SLIPPAGE_BPS || slippageBps > MAX_SLIPPAGE_BPS) {
+      throw new Error(`Slippage must be between ${MIN_SLIPPAGE_BPS} (${Number(MIN_SLIPPAGE_BPS) / 100}%) and ${MAX_SLIPPAGE_BPS} (${Number(MAX_SLIPPAGE_BPS) / 100}%) basis points`);
+    }
+    this._slippageBps = slippageBps;
+  }
+
+  /**
+   * Get current slippage tolerance in basis points
+   */
+  getSlippageTolerance(): bigint {
+    return this._slippageBps;
   }
 
   /**
@@ -127,8 +147,7 @@ export class TransactionService {
       await this._handleMintApprovals(collateral, account, mintResult);
 
       // Execute mint transaction with slippage tolerance
-      // Add 0.5% slippage tolerance
-      const slippageBasisPoints = 50n; // 0.5%
+      const slippageBasisPoints = this._slippageBps;
       const basisPointsDivisor = BASIS_POINTS_DIVISOR;
 
       // Reduce minimum output by slippage amount
@@ -257,8 +276,7 @@ export class TransactionService {
       await this._handleRedeemApproval(account, dollarAmount);
 
       // Execute redeem transaction with slippage tolerance
-      // Add 0.5% slippage tolerance
-      const slippageBasisPoints = 50n; // 0.5%
+      const slippageBasisPoints = this._slippageBps;
       const basisPointsDivisor = BASIS_POINTS_DIVISOR;
 
       // Reduce minimum outputs by slippage amount

@@ -1,5 +1,6 @@
 import { type Address, type PublicClient as _PublicClient, parseEther } from "viem";
 import type { WalletService } from "./wallet-service.ts";
+import { ADDRESSES } from "../contracts/constants.ts";
 
 /**
  * Curve Pool ABI - minimal interface for price calculations
@@ -30,7 +31,7 @@ const CURVE_POOL_ABI = [
  */
 export class CurvePriceService {
   private _walletService: WalletService;
-  private readonly _curvePoolAddress: Address = "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f";
+  private readonly _curvePoolAddress: Address = ADDRESSES.CURVE_POOL;
   private readonly _lusdIndex = 0n; // LUSD is index 0 in the pool
   private readonly _uusdIndex = 1n; // UUSD is index 1 in the pool
 

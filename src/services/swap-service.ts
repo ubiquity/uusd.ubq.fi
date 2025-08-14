@@ -1,7 +1,8 @@
 import { type Address, type Hash, parseEther as _parseEther, formatEther as _formatEther, maxUint256 } from "viem";
 import type { WalletService } from "./wallet-service.ts";
 import type { ContractService } from "./contract-service.ts";
-import { BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
+import { BASIS_POINTS_DIVISOR, DEFAULT_SLIPPAGE_PERCENT } from "../constants/numeric-constants.ts";
+import { ADDRESSES, LUSD_COLLATERAL } from "../contracts/constants.ts";
 
 /**
  * Curve Pool ABI for swaps
@@ -62,15 +63,15 @@ export class SwapService {
   private _contractService: ContractService;
 
   // Curve LUSD/UUSD pool on mainnet
-  private readonly _curvePoolAddress: Address = "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f";
+  private readonly _curvePoolAddress: Address = ADDRESSES.CURVE_POOL;
   private readonly _lusdIndex = 0n;
   private readonly _uusdIndex = 1n;
 
   // Token addresses
-  private readonly _lusdAddress: Address = "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0";
-  private readonly _uusdAddress: Address = "0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103";
+  private readonly _lusdAddress: Address = LUSD_COLLATERAL.address;
+  private readonly _uusdAddress: Address = ADDRESSES.DOLLAR;
 
-  private readonly _defaultSlippage = 0.005; // 0.5%
+  private readonly _defaultSlippage = DEFAULT_SLIPPAGE_PERCENT;
 
   constructor(walletService: WalletService, contractService: ContractService) {
     this._walletService = walletService;

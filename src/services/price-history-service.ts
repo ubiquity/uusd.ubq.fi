@@ -1,6 +1,7 @@
 import { type Address, type PublicClient, type Log, parseEther } from "viem";
 import type { WalletService } from "./wallet-service.ts";
 import { RPCBatchService, type BatchRequestResult as _BatchRequestResult } from "./rpc-batch-service.ts";
+import { ADDRESSES, EVENT_SIGNATURES } from "../contracts/constants.ts";
 
 /**
  * Historical price data point
@@ -37,12 +38,12 @@ interface TokenExchangeEvent {
 export class PriceHistoryService {
   private _walletService: WalletService;
   private _rpcBatchService: RPCBatchService;
-  private readonly _curvePoolAddress: Address = "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f";
+  private readonly _curvePoolAddress: Address = ADDRESSES.CURVE_POOL;
   private readonly _lusdIndex = 0n;
   private readonly _uusdIndex = 1n;
 
   // Curve pool TokenExchange event signature
-  private readonly _tokenExchangeTopic = "0x8b3e96f2b889fa771c53c981b40daf005f63f637f1869f707052d15a3dd97140";
+  private readonly _tokenExchangeTopic = EVENT_SIGNATURES.CURVE_TOKEN_EXCHANGE;
 
   private _cache: Map<string, PriceDataPoint[]> = new Map();
   private _pointCache: Map<string, { point: PriceDataPoint; timestamp: number }> = new Map(); // Block-level caching with timestamps

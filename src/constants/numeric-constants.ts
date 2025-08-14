@@ -1,6 +1,12 @@
 // Basis points constant (1 basis point = 0.01%)
 export const BASIS_POINTS_DIVISOR = 10000n;
 
+// Slippage constants
+export const DEFAULT_SLIPPAGE_BPS = 50n; // 0.5% in basis points
+export const MIN_SLIPPAGE_BPS = 10n; // 0.1% minimum
+export const MAX_SLIPPAGE_BPS = 1000n; // 10% maximum
+export const DEFAULT_SLIPPAGE_PERCENT = 0.005; // 0.5% as decimal
+
 // // Price precision for protocol calculations (6 decimals)
 // export const PRICE_PRECISION = 1000000n;
 

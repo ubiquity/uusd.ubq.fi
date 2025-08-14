@@ -157,12 +157,17 @@ export class CentralizedRefreshService {
       const uusdPrice = await this._services.priceService.getCurrentUUSDPrice();
       this._lastGoodPrices.uusdPrice = uusdPrice;
 
+      // Calculate USD values for token balances before creating final data
+      const tokenBalancesWithUSD = tokenBalancesData && tokenBalancesData.length > 0 
+        ? this._calculateTokenUSDValues(tokenBalancesData, diamondMulticallData.lusdPrice, diamondMulticallData.ubqPrice, uusdPrice)
+        : tokenBalancesData;
+
       // Compile all data
       const refreshData: RefreshData = {
         uusdPrice,
         lusdPrice: diamondMulticallData.lusdPrice,
         ubqPrice: diamondMulticallData.ubqPrice,
-        tokenBalances: tokenBalancesData,
+        tokenBalances: tokenBalancesWithUSD,
         collateralRatio: diamondMulticallData.collateralRatio,
         allCollaterals: diamondMulticallData.allCollaterals,
         mintThreshold: externalData.mintThreshold,
@@ -364,11 +369,6 @@ export class CentralizedRefreshService {
    * Notify all subscribers of new data
    */
   private _notifyCallbacks(data: RefreshData): void {
-    // Calculate USD values for token balances if they exist
-    if (data.tokenBalances) {
-      data.tokenBalances = this._calculateTokenUSDValues(data.tokenBalances, data.lusdPrice, data.ubqPrice, data.uusdPrice);
-    }
-
     this._callbacks.forEach((callback) => {
       try {
         callback(data);

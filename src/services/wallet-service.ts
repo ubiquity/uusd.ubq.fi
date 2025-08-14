@@ -32,6 +32,13 @@ export class WalletService {
   private _account: Address | null = null;
   private _eventListeners: Map<WalletEvent, Array<(address?: Address | null) => void>> = new Map();
   private static readonly _storageKey = "uusd_wallet_address";
+  
+  // Store MetaMask event handlers for cleanup
+  private _metaMaskHandlers: {
+    accountsChanged?: (...args: unknown[]) => void;
+    chainChanged?: (...args: unknown[]) => void;
+    disconnect?: () => void;
+  } = {};
 
   constructor() {
     this._publicClient = createPublicClient({
@@ -141,8 +148,19 @@ export class WalletService {
     // Clear stored wallet address from localStorage
     localStorage.removeItem(WalletService._storageKey);
 
+    // Clean up MetaMask event listeners
+    this._cleanupMetaMaskListeners();
+
     this._emit(WALLET_EVENTS.DISCONNECT);
     this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, null);
+  }
+
+  /**
+   * Clean up the service (to be called when the component/app is destroyed)
+   */
+  destroy(): void {
+    this._cleanupMetaMaskListeners();
+    this._eventListeners.clear();
   }
 
   /**
@@ -329,28 +347,61 @@ export class WalletService {
       return;
     }
 
-    // Listen for account changes in MetaMask
-    window.ethereum.on("accountsChanged", (...args: unknown[]) => {
+    // Clean up any existing listeners first
+    this._cleanupMetaMaskListeners();
+
+    // Create and store account change handler
+    this._metaMaskHandlers.accountsChanged = (...args: unknown[]) => {
       const accounts = args[0] as string[];
       console.log("🔄 MetaMask account change detected:", accounts);
-      void this._handleAccountsChanged(accounts);
-    });
+      void this._handleAccountsChanged(accounts).catch(error => {
+        console.error("Error handling account change:", error);
+      });
+    };
 
-    // Listen for chain changes (optional, for better UX)
-    window.ethereum.on("chainChanged", (...args: unknown[]) => {
+    // Create and store chain change handler
+    this._metaMaskHandlers.chainChanged = (...args: unknown[]) => {
       const chainId = args[0] as string;
       console.log("🔗 MetaMask chain change detected:", chainId);
       // For now, just log - you might want to handle chain changes in the future
-    });
+    };
 
-    // Listen for wallet disconnect/lock
-    window.ethereum.on("disconnect", () => {
+    // Create and store disconnect handler
+    this._metaMaskHandlers.disconnect = () => {
       console.log("🔌 MetaMask disconnect detected");
       // Handle wallet disconnect
       if (this.isConnected()) {
         this.disconnect();
       }
-    });
+    };
+
+    // Attach the handlers
+    window.ethereum.on("accountsChanged", this._metaMaskHandlers.accountsChanged);
+    window.ethereum.on("chainChanged", this._metaMaskHandlers.chainChanged);
+    window.ethereum.on("disconnect", this._metaMaskHandlers.disconnect);
+  }
+
+  /**
+   * Clean up MetaMask event listeners
+   */
+  private _cleanupMetaMaskListeners(): void {
+    if (!window.ethereum) {
+      return;
+    }
+
+    // Remove all stored event handlers
+    if (this._metaMaskHandlers.accountsChanged) {
+      window.ethereum.removeListener("accountsChanged", this._metaMaskHandlers.accountsChanged);
+    }
+    if (this._metaMaskHandlers.chainChanged) {
+      window.ethereum.removeListener("chainChanged", this._metaMaskHandlers.chainChanged);
+    }
+    if (this._metaMaskHandlers.disconnect) {
+      window.ethereum.removeListener("disconnect", this._metaMaskHandlers.disconnect);
+    }
+
+    // Clear the handlers object
+    this._metaMaskHandlers = {};
   }
 
   /**

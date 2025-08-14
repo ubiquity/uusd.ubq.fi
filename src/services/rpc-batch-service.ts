@@ -71,7 +71,9 @@ export class RPCBatchService {
       }
 
       this._debounceTimer = window.setTimeout(() => {
-        void this._processBatchedRequests();
+        void this._processBatchedRequests().catch(error => {
+          console.error("Error processing batched RPC requests:", error);
+        });
       }, this._debounceMs);
     });
   }

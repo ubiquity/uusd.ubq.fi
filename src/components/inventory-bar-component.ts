@@ -37,6 +37,13 @@ export class InventoryBarComponent {
   private _balanceUpdateCallbacks: BalanceUpdateCallback[] = [];
   private _initialLoadPromise: Promise<void> | null = null;
   private _initialLoadResolver: (() => void) | null = null;
+  
+  // Store bound method reference for proper cleanup
+  private _boundHandleRefreshData: ((data: RefreshData) => void) | null = null;
+  
+  // Debounce timer for balance refreshes
+  private _refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly _refreshDebounceMs = 1000; // 1 second debounce
 
   constructor(services: InventoryBarServices) {
     this._services = services;
@@ -69,8 +76,11 @@ export class InventoryBarComponent {
    * Setup centralized refresh subscription
    */
   private _setupCentralizedRefresh(): void {
+    // Create and store bound method reference
+    this._boundHandleRefreshData = this._handleRefreshData.bind(this);
+    
     // Subscribe to centralized refresh data
-    this._services.centralizedRefreshService.subscribe(this._handleRefreshData.bind(this));
+    this._services.centralizedRefreshService.subscribe(this._boundHandleRefreshData);
 
     // Check initial connection state
     const account = this._services.walletService.getAccount();
@@ -441,12 +451,29 @@ export class InventoryBarComponent {
   }
 
   /**
-   * Force refresh balances (public method)
+   * Force refresh balances (public method) with debouncing
    */
   public async refreshBalances(): Promise<void> {
-    if (this._state.isConnected) {
-      await this._loadBalances(false); // Manual refresh shows loading state
+    if (!this._state.isConnected) {
+      return;
     }
+
+    // Clear any pending refresh
+    if (this._refreshDebounceTimer) {
+      clearTimeout(this._refreshDebounceTimer);
+    }
+
+    // Create a promise that resolves when the debounced refresh completes
+    return new Promise<void>((resolve) => {
+      this._refreshDebounceTimer = setTimeout(() => {
+        void this._loadBalances(false).then(() => {
+          resolve();
+        }).catch(error => {
+          console.error("Error refreshing balances:", error);
+          resolve(); // Resolve anyway to not block the caller
+        });
+      }, this._refreshDebounceMs);
+    });
   }
 
   /**
@@ -537,7 +564,18 @@ export class InventoryBarComponent {
    * Cleanup component
    */
   public destroy(): void {
-    this._services.centralizedRefreshService.unsubscribe(this._handleRefreshData.bind(this));
+    // Unsubscribe using the stored reference
+    if (this._boundHandleRefreshData) {
+      this._services.centralizedRefreshService.unsubscribe(this._boundHandleRefreshData);
+      this._boundHandleRefreshData = null;
+    }
+    
+    // Clear any pending refresh timer
+    if (this._refreshDebounceTimer) {
+      clearTimeout(this._refreshDebounceTimer);
+      this._refreshDebounceTimer = null;
+    }
+    
     this._balanceUpdateCallbacks = [];
   }
 }

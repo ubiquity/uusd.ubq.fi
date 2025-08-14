@@ -12,6 +12,7 @@ import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
 import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
+import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 
 interface SimplifiedExchangeServices {
   walletService: WalletService;
@@ -774,8 +775,8 @@ export class SimplifiedExchangeComponent {
             fromToken,
             toToken,
             amountIn: result.inputAmount,
-            minAmountOut: (result.expectedOutput * 995n) / 1000n, // 0.5% slippage
-            slippageTolerance: 0.005,
+            minAmountOut: (result.expectedOutput * (BASIS_POINTS_DIVISOR - DEFAULT_SLIPPAGE_BPS)) / BASIS_POINTS_DIVISOR,
+            slippageTolerance: DEFAULT_SLIPPAGE_PERCENT,
           });
           break;
       }

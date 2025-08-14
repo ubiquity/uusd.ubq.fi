@@ -26,4 +26,5 @@ export interface ContractAddresses {
   readonly DIAMOND: Address;
   readonly DOLLAR: Address;
   readonly GOVERNANCE: Address;
+  readonly CURVE_POOL: Address;
 }

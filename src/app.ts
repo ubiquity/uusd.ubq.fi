@@ -48,6 +48,9 @@ class UUSDApp {
   private _simplifiedExchangeComponent: SimplifiedExchangeComponent;
   private _inventoryBarComponent: InventoryBarComponent;
 
+  // State flags
+  private _isConnecting = false;
+
   constructor() {
     // Initialize services with dependency injection
     this._walletService = new WalletService();
@@ -102,7 +105,9 @@ class UUSDApp {
       getTransactionStatus: () => this.getTransactionStatus(),
     };
 
-    void this._init();
+    void this._init().catch(error => {
+      console.error("Failed to initialize app:", error);
+    });
   }
 
   private async _init() {
@@ -379,13 +384,17 @@ class UUSDApp {
     this._walletService.addEventListener(WALLET_EVENTS.CONNECT, (account?: Address | null) => {
       this._updateWalletUI(account ?? null);
       this._simplifiedExchangeComponent.updateWalletConnection(true);
-      void this._inventoryBarComponent.handleWalletConnectionChange(account ?? null);
+      void this._inventoryBarComponent.handleWalletConnectionChange(account ?? null).catch(error => {
+        console.error("Error updating inventory bar after wallet connection:", error);
+      });
     });
 
     this._walletService.addEventListener(WALLET_EVENTS.DISCONNECT, () => {
       this._updateWalletUI(null);
       this._simplifiedExchangeComponent.updateWalletConnection(false);
-      void this._inventoryBarComponent.handleWalletConnectionChange(null);
+      void this._inventoryBarComponent.handleWalletConnectionChange(null).catch(error => {
+        console.error("Error updating inventory bar after wallet disconnect:", error);
+      });
     });
 
     this._walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, (account?: Address | null) => {
@@ -408,8 +417,7 @@ class UUSDApp {
       onTransactionSuccess: (_operation: string, _hash: string) => {
         // Note: handleTransactionSuccess doesn't exist in simplified component
         // as it's handled internally
-        // Trigger balance refresh after any successful transaction
-        void this._inventoryBarComponent.refreshBalances();
+        // Balance refresh is already triggered by the simplified exchange component
       },
       onTransactionError: (_operation: string, _error: Error) => {
         // Note: handleTransactionError doesn't exist in simplified component
@@ -452,7 +460,14 @@ class UUSDApp {
    * Check for stored wallet connection and attempt auto-reconnection
    */
   private async _checkAutoReconnect() {
+    // Prevent concurrent connection attempts
+    if (this._isConnecting) {
+      console.log("⏳ Connection already in progress, skipping auto-reconnect");
+      return;
+    }
+
     try {
+      this._isConnecting = true;
       console.log("🔍 Checking for stored wallet connection...");
 
       // Try immediate reconnection first
@@ -475,6 +490,8 @@ class UUSDApp {
     } catch (error) {
       // Auto-reconnection failed silently
       console.warn("❌ Auto-reconnection failed:", error);
+    } finally {
+      this._isConnecting = false;
     }
   }
 
@@ -482,6 +499,12 @@ class UUSDApp {
   async connectWallet() {
     const connectButton = document.getElementById("connectWallet") as HTMLButtonElement;
     const originalText = connectButton.textContent;
+
+    // Prevent concurrent connection attempts
+    if (this._isConnecting) {
+      console.log("⏳ Connection already in progress");
+      return;
+    }
 
     try {
       // Check if wallet is already connected
@@ -499,6 +522,7 @@ class UUSDApp {
         void this._inventoryBarComponent.handleWalletConnectionChange(null);
       } else {
         // Set connecting state
+        this._isConnecting = true;
         connectButton.textContent = "Connecting...";
         connectButton.disabled = true;
 
@@ -519,6 +543,8 @@ class UUSDApp {
       connectButton.disabled = false;
       const message = error instanceof Error ? error.message : "Unknown error occurred";
       this._notificationManager.showError("exchange", message);
+    } finally {
+      this._isConnecting = false;
     }
   }
 
