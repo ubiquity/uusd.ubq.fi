@@ -198,36 +198,123 @@ export class WalletService {
    */
   async checkStoredConnection(): Promise<Address | null> {
     if (!window.ethereum) {
+      console.log("🚫 No ethereum provider found");
       return null;
     }
 
     const storedAddress = localStorage.getItem(WalletService._storageKey);
     if (!storedAddress) {
+      console.log("ℹ️ No stored wallet address found");
       return null;
     }
 
+    console.log("📱 Found stored wallet address:", storedAddress);
+
     try {
-      // Try to reconnect without forcing wallet selection
-      this._walletClient = createWalletClient({
-        chain: mainnet,
-        transport: custom(window.ethereum),
-      });
+      // Check if the stored address is still available without requiring permission
+      // Using eth_accounts returns already-connected accounts without triggering permission prompt
+      const availableAccounts = (await window.ethereum.request({
+        method: "eth_accounts",
+      })) as string[];
 
-      // Check if the stored address is still available in the wallet
-      const availableAddresses = await this._walletClient.getAddresses();
+      console.log("🔍 Available accounts from eth_accounts:", availableAccounts);
+      console.log("🔍 Looking for stored address:", storedAddress);
 
-      if (availableAddresses.includes(storedAddress as Address)) {
+      // Check for address match (case-insensitive)
+      const normalizedStoredAddress = storedAddress.toLowerCase();
+      const normalizedAccounts = availableAccounts.map((addr) => addr.toLowerCase());
+      const addressMatch = normalizedAccounts.includes(normalizedStoredAddress);
+
+      console.log("🔍 Address match found (case-insensitive):", addressMatch);
+
+      if (addressMatch) {
+        // Account is still available, create wallet client and connect
+        this._walletClient = createWalletClient({
+          chain: mainnet,
+          transport: custom(window.ethereum),
+        });
+
         this._account = storedAddress as Address;
+        console.log("🔄 Auto-reconnected to stored wallet:", storedAddress);
+
         this._emit(WALLET_EVENTS.CONNECT, this._account);
         this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, this._account);
         return this._account;
+      } else if (availableAccounts.length === 0) {
+        // No accounts returned by eth_accounts - this could mean:
+        // 1. Wallet is locked
+        // 2. Site permissions were revoked
+        // 3. Wallet provider isn't ready yet
+        console.log("⚠️ No accounts returned by eth_accounts. Trying fallback approach...");
+
+        // Try a fallback approach: create wallet client and try to get addresses silently
+        try {
+          this._walletClient = createWalletClient({
+            chain: mainnet,
+            transport: custom(window.ethereum),
+          });
+
+          // Try to get addresses without triggering permission prompt
+          const addresses = await this._walletClient.getAddresses();
+
+          // Check for address match (case-insensitive)
+          const normalizedStoredAddress = storedAddress.toLowerCase();
+          const normalizedAddresses = addresses.map((addr) => addr.toLowerCase());
+          const addressMatch = normalizedAddresses.includes(normalizedStoredAddress);
+
+          if (addressMatch) {
+            this._account = storedAddress as Address;
+            console.log("🔄 Auto-reconnected via fallback method:", storedAddress);
+
+            this._emit(WALLET_EVENTS.CONNECT, this._account);
+            this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, this._account);
+            return this._account;
+          } else {
+            console.log("🗑️ Fallback: Stored address not available, clearing:", storedAddress);
+            localStorage.removeItem(WalletService._storageKey);
+            return null;
+          }
+        } catch (fallbackError) {
+          console.log("❌ Fallback approach also failed:", fallbackError);
+
+          // Try one more approach: check wallet permissions
+          try {
+            const permissions = (await window.ethereum.request({
+              method: "wallet_getPermissions",
+            })) as Array<{ caveats: Array<{ value: string[] }> }>;
+
+            console.log("🔐 Wallet permissions:", permissions);
+
+            // Check if we have eth_accounts permission for the stored address (case-insensitive)
+            const normalizedStoredAddress = storedAddress.toLowerCase();
+            const ethAccountsPermission = permissions.find((p) =>
+              p.caveats?.some((caveat) => caveat.value?.some((addr) => addr.toLowerCase() === normalizedStoredAddress))
+            );
+
+            if (ethAccountsPermission) {
+              console.log("✅ Found permission for stored address, attempting connection...");
+              this._account = storedAddress as Address;
+
+              this._emit(WALLET_EVENTS.CONNECT, this._account);
+              this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, this._account);
+              return this._account;
+            }
+          } catch (permError) {
+            console.log("❌ Permission check failed:", permError);
+          }
+
+          // Don't clear stored address on fallback failure - user might just need to unlock wallet
+          return null;
+        }
       } else {
-        // Stored address is no longer available, clear it
+        // Some accounts available but not the stored one
+        console.log("🗑️ Stored address no longer available, clearing:", storedAddress);
         localStorage.removeItem(WalletService._storageKey);
         return null;
       }
-    } catch {
+    } catch (error) {
       // Auto-reconnection failed, clear stored address
+      console.log("❌ Auto-reconnection failed:", error);
       localStorage.removeItem(WalletService._storageKey);
       return null;
     }

@@ -384,13 +384,28 @@ class UUSDApp {
    */
   private async _checkAutoReconnect() {
     try {
-      const reconnectedAddress = await this._walletService.checkStoredConnection();
+      console.log("🔍 Checking for stored wallet connection...");
+
+      // Try immediate reconnection first
+      let reconnectedAddress = await this._walletService.checkStoredConnection();
+
+      // If immediate reconnection failed, try again after a short delay
+      // Sometimes wallet providers need time to initialize after page load
+      if (!reconnectedAddress) {
+        console.log("🔄 Initial reconnection failed, trying again after delay...");
+        await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms delay
+        reconnectedAddress = await this._walletService.checkStoredConnection();
+      }
+
       if (reconnectedAddress) {
+        console.log("✅ Auto-reconnection successful:", reconnectedAddress);
         // Auto-reconnection successful - UI updates handled by event handlers
+      } else {
+        console.log("ℹ️ No stored connection found or connection not available");
       }
     } catch (error) {
       // Auto-reconnection failed silently
-      console.warn("Auto-reconnection failed:", error);
+      console.warn("❌ Auto-reconnection failed:", error);
     }
   }
 
