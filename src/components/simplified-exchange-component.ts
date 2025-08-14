@@ -881,9 +881,14 @@ export class SimplifiedExchangeComponent {
     if (isConnected) {
       void this._loadProtocolSettings();
       void this._calculateRoute();
+      // Wait for balances to load then re-render UI to update button visibility
+      void this._services.inventoryBar.waitForInitialLoad().then(() => {
+        this._renderUI();
+      });
     } else {
       this._state.routeResult = null;
       this._renderOutput();
+      this._renderUI();
     }
   }
 
