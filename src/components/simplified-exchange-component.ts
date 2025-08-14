@@ -157,7 +157,8 @@ export class SimplifiedExchangeComponent {
    */
   private _setupEventListeners() {
     // Use requestAnimationFrame to ensure DOM is ready
-    const setupListeners = function setupDOMListeners() {
+    const self = this;
+    function setupListeners() {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
@@ -171,28 +172,28 @@ export class SimplifiedExchangeComponent {
       }
 
       if (amountInput) {
-        amountInput.addEventListener("input", () => this._handleAmountChange());
+        amountInput.addEventListener("input", () => self._handleAmountChange());
       }
 
       if (depositButton) {
-        depositButton.addEventListener("click", () => this._switchDirection("deposit"));
+        depositButton.addEventListener("click", () => self._switchDirection("deposit"));
       }
 
       if (withdrawButton) {
-        withdrawButton.addEventListener("click", () => this._switchDirection("withdraw"));
+        withdrawButton.addEventListener("click", () => self._switchDirection("withdraw"));
       }
 
       if (ubqDiscountCheckbox) {
         ubqDiscountCheckbox.addEventListener("change", (e) => {
-          this._state.useUbqDiscount = (e.target as HTMLInputElement).checked;
-          void this._calculateRoute();
+          self._state.useUbqDiscount = (e.target as HTMLInputElement).checked;
+          void self._calculateRoute();
         });
       }
 
       if (swapOnlyCheckbox) {
         swapOnlyCheckbox.addEventListener("change", (e) => {
           // CRITICAL: Never allow user to change this when redemptions are disabled
-          if (this._state.redemptionsDisabled) {
+          if (self._state.redemptionsDisabled) {
             console.warn("Redemptions disabled - ignoring user checkbox change");
             e.preventDefault();
             e.stopPropagation();
@@ -202,11 +203,11 @@ export class SimplifiedExchangeComponent {
           }
 
           // Only allow changes when redemptions are enabled
-          this._state.forceSwapOnly = (e.target as HTMLInputElement).checked;
-          void this._calculateRoute();
+          self._state.forceSwapOnly = (e.target as HTMLInputElement).checked;
+          void self._calculateRoute();
         });
       }
-    };
+    }
 
     requestAnimationFrame(setupListeners);
   }
@@ -331,8 +332,8 @@ export class SimplifiedExchangeComponent {
 
     // Get main exchange interface elements
     const exchangeContainer = document.querySelector(".exchange-container") as HTMLElement;
-    const depositButton = document.getElementById("depositButton");
-    const withdrawButton = document.getElementById("withdrawButton");
+    const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
+    const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
 
     // Hide entire exchange interface when wallet is not connected
     if (!isConnected) {
@@ -883,12 +884,12 @@ export class SimplifiedExchangeComponent {
       void this._calculateRoute();
       // Wait for balances to load then re-render UI to update button visibility
       void this._services.inventoryBar.waitForInitialLoad().then(() => {
-        this._renderUI();
+        this._render();
       });
     } else {
       this._state.routeResult = null;
       this._renderOutput();
-      this._renderUI();
+      this._render();
     }
   }
 
