@@ -5,6 +5,7 @@ import { WalletService } from './services/wallet-service.ts';
 import { ContractService } from './services/contract-service.ts';
 import { PriceService } from './services/price-service.ts';
 import { TransactionService, TransactionOperation } from './services/transaction-service.ts';
+import { CentralizedRefreshService, type RefreshData } from './services/centralized-refresh-service.ts';
 
 // Import components
 import { NotificationManager } from './components/notification-manager.ts';
@@ -32,6 +33,7 @@ class UUSDApp {
     private contractService: ContractService;
     private priceService: PriceService;
     private transactionService: TransactionService;
+    private centralizedRefreshService: CentralizedRefreshService;
 
     // Components
     private notificationManager: NotificationManager;
@@ -50,6 +52,11 @@ class UUSDApp {
             this.contractService,
             this.priceService
         );
+        this.centralizedRefreshService = new CentralizedRefreshService({
+            walletService: this.walletService,
+            contractService: this.contractService,
+            priceService: this.priceService
+        });
 
         // Initialize components
         this.notificationManager = new NotificationManager();
@@ -64,7 +71,10 @@ class UUSDApp {
         };
 
         // Create inventory bar component first (needed by mint/redeem components)
-        this.inventoryBarComponent = new InventoryBarComponent(services);
+        this.inventoryBarComponent = new InventoryBarComponent({
+            ...services,
+            centralizedRefreshService: this.centralizedRefreshService
+        });
 
         // Create mint/redeem components with inventory bar reference
         this.mintComponent = new MintComponent({
@@ -97,15 +107,22 @@ class UUSDApp {
         // RENDER CACHED SPARKLINE IMMEDIATELY (synchronous)
         this.renderCachedSparkline();
 
-        // Load UUSD price (separate from sparkline)
-        this.loadUUSDPrice().catch(error => {
-            console.warn('Failed to load UUSD price:', error);
-        });
+        // Start centralized refresh service for all periodic data
+        this.centralizedRefreshService.subscribe(this.handleRefreshData.bind(this));
+        this.centralizedRefreshService.start();
 
-        // Load sparkline updates in parallel (separate from price)
+        // Load sparkline updates in parallel (separate from centralized refresh)
         this.loadRealPriceHistory().catch(error => {
             console.warn('Failed to load price history:', error);
         });
+    }
+
+    /**
+     * Handle centralized refresh data updates
+     */
+    private handleRefreshData(data: RefreshData): void {
+        // Update main price display with fresh data
+        this.updateUUSDPriceDisplay(data.uusdPrice);
     }
 
     /**

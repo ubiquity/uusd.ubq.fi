@@ -23,6 +23,7 @@ export interface InventoryBarServices {
     contractService: ContractService;
     priceService: PriceService;
     notificationManager: NotificationManager;
+    centralizedRefreshService?: any; // Optional for backward compatibility
 }
 
 /**
@@ -38,7 +39,7 @@ export class InventoryBarComponent {
     private services: InventoryBarServices;
     private state: InventoryBarState;
     private updateInterval: number | null = null;
-    private readonly UPDATE_INTERVAL_MS = 60000; // 60 seconds - less aggressive refresh
+    private readonly UPDATE_INTERVAL_MS = 15000; // 15 seconds - aligned with centralized refresh
     private balanceUpdateCallbacks: BalanceUpdateCallback[] = [];
 
     constructor(services: InventoryBarServices) {
@@ -52,6 +53,7 @@ export class InventoryBarComponent {
 
         this.initializeComponent();
         this.setupEventHandlers();
+        this.setupCentralizedRefresh();
     }
 
     /**
@@ -74,6 +76,29 @@ export class InventoryBarComponent {
             this.updateConnectionState();
             this.loadBalances();
             this.startPeriodicUpdates();
+        }
+    }
+
+    /**
+     * Setup centralized refresh subscription
+     */
+    private setupCentralizedRefresh(): void {
+        // If centralized refresh service is available, subscribe to it
+        if (this.services.centralizedRefreshService) {
+            this.services.centralizedRefreshService.subscribe((data: any) => {
+                // Only process token balance data if wallet is connected
+                if (this.state.isConnected && data.tokenBalances) {
+                    this.state.balances = data.tokenBalances;
+                    this.state.totalUsdValue = calculateTotalUsdValue(data.tokenBalances);
+                    this.state.isLoading = false;
+                    
+                    this.renderBalances();
+                    this.hideBackgroundRefreshIndicator();
+                    
+                    // Notify balance update callbacks
+                    this.notifyBalancesUpdated();
+                }
+            });
         }
     }
 
