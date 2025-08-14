@@ -8,6 +8,7 @@ import { CurvePriceService } from "./services/curve-price-service.ts";
 import { SwapService } from "./services/swap-service.ts";
 import { TransactionService, TransactionOperation as _TransactionOperation } from "./services/transaction-service.ts";
 import { cacheService } from "./services/cache-service.ts";
+import { CentralizedRefreshService, type RefreshData } from "./services/centralized-refresh-service.ts";
 
 // Import components
 import { NotificationManager } from "./components/notification-manager.ts";
@@ -40,6 +41,7 @@ class UUSDApp {
   private _curvePriceService: CurvePriceService;
   private _swapService: SwapService;
   private _transactionService: TransactionService;
+  private _centralizedRefreshService: CentralizedRefreshService;
 
   // Components
   private _notificationManager: NotificationManager;
@@ -54,6 +56,11 @@ class UUSDApp {
     this._curvePriceService = new CurvePriceService(this._walletService);
     this._swapService = new SwapService(this._walletService, this._contractService);
     this._transactionService = new TransactionService(this._walletService, this._contractService, this._priceService);
+    this._centralizedRefreshService = new CentralizedRefreshService({
+      walletService: this._walletService,
+      contractService: this._contractService,
+      priceService: this._priceService,
+    });
 
     // Initialize components
     this._notificationManager = new NotificationManager();
@@ -74,6 +81,7 @@ class UUSDApp {
       contractService: this._contractService,
       priceService: this._priceService,
       notificationManager: this._notificationManager,
+      centralizedRefreshService: this._centralizedRefreshService,
     });
 
     // Create simplified exchange component
@@ -110,12 +118,11 @@ class UUSDApp {
     // RENDER CACHED SPARKLINE IMMEDIATELY (synchronous)
     this._renderCachedSparkline();
 
-    // Load UUSD price (separate from sparkline)
-    this._loadUUSDPrice().catch((error) => {
-      console.warn("Failed to load UUSD price:", error);
-    });
+    // Start centralized refresh service for all periodic data
+    this._centralizedRefreshService.subscribe(this._handleRefreshData.bind(this));
+    this._centralizedRefreshService.start();
 
-    // Load sparkline updates in parallel (separate from price)
+    // Load sparkline updates in parallel (separate from centralized refresh)
     this._loadRealPriceHistory().catch((error) => {
       console.warn("Failed to load price history:", error);
     });
@@ -163,6 +170,14 @@ class UUSDApp {
       console.warn("Failed to load UUSD price:", error);
       this._updateUUSDPriceDisplay("Unavailable");
     }
+  }
+
+  /**
+   * Handle centralized refresh data updates
+   */
+  private _handleRefreshData(data: RefreshData): void {
+    // Update main price display with fresh data
+    this._updateUUSDPriceDisplay(data.uusdPrice);
   }
 
   /**

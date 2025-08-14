@@ -81,16 +81,7 @@ export class SimplifiedExchangeComponent {
       this._autoPopulateMaxBalance();
     }
 
-    // Periodically refresh protocol settings and redemption status (every 30 seconds)
-    setInterval(async () => {
-      await this._loadProtocolSettings();
-      await this._checkRedemptionStatus();
-
-      // Only re-render options if on withdraw view
-      if (this._state.direction === "withdraw") {
-        this._renderOptions();
-      }
-    }, 30000);
+    // Protocol settings and redemption status are now handled by centralized refresh service
   }
 
   /**

@@ -4,9 +4,10 @@ import type { WalletService } from "../services/wallet-service.ts";
 import type { ContractService } from "../services/contract-service.ts";
 import type { PriceService } from "../services/price-service.ts";
 import type { NotificationManager } from "./notification-manager.ts";
+import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
 import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
-import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
+import { batchFetchTokenBalances, type TokenBalanceBatchResult } from "../utils/batch-request-utils.ts";
 
 import icons from "./icons.ts";
 
@@ -18,6 +19,7 @@ export interface InventoryBarServices {
   contractService: ContractService;
   priceService: PriceService;
   notificationManager: NotificationManager;
+  centralizedRefreshService: CentralizedRefreshService;
 }
 
 /**
@@ -32,8 +34,6 @@ export type BalanceUpdateCallback = (balances: TokenBalance[]) => void;
 export class InventoryBarComponent {
   private _services: InventoryBarServices;
   private _state: InventoryBarState;
-  private _updateInterval: number | null = null;
-  private readonly _updateIntervalMs = 60000; // 60 seconds - less aggressive refresh
   private _balanceUpdateCallbacks: BalanceUpdateCallback[] = [];
   private _initialLoadPromise: Promise<void> | null = null;
   private _initialLoadResolver: (() => void) | null = null;
@@ -54,7 +54,7 @@ export class InventoryBarComponent {
     });
 
     this._initializeComponent();
-    this._setupEventHandlers();
+    this._setupCentralizedRefresh();
   }
 
   /**
@@ -66,17 +66,42 @@ export class InventoryBarComponent {
   }
 
   /**
-   * Setup event handlers for wallet connection changes
+   * Setup centralized refresh subscription
    */
-  private _setupEventHandlers(): void {
-    // Note: Wallet connection events are handled by the main app
-    // We'll check the initial connection state and rely on public methods
+  private _setupCentralizedRefresh(): void {
+    // Subscribe to centralized refresh data
+    this._services.centralizedRefreshService.subscribe(this._handleRefreshData.bind(this));
+
+    // Check initial connection state
     const account = this._services.walletService.getAccount();
     if (account) {
       this._state.isConnected = true;
+      this._state.currentAccount = account;
       this._updateConnectionState();
-      void this._loadBalances();
-      this._startPeriodicUpdates();
+    }
+  }
+
+  /**
+   * Handle centralized refresh data updates
+   */
+  private _handleRefreshData(data: RefreshData): void {
+    // Only process token balance data if wallet is connected
+    if (this._state.isConnected && data.tokenBalances) {
+      this._state.balances = data.tokenBalances;
+      this._state.totalUsdValue = calculateTotalUsdValue(data.tokenBalances);
+      this._state.isLoading = false;
+
+      this._renderBalances();
+      this._hideBackgroundRefreshIndicator();
+
+      // Resolve initial load promise on first successful data
+      if (this._initialLoadResolver) {
+        this._initialLoadResolver();
+        this._initialLoadResolver = null;
+      }
+
+      // Notify balance update callbacks
+      this._notifyBalancesUpdated();
     }
   }
 
@@ -110,7 +135,7 @@ export class InventoryBarComponent {
       await this._loadBalances(!isReconnection); // Background refresh for reconnections
     }
 
-    this._startPeriodicUpdates();
+    // Centralized refresh service will automatically provide fresh data
   }
 
   /**
@@ -127,7 +152,7 @@ export class InventoryBarComponent {
       totalUsdValue: this._state.totalUsdValue,
     });
     this._updateConnectionState();
-    this._stopPeriodicUpdates();
+    // Centralized refresh service handles all updates
     this._renderBalances();
 
     // Resolve initial load promise if disconnected
@@ -192,7 +217,7 @@ export class InventoryBarComponent {
       const batchResults = await batchFetchTokenBalances(publicClient, tokens, account);
 
       // Process results and calculate USD values
-      const balancePromises = batchResults.map(async (result): Promise<TokenBalance> => {
+      const balancePromises = batchResults.map(async (result: TokenBalanceBatchResult): Promise<TokenBalance> => {
         const tokenMetadata = INVENTORY_TOKENS[result.symbol];
         if (!tokenMetadata) {
           throw new Error(`Token metadata not found for ${result.symbol}`);
@@ -263,26 +288,6 @@ export class InventoryBarComponent {
     } catch (error) {
       console.warn(`Failed to get price for ${symbol}:`, error);
       return 0; // Return 0 if price lookup fails
-    }
-  }
-
-  /**
-   * Start periodic balance updates
-   */
-  private _startPeriodicUpdates(): void {
-    this._stopPeriodicUpdates(); // Clear existing interval
-    this._updateInterval = window.setInterval(() => {
-      void this._loadBalances(true); // Mark as background refresh
-    }, this._updateIntervalMs);
-  }
-
-  /**
-   * Stop periodic balance updates
-   */
-  private _stopPeriodicUpdates(): void {
-    if (this._updateInterval) {
-      window.clearInterval(this._updateInterval);
-      this._updateInterval = null;
     }
   }
 
@@ -491,7 +496,7 @@ export class InventoryBarComponent {
    * Cleanup component
    */
   public destroy(): void {
-    this._stopPeriodicUpdates();
+    this._services.centralizedRefreshService.unsubscribe(this._handleRefreshData.bind(this));
     this._balanceUpdateCallbacks = [];
   }
 }
