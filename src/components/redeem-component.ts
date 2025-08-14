@@ -230,9 +230,15 @@ export class RedeemComponent {
             this.services.notificationManager.showSuccess('redeem', `Successfully redeemed ${amountInput.value} UUSD! Collect your redemption to receive tokens.`);
             amountInput.value = '';
             this.updateOutput();
+            
+            // Immediately refresh balances after successful redeem
+            void this.services.inventoryBar.refreshBalances();
         } else if (operation === TransactionOperation.COLLECT_REDEMPTION) {
             this.services.notificationManager.showSuccess('redeem', 'Successfully collected redemption!');
             this.updateOutput();
+            
+            // Immediately refresh balances after collecting redemption
+            void this.services.inventoryBar.refreshBalances();
         }
     }
 

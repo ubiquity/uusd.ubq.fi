@@ -306,6 +306,9 @@ class UUSDApp {
                 } else {
                     this.redeemComponent.handleTransactionSuccess(operation);
                 }
+                
+                // Trigger balance refresh after any successful transaction
+                void this.inventoryBarComponent.refreshBalances();
             },
             onTransactionError: (operation: string, error: Error) => {
                 if (operation === TransactionOperation.MINT) {

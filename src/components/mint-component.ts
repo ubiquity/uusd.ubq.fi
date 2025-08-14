@@ -256,6 +256,9 @@ export class MintComponent {
             this.services.notificationManager.showSuccess('mint', `Successfully minted ${amountInput.value} UUSD!`);
             amountInput.value = '';
             this.updateOutput();
+            
+            // Immediately refresh balances after successful mint
+            void this.services.inventoryBar.refreshBalances();
         }
     }
 
