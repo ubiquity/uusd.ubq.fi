@@ -35,6 +35,8 @@ export class InventoryBarComponent {
   private _updateInterval: number | null = null;
   private readonly _updateIntervalMs = 60000; // 60 seconds - less aggressive refresh
   private _balanceUpdateCallbacks: BalanceUpdateCallback[] = [];
+  private _initialLoadPromise: Promise<void> | null = null;
+  private _initialLoadResolver: (() => void) | null = null;
 
   constructor(services: InventoryBarServices) {
     this._services = services;
@@ -44,6 +46,11 @@ export class InventoryBarComponent {
       balances: [],
       totalUsdValue: 0,
     };
+
+    // Create initial load promise
+    this._initialLoadPromise = new Promise<void>((resolve) => {
+      this._initialLoadResolver = resolve;
+    });
 
     this._initializeComponent();
     this._setupEventHandlers();
@@ -103,6 +110,12 @@ export class InventoryBarComponent {
     this._updateConnectionState();
     this._stopPeriodicUpdates();
     this._renderBalances();
+
+    // Resolve initial load promise if disconnected
+    if (this._initialLoadResolver) {
+      this._initialLoadResolver();
+      this._initialLoadResolver = null;
+    }
   }
 
   /**
@@ -186,7 +199,13 @@ export class InventoryBarComponent {
       // Hide background refresh indicator after successful update
       this._hideBackgroundRefreshIndicator();
 
-      // 🔥 NEW: Trigger auto-population when balances are loaded/updated
+      // Resolve initial load promise on first successful load
+      if (this._initialLoadResolver) {
+        this._initialLoadResolver();
+        this._initialLoadResolver = null;
+      }
+
+      // Trigger auto-population when balances are loaded/updated
       this._notifyBalancesUpdated();
     } catch (error) {
       console.error("Failed to load token balances:", error);
@@ -431,6 +450,22 @@ export class InventoryBarComponent {
     if (indicator) {
       indicator.style.display = "none";
     }
+  }
+
+  /**
+   * Wait for initial balance load to complete
+   */
+  public async waitForInitialLoad(): Promise<void> {
+    if (this._initialLoadPromise) {
+      await this._initialLoadPromise;
+    }
+  }
+
+  /**
+   * Check if balances have been loaded at least once
+   */
+  public isInitialLoadComplete(): boolean {
+    return this._initialLoadResolver === null;
   }
 
   /**

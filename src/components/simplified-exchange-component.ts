@@ -32,6 +32,7 @@ export class SimplifiedExchangeComponent {
   private _optimalRouteService: OptimalRouteService;
   private _transactionStateService: TransactionStateService;
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private _renderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Simplified state
   private _state = {
@@ -48,7 +49,7 @@ export class SimplifiedExchangeComponent {
   constructor(services: SimplifiedExchangeServices) {
     this._services = services;
     this._transactionStateService = TransactionStateService.getInstance();
-    this._optimalRouteService = new OptimalRouteService(services.priceService, services.curvePriceService, services.contractService);
+    this._optimalRouteService = new OptimalRouteService(services.priceService, services.curvePriceService, services.contractService, services.walletService);
 
     void this._init();
   }
@@ -65,13 +66,17 @@ export class SimplifiedExchangeComponent {
     this._setupWalletEventListeners();
     this._setupBalanceSubscription();
 
+    // Wait for initial balance load if wallet is connected
+    if (this._isWalletConnected()) {
+      await this._services.inventoryBar.waitForInitialLoad();
+    }
+
     this._render();
 
     // Auto-populate on initial load if wallet is connected
     if (this._isWalletConnected()) {
-      setTimeout(() => {
-        this._autoPopulateMaxBalance();
-      }, 150);
+      // Balances are guaranteed to be loaded now
+      this._autoPopulateMaxBalance();
     }
 
     // Periodically refresh protocol settings and redemption status (every 30 seconds)
@@ -104,10 +109,14 @@ export class SimplifiedExchangeComponent {
 
   private _setupWalletEventListeners() {
     this._services.walletService.setEventHandlers({
-      onConnect: (_account: Address) => {
+      onConnect: async (_account: Address) => {
         // Clear state and re-evaluate on wallet connect
         this._state.amount = "";
         this._state.routeResult = null;
+
+        // Wait for balances to load before rendering
+        await this._services.inventoryBar.waitForInitialLoad();
+
         this._render();
         this._autoPopulateMaxBalance();
       },
@@ -120,21 +129,24 @@ export class SimplifiedExchangeComponent {
         if (amountInput) amountInput.value = "";
         this._render();
       },
-      onAccountChanged: (account: Address | null) => {
+      onAccountChanged: async (account: Address | null) => {
         // Clear state and force re-evaluation when switching accounts
         this._state.amount = "";
         this._state.routeResult = null;
         const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
         if (amountInput) amountInput.value = "";
 
+        // If connected, wait for balance load
+        if (account) {
+          await this._services.inventoryBar.waitForInitialLoad();
+        }
+
         // Force a fresh render that will auto-select the correct direction
         this._render();
 
         // If connected, auto-populate balance for the new account
         if (account) {
-          setTimeout(() => {
-            this._autoPopulateMaxBalance();
-          }, 100);
+          this._autoPopulateMaxBalance();
         }
       },
     });
@@ -144,13 +156,19 @@ export class SimplifiedExchangeComponent {
    * Setup event listeners
    */
   private _setupEventListeners() {
-    // Wait for DOM
-    setTimeout(() => {
+    // Use requestAnimationFrame to ensure DOM is ready
+    const setupListeners = function setupDOMListeners() {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
       const ubqDiscountCheckbox = document.getElementById("useUbqDiscount") as HTMLInputElement;
       const swapOnlyCheckbox = document.getElementById("forceSwapOnly") as HTMLInputElement;
+
+      // Check if critical elements exist, if not retry
+      if (!amountInput || !depositButton || !withdrawButton) {
+        requestAnimationFrame(setupListeners);
+        return;
+      }
 
       if (amountInput) {
         amountInput.addEventListener("input", () => this._handleAmountChange());
@@ -188,7 +206,9 @@ export class SimplifiedExchangeComponent {
           void this._calculateRoute();
         });
       }
-    }, 100);
+    };
+
+    requestAnimationFrame(setupListeners);
   }
 
   /**
@@ -286,6 +306,24 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
+   * Debounced render to prevent rapid UI updates
+   */
+  private _debouncedRender(immediate: boolean = false) {
+    if (this._renderDebounceTimer) {
+      clearTimeout(this._renderDebounceTimer);
+    }
+
+    if (immediate) {
+      this._render();
+    } else {
+      this._renderDebounceTimer = setTimeout(() => {
+        this._render();
+        this._renderDebounceTimer = null;
+      }, 50);
+    }
+  }
+
+  /**
    * Render the main UI
    */
   private _render() {
@@ -307,6 +345,9 @@ export class SimplifiedExchangeComponent {
       return;
     }
 
+    // Check if balances are still loading
+    const isBalancesLoading = !this._services.inventoryBar.isInitialLoadComplete();
+
     // Show exchange interface when connected
     if (exchangeContainer) {
       exchangeContainer.style.display = "block";
@@ -314,6 +355,7 @@ export class SimplifiedExchangeComponent {
 
     console.log("[RENDER] Button visibility:", {
       isConnected,
+      isBalancesLoading,
       depositExists: !!depositButton,
       withdrawExists: !!withdrawButton,
       depositHidden: depositButton?.style.display === "none",
@@ -321,21 +363,37 @@ export class SimplifiedExchangeComponent {
     });
 
     if (depositButton && withdrawButton) {
-      const hasLUSD = hasAvailableBalance(this._services.inventoryBar, "LUSD");
-      const hasUUSD = hasAvailableBalance(this._services.inventoryBar, "UUSD");
+      if (isBalancesLoading) {
+        // While loading, show both buttons but disabled
+        depositButton.style.display = "block";
+        withdrawButton.style.display = "block";
+        depositButton.disabled = true;
+        withdrawButton.disabled = true;
+        depositButton.textContent = "Loading...";
+        withdrawButton.textContent = "Loading...";
+      } else {
+        // Enable buttons
+        depositButton.disabled = false;
+        withdrawButton.disabled = false;
+        depositButton.textContent = "Buy UUSD";
+        withdrawButton.textContent = "Sell UUSD";
 
-      depositButton.style.display = hasLUSD ? "block" : "none";
-      withdrawButton.style.display = hasUUSD ? "block" : "none";
+        const hasLUSD = hasAvailableBalance(this._services.inventoryBar, "LUSD");
+        const hasUUSD = hasAvailableBalance(this._services.inventoryBar, "UUSD");
 
-      // Auto-select the visible direction if only one is available
-      if (hasLUSD && !hasUUSD) {
-        this._state.direction = "deposit";
-      } else if (hasUUSD && !hasLUSD) {
-        this._state.direction = "withdraw";
+        depositButton.style.display = hasLUSD ? "block" : "none";
+        withdrawButton.style.display = hasUUSD ? "block" : "none";
+
+        // Auto-select the visible direction if only one is available
+        if (hasLUSD && !hasUUSD) {
+          this._state.direction = "deposit";
+        } else if (hasUUSD && !hasLUSD) {
+          this._state.direction = "withdraw";
+        }
+
+        depositButton.classList.toggle("active", this._state.direction === "deposit");
+        withdrawButton.classList.toggle("active", this._state.direction === "withdraw");
       }
-
-      depositButton.classList.toggle("active", this._state.direction === "deposit");
-      withdrawButton.classList.toggle("active", this._state.direction === "withdraw");
     }
 
     // Update input label
@@ -347,7 +405,13 @@ export class SimplifiedExchangeComponent {
     }
 
     if (amountInput) {
-      amountInput.placeholder = this._state.direction === "deposit" ? "Enter LUSD amount" : "Enter UUSD amount";
+      if (isBalancesLoading) {
+        amountInput.disabled = true;
+        amountInput.placeholder = "Loading balances...";
+      } else {
+        amountInput.disabled = false;
+        amountInput.placeholder = this._state.direction === "deposit" ? "Enter LUSD amount" : "Enter UUSD amount";
+      }
     }
 
     // Show/hide options based on protocol state and direction
@@ -779,11 +843,17 @@ export class SimplifiedExchangeComponent {
   /**
    * Auto-populate with max balance
    */
-  private _autoPopulateMaxBalance() {
+  private _autoPopulateMaxBalance(retryCount: number = 0) {
     if (!this._services.walletService.isConnected()) return;
 
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
-    if (!amountInput) return;
+    if (!amountInput) {
+      // Retry if DOM element not ready (max 3 retries)
+      if (retryCount < 3) {
+        setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 50);
+      }
+      return;
+    }
 
     // Only auto-populate if input is empty or zero
     if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
@@ -795,6 +865,9 @@ export class SimplifiedExchangeComponent {
         amountInput.value = maxBalance;
         this._state.amount = maxBalance;
         void this._calculateRoute();
+      } else if (retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
+        // If balances not loaded yet, retry
+        setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
       }
     } catch {
       // Silent fail

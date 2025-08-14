@@ -121,7 +121,7 @@ export class SwapService {
       const publicClient = this._walletService.getPublicClient();
       await publicClient.waitForTransactionReceipt({ hash });
 
-      // For now, estimate the output (in production, parse from logs)
+      // Estimate output amount
       const estimatedOutput = await this._getSwapQuoteInternal(params.amountIn, fromIndex, toIndex);
 
       return {

@@ -83,7 +83,7 @@ export async function batchFetchTokenBalancesMulticall(
   userAddress: Address
 ): Promise<TokenBalanceBatchResult[]> {
   // This would use a multicall contract to batch all the calls into a single transaction
-  // For now, we'll use the simpler approach above
+  // Use simpler approach until multicall is implemented
   // TODO: Implement when multicall contract address is available
   return batchFetchTokenBalances(publicClient, tokens, userAddress);
 }

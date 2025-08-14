@@ -2,6 +2,7 @@ import { formatEther, formatUnits, parseEther } from "viem";
 import type { PriceService } from "./price-service.ts";
 import type { CurvePriceService } from "./curve-price-service.ts";
 import type { ContractService } from "./contract-service.ts";
+import type { WalletService } from "./wallet-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 
 /**
@@ -43,12 +44,14 @@ export class OptimalRouteService {
   private _priceService: PriceService;
   private _curvePriceService: CurvePriceService;
   private _contractService: ContractService;
+  private _walletService: WalletService;
   private readonly _pegPrice = 1000000n; // $1.00 with 6 decimals
 
-  constructor(priceService: PriceService, curvePriceService: CurvePriceService, contractService: ContractService) {
+  constructor(priceService: PriceService, curvePriceService: CurvePriceService, contractService: ContractService, walletService: WalletService) {
     this._priceService = priceService;
     this._curvePriceService = curvePriceService;
     this._contractService = contractService;
+    this._walletService = walletService;
   }
 
   /**
@@ -352,7 +355,7 @@ export class OptimalRouteService {
       // For LUSD → UUSD, we need to calculate based on the amount
       // Since CurvePriceService.getUUSDMarketPrice expects LUSD price and returns UUSD price per unit,
       // we need to simulate the actual swap amount
-      const publicClient = this._curvePriceService["walletService"].getPublicClient();
+      const publicClient = this._walletService.getPublicClient();
       return (await publicClient.readContract({
         address: "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f",
         abi: [

@@ -183,7 +183,7 @@ export class TransactionStateService {
     button.title = "";
 
     if (successText) {
-      // Temporarily show success text
+      // Show success text
       button.innerHTML = successText;
       setTimeout(() => {
         if (!state.isLoading) {

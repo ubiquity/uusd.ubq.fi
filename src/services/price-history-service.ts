@@ -192,8 +192,7 @@ export class PriceHistoryService {
     _targetBlocks: { fromBlock: bigint; toBlock: bigint },
     _config: PriceHistoryConfig
   ): Promise<PriceDataPoint[]> {
-    // For now, we'll skip the event log strategy due to complex ABI parsing
-    // and focus on the sampling strategy which is more reliable
+    // Skip event log strategy due to complex ABI parsing
 
     return [];
   }

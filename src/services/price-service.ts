@@ -69,7 +69,7 @@ export class PriceService {
 
   constructor(contractService: ContractService, walletService?: unknown) {
     this._contractService = contractService;
-    // Create a new WalletService if not provided - we'll fix this in app.ts
+    // Create WalletService if not provided
     this._priceHistoryService = new PriceHistoryService((walletService as unknown) || contractService);
     this._priceThresholdService = new PriceThresholdService();
   }
