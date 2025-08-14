@@ -13,6 +13,7 @@ export default [
       parser: typescriptParser,
       parserOptions: {
         project: "./tsconfig.json",
+        ecmaVersion: 2020,
       },
       globals: {
         ...globals.browser,
@@ -62,6 +63,16 @@ export default [
     },
   },
   {
-    ignores: ["**/*.js", "public/**", "contracts/**", "tools/**", "lib/**", "eslint.config.js"],
+    ignores: [
+      "**/*.js",
+      "public/**",
+      "contracts/**",
+      "tools/**",
+      "lib/**",
+      "eslint.config.js",
+      "serve.ts",
+      "serve-dev.ts",
+      "src/utils/generate-devtools-json.ts"
+    ],
   },
 ];

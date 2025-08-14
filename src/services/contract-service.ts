@@ -1,4 +1,4 @@
-import { type Address, type _PublicClient, type _WalletClient, maxUint256, formatUnits } from "viem";
+import { type Address, type PublicClient, type WalletClient, maxUint256, formatUnits } from "viem";
 import { ADDRESSES, DIAMOND_ABI, ERC20_ABI } from "../contracts/constants.ts";
 import type { CollateralInfo } from "../utils/calculation-utils.ts";
 import type { WalletService } from "./wallet-service.ts";
@@ -304,8 +304,8 @@ export class ContractService implements ContractReads, ContractWrites {
               index: Number(info.index),
               name: info.symbol,
               address: collateralAddresses[i],
-              mintingFee: formatUnits(info.mintingFee, 6),
-              redemptionFee: formatUnits(info.redemptionFee, 6),
+              mintingFee: Number(formatUnits(info.mintingFee, 6)),
+              redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
               missingDecimals: Number(info.missingDecimals),
               isEnabled: Boolean(info.isEnabled),
               isMintPaused: Boolean(info.isMintPaused),
@@ -348,8 +348,8 @@ export class ContractService implements ContractReads, ContractWrites {
             index: Number(info.index),
             name: info.symbol,
             address: address,
-            mintingFee: formatUnits(info.mintingFee, 6),
-            redemptionFee: formatUnits(info.redemptionFee, 6),
+            mintingFee: Number(formatUnits(info.mintingFee, 6)),
+            redemptionFee: Number(formatUnits(info.redemptionFee, 6)),
             missingDecimals: Number(info.missingDecimals),
             isEnabled: Boolean(info.isEnabled),
             isMintPaused: Boolean(info.isMintPaused),
@@ -542,7 +542,7 @@ export class ContractService implements ContractReads, ContractWrites {
       });
     } catch (estimationError: unknown) {
       // Analyze error message for specific contract errors
-      const errorMessage = estimationError.message || estimationError.toString();
+      const errorMessage = estimationError instanceof Error ? estimationError.message : String(estimationError);
 
       // Check for specific contract errors first
       if (errorMessage.includes("Dollar price too high")) {
@@ -683,14 +683,24 @@ export class ContractService implements ContractReads, ContractWrites {
       const collateralAddresses = results[2].status === "success" ? (results[2].result as Address[]) : [];
 
       // Get collateral-specific info if addresses available
-      let collateralInfo: unknown = null;
+      let collateralInfo: {
+        isMintPaused: boolean;
+        isRedeemPaused: boolean;
+        mintingFee: bigint;
+        redemptionFee: bigint;
+      } | null = null;
       if (collateralAddresses.length > collateralIndex) {
         collateralInfo = await publicClient.readContract({
           address: ADDRESSES.DIAMOND,
           abi: DIAMOND_ABI,
           functionName: "collateralInformation",
           args: [collateralAddresses[collateralIndex]],
-        });
+        }) as {
+          isMintPaused: boolean;
+          isRedeemPaused: boolean;
+          mintingFee: bigint;
+          redemptionFee: bigint;
+        };
       }
 
       // Calculate percentage for UI display

@@ -85,7 +85,7 @@ class UUSDApp {
     this._setupServiceEventHandlers();
 
     // Expose to window for HTML onclick handlers and debugging
-    (window as Record<string, unknown>).app = {
+    (window as unknown as Record<string, unknown>).app = {
       ...this,
       exchange: this._simplifiedExchangeComponent,
       connectWallet: () => this.connectWallet(),
@@ -456,4 +456,4 @@ class UUSDApp {
 
 // Initialize app and expose to window
 const app = new UUSDApp();
-(window as Record<string, unknown>).app = app;
+(window as unknown as Record<string, unknown>).app = app;

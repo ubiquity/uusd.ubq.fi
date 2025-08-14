@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     // Enable latest features
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "target": "ESNext",
+    "lib": ["ES2020", "ES2020.BigInt", "ESNext", "DOM", "DOM.Iterable"],
+    "target": "ES2020",
     "module": "ESNext",
     "moduleDetection": "force",
     "allowJs": true,
@@ -22,5 +22,14 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "contracts",
+    "serve.ts",
+    "serve-dev.ts",
+    "src/utils/generate-devtools-json.ts",
+    "tools/audit-uusd-mints.ts"
+  ]
 }
