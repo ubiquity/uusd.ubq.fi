@@ -1,3 +1,6 @@
-[submodule "contracts"]
-	path = contracts
+[submodule "lib/permit2-rpc-manager"]
+	path = lib/permit2-rpc-manager
+	url = https://github.com/ubiquity/permit2-rpc-manager.git
+[submodule "lib/contracts"]
+	path = lib/contracts
 	url = https://github.com/ubiquity/ubiquity-dollar.git
