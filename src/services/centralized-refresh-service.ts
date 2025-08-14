@@ -1,5 +1,5 @@
 import type { Address, PublicClient } from "viem";
-import { formatUnits, parseEther } from "viem";
+import { formatUnits } from "viem";
 import type { WalletService } from "./wallet-service.ts";
 import type { ContractService } from "./contract-service.ts";
 import type { PriceService } from "./price-service.ts";

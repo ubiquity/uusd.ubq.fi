@@ -71,7 +71,7 @@ export class RPCBatchService {
       }
 
       this._debounceTimer = window.setTimeout(() => {
-        this._processBatchedRequests();
+        void this._processBatchedRequests();
       }, this._debounceMs);
     });
   }
@@ -122,7 +122,7 @@ export class RPCBatchService {
   /**
    * Filter batch result to only include data for specific block numbers
    */
-  private _filterResultForRequest(fullResult: BatchRequestResult, requestedBlocks: bigint[]): BatchRequestResult {
+  private _filterResultForRequest(fullResult: BatchRequestResult, _requestedBlocks: bigint[]): BatchRequestResult {
     // For simplicity, return the full result for now
     // In a more advanced implementation, we could filter by specific blocks
     return fullResult;
