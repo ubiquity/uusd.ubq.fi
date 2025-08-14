@@ -408,6 +408,8 @@ class UUSDApp {
       onTransactionSuccess: (_operation: string, _hash: string) => {
         // Note: handleTransactionSuccess doesn't exist in simplified component
         // as it's handled internally
+        // Trigger balance refresh after any successful transaction
+        void this._inventoryBarComponent.refreshBalances();
       },
       onTransactionError: (_operation: string, _error: Error) => {
         // Note: handleTransactionError doesn't exist in simplified component

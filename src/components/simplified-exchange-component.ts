@@ -805,6 +805,9 @@ export class SimplifiedExchangeComponent {
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
     if (amountInput) amountInput.value = "";
     this._renderOutput();
+
+    // Immediately refresh balances after successful transaction
+    void this._services.inventoryBar.refreshBalances();
   }
 
   /**
