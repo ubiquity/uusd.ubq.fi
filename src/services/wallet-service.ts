@@ -18,7 +18,7 @@ export type WalletEvent = (typeof WALLET_EVENTS)[keyof typeof WALLET_EVENTS];
  * Event listener types for wallet events
  */
 type WalletEventListener<T extends WalletEvent> = T extends typeof WALLET_EVENTS.CONNECT | typeof WALLET_EVENTS.ACCOUNT_CHANGED
-  ? (address: Address | null) => void
+  ? (address?: Address | null) => void
   : T extends typeof WALLET_EVENTS.DISCONNECT
     ? () => void
     : never;
@@ -223,11 +223,11 @@ export class WalletService {
       // Check for address match (case-insensitive)
       const normalizedStoredAddress = storedAddress.toLowerCase();
       const normalizedAccounts = availableAccounts.map((addr) => addr.toLowerCase());
-      const addressMatch = normalizedAccounts.includes(normalizedStoredAddress);
+      const isAddressMatch = normalizedAccounts.includes(normalizedStoredAddress);
 
-      console.log("🔍 Address match found (case-insensitive):", addressMatch);
+      console.log("🔍 Address match found (case-insensitive):", isAddressMatch);
 
-      if (addressMatch) {
+      if (isAddressMatch) {
         // Account is still available, create wallet client and connect
         this._walletClient = createWalletClient({
           chain: mainnet,
@@ -260,9 +260,9 @@ export class WalletService {
           // Check for address match (case-insensitive)
           const normalizedStoredAddress = storedAddress.toLowerCase();
           const normalizedAddresses = addresses.map((addr) => addr.toLowerCase());
-          const addressMatch = normalizedAddresses.includes(normalizedStoredAddress);
+          const isAddressMatch = normalizedAddresses.includes(normalizedStoredAddress);
 
-          if (addressMatch) {
+          if (isAddressMatch) {
             this._account = storedAddress as Address;
             console.log("🔄 Auto-reconnected via fallback method:", storedAddress);
 

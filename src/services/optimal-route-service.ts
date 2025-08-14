@@ -1,5 +1,5 @@
 import { formatEther, formatUnits, parseEther } from "viem";
-import type { PriceService } from "./price-service.ts";
+import type { PriceService, MintPriceResult, RedeemPriceResult } from "./price-service.ts";
 import type { CurvePriceService } from "./curve-price-service.ts";
 import type { ContractService } from "./contract-service.ts";
 import type { WalletService } from "./wallet-service.ts";
@@ -91,7 +91,7 @@ export class OptimalRouteService {
       const [mixedMintResult, collateralOnlyMintResult] = (await Promise.race([
         Promise.all([mixedMintPromise, collateralOnlyMintPromise]),
         mintTimeoutPromise,
-      ])) as [unknown, unknown];
+      ])) as [MintPriceResult, MintPriceResult];
 
       // Calculate swap output (LUSD → UUSD via Curve)
       const swapOutputUUSD = await this._getSwapOutput(lusdAmount, "LUSD", "UUSD");
@@ -207,7 +207,7 @@ export class OptimalRouteService {
       });
 
       // Calculate redeem output with oracle error handling
-      let redeemResult;
+      let redeemResult: RedeemPriceResult;
       try {
         // For LUSD-only redemption, we can skip governance price entirely
         const shouldSkipGovernancePrice = isLusdOnlyRedemption;
@@ -225,7 +225,7 @@ export class OptimalRouteService {
           setTimeout(() => reject(new Error("Redeem calculation timeout")), 10000);
         });
 
-        redeemResult = (await Promise.race([redeemPromise, timeoutPromise])) as unknown;
+        redeemResult = (await Promise.race([redeemPromise, timeoutPromise])) as RedeemPriceResult;
       } catch (error) {
         console.error("❌ Error calculating redeem output:", error);
 

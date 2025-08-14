@@ -249,8 +249,9 @@ export class PriceHistoryService {
           const price = batchResult.prices[i];
 
           if (block && price > 0n) {
+            const blockData = block as { timestamp: bigint };
             const point: PriceDataPoint = {
-              timestamp: Number(block.timestamp),
+              timestamp: Number(blockData.timestamp),
               price,
               blockNumber: missingBlocks[i],
             };

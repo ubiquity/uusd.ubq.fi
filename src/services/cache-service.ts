@@ -41,8 +41,8 @@ export const CACHE_CONFIGS = {
 } as const;
 
 export class CacheService {
-  private _cache = new Map<string, CacheEntry<unknown>>();
-  private _pendingRequests = new Map<string, Promise<unknown>>();
+  private _cache = new Map<string, CacheEntry<any>>();
+  private _pendingRequests = new Map<string, Promise<any>>();
   private _maxCacheSize = 1000; // Prevent memory bloat
 
   /**
@@ -210,7 +210,7 @@ export class CacheService {
    * Warm cache with commonly needed data
    */
   async warmCache(contractService: ContractService): Promise<void> {
-    const warmupTasks = [
+    const warmupTasks: Array<{ key: string; fn: () => Promise<any>; config: CacheOptions }> = [
       { key: "collateral-ratio", fn: () => contractService.getCollateralRatio(), config: CACHE_CONFIGS.COLLATERAL_RATIO },
       { key: "lusd-oracle-price", fn: () => contractService.getLUSDOraclePrice(), config: CACHE_CONFIGS.LUSD_ORACLE_PRICE },
       { key: "protocol-settings", fn: () => contractService.getProtocolSettings(), config: CACHE_CONFIGS.PROTOCOL_SETTINGS },

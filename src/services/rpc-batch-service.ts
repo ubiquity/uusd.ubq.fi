@@ -118,9 +118,10 @@ export class RPCBatchService {
           errors.push(`Block ${blockNumbers[i]}: ${response.error.message}`);
           blocks.push(null);
         } else if (response?.result) {
+          const blockResult = response.result as any;
           blocks.push({
-            ...response.result,
-            timestamp: BigInt(response.result.timestamp),
+            ...blockResult,
+            timestamp: BigInt(blockResult.timestamp),
           });
         } else {
           errors.push(`Block ${blockNumbers[i]}: No response`);
@@ -138,7 +139,7 @@ export class RPCBatchService {
           prices.push(0n);
         } else if (response?.result && response.result !== "0x") {
           try {
-            const priceResult = BigInt(response.result);
+            const priceResult = BigInt(response.result as string);
             // Calculate UUSD price: LUSD_Price × (1 LUSD / UUSD_received)
             const lusdPriceUsd = 1000000n; // $1.00 in 6 decimal precision
             const uusdPrice = (lusdPriceUsd * testAmount) / priceResult;

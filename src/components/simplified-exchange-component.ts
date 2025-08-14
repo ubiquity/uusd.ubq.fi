@@ -109,7 +109,7 @@ export class SimplifiedExchangeComponent {
   }
 
   private _setupWalletEventListeners() {
-    this._services.walletService.addEventListener(WALLET_EVENTS.CONNECT, async (_account: Address) => {
+    this._services.walletService.addEventListener(WALLET_EVENTS.CONNECT, async (_account?: Address | null) => {
       // Clear state and re-evaluate on wallet connect
       this._state.amount = "";
       this._state.routeResult = null;
@@ -131,7 +131,7 @@ export class SimplifiedExchangeComponent {
       this._render();
     });
 
-    this._services.walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, async (account: Address | null) => {
+    this._services.walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, async (account?: Address | null) => {
       // Clear state and force re-evaluation when switching accounts
       this._state.amount = "";
       this._state.routeResult = null;
@@ -158,7 +158,7 @@ export class SimplifiedExchangeComponent {
    */
   private _setupEventListeners() {
     // Use requestAnimationFrame to ensure DOM is ready
-    function setupListeners() {
+    const setupListeners = () => {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
@@ -207,7 +207,7 @@ export class SimplifiedExchangeComponent {
           void this._calculateRoute();
         });
       }
-    }
+    };
 
     requestAnimationFrame(setupListeners);
   }

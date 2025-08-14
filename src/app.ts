@@ -309,10 +309,10 @@ class UUSDApp {
 
   private _setupServiceEventHandlers() {
     // Wallet service event handlers using new event system
-    this._walletService.addEventListener(WALLET_EVENTS.CONNECT, (account: Address) => {
-      this._updateWalletUI(account);
+    this._walletService.addEventListener(WALLET_EVENTS.CONNECT, (account?: Address | null) => {
+      this._updateWalletUI(account ?? null);
       this._simplifiedExchangeComponent.updateWalletConnection(true);
-      void this._inventoryBarComponent.handleWalletConnectionChange(account);
+      void this._inventoryBarComponent.handleWalletConnectionChange(account ?? null);
     });
 
     this._walletService.addEventListener(WALLET_EVENTS.DISCONNECT, () => {
@@ -321,8 +321,8 @@ class UUSDApp {
       void this._inventoryBarComponent.handleWalletConnectionChange(null);
     });
 
-    this._walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, (account: Address | null) => {
-      this._updateWalletUI(account);
+    this._walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, (account?: Address | null) => {
+      this._updateWalletUI(account ?? null);
       if (account) {
         void this._inventoryBarComponent.handleWalletConnectionChange(account);
       } else {
