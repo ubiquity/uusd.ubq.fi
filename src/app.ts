@@ -223,31 +223,83 @@ class UUSDApp {
     const chartElement = document.querySelector(".sparkline-chart") as HTMLElement;
     const strokeElement = document.querySelector(".sparkline-stroke") as HTMLElement;
 
-    if (!chartElement || !strokeElement || priceHistory.length === 0) return;
+    if (!chartElement || !strokeElement || priceHistory.length === 0) {
+      console.warn("❌ Sparkline: Missing elements or empty price history", {
+        chartElement: !!chartElement,
+        strokeElement: !!strokeElement,
+        historyLength: priceHistory.length,
+      });
+      return;
+    }
 
-    // Convert BigInt prices to numbers for Math operations
-    const prices = priceHistory.map((point) => {
-      // Handle both BigInt and number types
-      if (typeof point.price === "bigint") {
-        return parseFloat(formatUnits(point.price, 6));
-      }
-      return typeof point.price === "number" ? point.price : parseFloat(point.price);
+    // Convert BigInt prices to numbers for Math operations with validation
+    const prices = priceHistory
+      .map((point) => {
+        let price: number;
+        // Handle both BigInt and number types
+        if (typeof point.price === "bigint") {
+          price = parseFloat(formatUnits(point.price, 6));
+        } else if (typeof point.price === "number") {
+          price = point.price;
+        } else {
+          price = parseFloat(point.price);
+        }
+
+        // Validate the price
+        if (isNaN(price) || !isFinite(price) || price <= 0) {
+          console.error(`Invalid price data: ${point.price} -> ${price}`);
+          return null;
+        }
+
+        return price;
+      })
+      .filter((price): price is number => price !== null); // Remove invalid prices
+
+    // Debug logging for sparkline data
+    console.log("📊 Sparkline data:", {
+      dataPoints: priceHistory.length,
+      priceRange: prices.length > 0 ? { min: Math.min(...prices), max: Math.max(...prices) } : "empty",
+      firstFew: prices.slice(0, 3),
+      lastFew: prices.slice(-3),
     });
 
     // Map prices to chart coordinates based on $0.99-$1.01 range
     const chartMinPrice = 0.99;
     const chartMaxPrice = 1.01;
+
     const chartRange = chartMaxPrice - chartMinPrice;
 
     // Create polygon points for the sparkline
     const points: string[] = [];
 
+    // Validate we have enough data points
+    if (prices.length < 2) {
+      console.warn("Cannot generate sparkline with less than 2 price points");
+      // Hide sparkline elements
+      chartElement.style.display = "none";
+      strokeElement.style.display = "none";
+      return;
+    }
+
     prices.forEach((price, index) => {
-      const x = (index / (prices.length - 1)) * 100; // 0-100%
+      // Avoid division by zero when only 1 point
+      const x = prices.length === 1 ? 50 : (index / (prices.length - 1)) * 100; // 0-100%
+
+      // Validate price is a valid number
+      if (isNaN(price) || !isFinite(price)) {
+        console.error(`Invalid price at index ${index}: ${price}`);
+        return; // Skip this point
+      }
 
       // Map price to chart position: $0.99 = 80%, $1.01 = 20%
       const normalizedPrice = (price - chartMinPrice) / chartRange;
-      const y = 80 - normalizedPrice * 60; // Map to 80%-20% (inverted)
+      const y = 80 - normalizedPrice * 60; // Map to 80%-20% (inverted for SVG coordinates)
+
+      // Validate calculated position
+      if (isNaN(x) || isNaN(y) || !isFinite(x) || !isFinite(y)) {
+        console.error(`Invalid chart position: x=${x}, y=${y} for price ${price}`);
+        return; // Skip this point
+      }
 
       points.push(`${x}% ${y}%`);
     });

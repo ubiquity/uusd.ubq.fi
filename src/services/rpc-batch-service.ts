@@ -39,11 +39,104 @@ export interface BatchRequestResult {
  */
 export class RPCBatchService {
   private _requestId = 1;
+  private _pendingRequests: Array<{
+    blockNumbers: bigint[];
+    curvePoolAddress: Address;
+    testAmount: bigint;
+    publicClient: PublicClient;
+    resolve: (result: BatchRequestResult) => void;
+    reject: (error: Error) => void;
+  }> = [];
+  private _debounceTimer: number | null = null;
+  private readonly _debounceMs = 25;
 
   /**
-   * Batch multiple block and contract calls into a single RPC request
+   * Batch multiple block and contract calls into a single RPC request with 25ms debouncing
    */
   async batchHistoryRequests(publicClient: PublicClient, blockNumbers: bigint[], curvePoolAddress: Address, testAmount: bigint): Promise<BatchRequestResult> {
+    return new Promise((resolve, reject) => {
+      // Add this request to pending queue
+      this._pendingRequests.push({
+        blockNumbers,
+        curvePoolAddress,
+        testAmount,
+        publicClient,
+        resolve,
+        reject,
+      });
+
+      // Clear existing timer and set new one
+      if (this._debounceTimer) {
+        window.clearTimeout(this._debounceTimer);
+      }
+
+      this._debounceTimer = window.setTimeout(() => {
+        this._processBatchedRequests();
+      }, this._debounceMs);
+    });
+  }
+
+  /**
+   * Process all pending requests in a single batch
+   */
+  private async _processBatchedRequests(): Promise<void> {
+    const requests = [...this._pendingRequests];
+    this._pendingRequests = [];
+    this._debounceTimer = null;
+
+    if (requests.length === 0) return;
+
+    console.log(`🚀 Processing ${requests.length} debounced RPC batch requests`);
+
+    // Combine all block numbers from all pending requests
+    const allBlockNumbers = new Set<bigint>();
+    requests.forEach((req) => {
+      req.blockNumbers.forEach((block) => allBlockNumbers.add(block));
+    });
+
+    const uniqueBlockNumbers = Array.from(allBlockNumbers);
+    console.log(`📦 Total unique blocks to batch: ${uniqueBlockNumbers.length}`);
+
+    try {
+      // Execute single large batch for all unique blocks
+      const result = await this._executeBatchRequests(
+        requests[0].publicClient, // Use first client (they should all be the same)
+        uniqueBlockNumbers,
+        requests[0].curvePoolAddress, // Use first address (should be same)
+        requests[0].testAmount // Use first amount (should be same)
+      );
+
+      // Resolve all pending requests with appropriate subsets of the data
+      requests.forEach((req) => {
+        const filteredResult = this._filterResultForRequest(result, req.blockNumbers);
+        req.resolve(filteredResult);
+      });
+    } catch (error) {
+      // Reject all pending requests with the same error
+      requests.forEach((req) => {
+        req.reject(error as Error);
+      });
+    }
+  }
+
+  /**
+   * Filter batch result to only include data for specific block numbers
+   */
+  private _filterResultForRequest(fullResult: BatchRequestResult, requestedBlocks: bigint[]): BatchRequestResult {
+    // For simplicity, return the full result for now
+    // In a more advanced implementation, we could filter by specific blocks
+    return fullResult;
+  }
+
+  /**
+   * Execute the actual batch RPC requests
+   */
+  private async _executeBatchRequests(
+    publicClient: PublicClient,
+    blockNumbers: bigint[],
+    curvePoolAddress: Address,
+    testAmount: bigint
+  ): Promise<BatchRequestResult> {
     const requests: RPCRequest[] = [];
     const blockRequestIds: number[] = [];
     const priceRequestIds: number[] = [];
@@ -140,10 +233,21 @@ export class RPCBatchService {
         } else if (response?.result && response.result !== "0x") {
           try {
             const priceResult = BigInt(response.result as string);
-            // Calculate UUSD price: LUSD_Price × (1 LUSD / UUSD_received)
+            // Calculate UUSD price correctly:
+            // If get_dy(0, 1, 1 LUSD) returns X UUSD, then 1 UUSD = (1 LUSD) / X
+            // Price in 6 decimal precision: (1 LUSD * 1e6) / (X UUSD)
             const lusdPriceUsd = 1000000n; // $1.00 in 6 decimal precision
-            const uusdPrice = (lusdPriceUsd * testAmount) / priceResult;
-            prices.push(uusdPrice);
+
+            if (priceResult > 0n) {
+              // Calculate exchange rate: how many LUSD per UUSD
+              // If testAmount LUSD (1e18) gets you priceResult UUSD (1e18),
+              // then 1 UUSD costs (testAmount / priceResult) LUSD
+              // Convert to 6-decimal precision: (testAmount * 1e6) / priceResult
+              const uusdPrice = (testAmount * lusdPriceUsd) / priceResult;
+              prices.push(uusdPrice);
+            } else {
+              throw new Error(`Invalid price result (0) for block ${blockNumbers[i]}`);
+            }
           } catch {
             errors.push(`Price ${blockNumbers[i]}: Failed to parse result`);
             prices.push(0n);

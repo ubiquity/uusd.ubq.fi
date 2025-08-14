@@ -87,9 +87,50 @@ export class InventoryBarComponent {
   private _handleRefreshData(data: RefreshData): void {
     // Only process token balance data if wallet is connected
     if (this._state.isConnected && data.tokenBalances) {
-      this._state.balances = data.tokenBalances;
-      this._state.totalUsdValue = calculateTotalUsdValue(data.tokenBalances);
+      console.log("📊 Inventory refresh data received:", {
+        tokenCount: data.tokenBalances.length,
+        tokens: data.tokenBalances.map((t) => ({
+          symbol: t.symbol,
+          balance: t.balance?.toString(),
+          usdValue: t.usdValue,
+        })),
+      });
+
+      // Merge new balance data with existing cached values
+      // This prevents clearing existing values when partial updates arrive
+      const updatedBalances = [...this._state.balances];
+
+      // Update each token balance individually
+      data.tokenBalances.forEach((newBalance) => {
+        const existingIndex = updatedBalances.findIndex((existing) => existing.symbol === newBalance.symbol);
+
+        if (existingIndex >= 0) {
+          // ONLY update if we have valid data - NO FALLBACKS
+          if (newBalance.balance !== undefined && newBalance.usdValue !== undefined && newBalance.usdValue > 0) {
+            updatedBalances[existingIndex] = newBalance;
+          } else {
+            console.error(`INVALID DATA for ${newBalance.symbol} - not updating. Balance: ${newBalance.balance}, USD: ${newBalance.usdValue}`);
+            // Keep existing value in updatedBalances - don't clear it
+          }
+        } else {
+          // Add new token balance
+          updatedBalances.push(newBalance);
+        }
+      });
+
+      // Update state with merged data
+      this._state.balances = updatedBalances;
+      this._state.totalUsdValue = calculateTotalUsdValue(updatedBalances);
       this._state.isLoading = false;
+
+      console.log("📊 Final inventory state:", {
+        balanceCount: this._state.balances.length,
+        totalUsd: this._state.totalUsdValue,
+        balances: this._state.balances.map((b) => ({
+          symbol: b.symbol,
+          usdValue: b.usdValue,
+        })),
+      });
 
       this._renderBalances();
       this._hideBackgroundRefreshIndicator();

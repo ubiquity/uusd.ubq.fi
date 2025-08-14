@@ -57,6 +57,17 @@ export class CentralizedRefreshService {
   private _lastData: RefreshData | null = null;
   private readonly _intervalMs = 15000; // 15 seconds - aligned with Ethereum block time
 
+  // Cache last successful price values
+  private _lastGoodPrices: {
+    lusdPrice: bigint | null;
+    ubqPrice: bigint | null;
+    uusdPrice: string | null;
+  } = {
+    lusdPrice: null,
+    ubqPrice: null,
+    uusdPrice: null,
+  };
+
   constructor(services: RefreshServiceDependencies) {
     this._services = services;
   }
@@ -139,11 +150,12 @@ export class CentralizedRefreshService {
       // BATCH 2: Token balances (only if wallet connected)
       const tokenBalancesData = account ? await this._fetchTokenBalances(publicClient, account) : null;
 
-      // BATCH 3: External data (Curve + storage reads)
+      // BATCH 3: External data (storage reads only - use price service for Curve data)
       const externalData = await this._fetchExternalData(publicClient);
 
-      // Calculate UUSD price from fetched data
-      const uusdPrice = this._calculateUUSDPrice(diamondMulticallData.lusdPrice, externalData.curveExchangeRate);
+      // Get current UUSD price from price service - no fallbacks
+      const uusdPrice = await this._services.priceService.getCurrentUUSDPrice();
+      this._lastGoodPrices.uusdPrice = uusdPrice;
 
       // Compile all data
       const refreshData: RefreshData = {
@@ -155,7 +167,7 @@ export class CentralizedRefreshService {
         allCollaterals: diamondMulticallData.allCollaterals,
         mintThreshold: externalData.mintThreshold,
         redeemThreshold: externalData.redeemThreshold,
-        curveExchangeRate: externalData.curveExchangeRate,
+        curveExchangeRate: 0n, // Not needed since we use price service
       };
 
       // Cache and notify
@@ -199,10 +211,23 @@ export class CentralizedRefreshService {
       ],
     });
 
+    // Extract prices - throw error if critical data missing
+    if (multicallResults[1].status !== "success") {
+      throw new Error("Failed to fetch LUSD price from Diamond contract");
+    }
+    const lusdPrice = multicallResults[1].result as bigint;
+    this._lastGoodPrices.lusdPrice = lusdPrice;
+
+    if (multicallResults[2].status !== "success") {
+      throw new Error("Failed to fetch UBQ price from Diamond contract");
+    }
+    const ubqPrice = multicallResults[2].result as bigint;
+    this._lastGoodPrices.ubqPrice = ubqPrice;
+
     return {
       collateralRatio: multicallResults[0].status === "success" ? (multicallResults[0].result as bigint) : 0n,
-      lusdPrice: multicallResults[1].status === "success" ? (multicallResults[1].result as bigint) : 0n,
-      ubqPrice: multicallResults[2].status === "success" ? (multicallResults[2].result as bigint) : 0n,
+      lusdPrice,
+      ubqPrice,
       allCollaterals: multicallResults[3].status === "success" ? (multicallResults[3].result as readonly Address[]) : [],
     };
   }
@@ -234,58 +259,21 @@ export class CentralizedRefreshService {
   }
 
   /**
-   * BATCH 3: Fetch external data (Curve + storage reads)
+   * BATCH 3: Fetch external data (Curve + storage reads) using single batched RPC request
    */
   private async _fetchExternalData(publicClient: PublicClient) {
     const diamondAddress = ADDRESSES.DIAMOND;
 
-    // Batch external calls
-    const [curveExchangeRate, mintThreshold, redeemThreshold] = await Promise.all([
-      // Curve pool call
-      this._fetchCurveExchangeRate(publicClient),
-      // Storage reads for thresholds
+    // Get storage data (no multicall needed since it's just storage reads)
+    const [mintThreshold, redeemThreshold] = await Promise.all([
       publicClient.getStorageAt({ address: diamondAddress, slot: "0x0c" }), // slot 12
       publicClient.getStorageAt({ address: diamondAddress, slot: "0x0d" }), // slot 13
     ]);
 
     return {
-      curveExchangeRate,
       mintThreshold: mintThreshold ? BigInt(mintThreshold) : 0n,
       redeemThreshold: redeemThreshold ? BigInt(redeemThreshold) : 0n,
     };
-  }
-
-  /**
-   * Fetch Curve pool exchange rate
-   */
-  private async _fetchCurveExchangeRate(publicClient: PublicClient): Promise<bigint> {
-    try {
-      const curvePoolAddress = "0xcc68509f9ca0e1ed119eac7c468ec1b1c42f384f" as Address;
-
-      const result = await publicClient.readContract({
-        address: curvePoolAddress,
-        abi: [
-          {
-            name: "get_dy",
-            type: "function",
-            stateMutability: "view",
-            inputs: [
-              { type: "int128", name: "i" },
-              { type: "int128", name: "j" },
-              { type: "uint256", name: "dx" },
-            ],
-            outputs: [{ type: "uint256" }],
-          },
-        ],
-        functionName: "get_dy",
-        args: [0n, 1n, parseEther("1")], // 1 LUSD -> UUSD
-      });
-
-      return result as bigint;
-    } catch (error) {
-      console.warn("Failed to fetch Curve exchange rate:", error);
-      return parseEther("1"); // Fallback to 1:1 ratio
-    }
   }
 
   /**
@@ -312,21 +300,54 @@ export class CentralizedRefreshService {
    * Calculate USD values for token balances using cached price data
    */
   private _calculateTokenUSDValues(tokenBalances: TokenBalance[], lusdPrice: bigint, ubqPrice: bigint, uusdPriceStr: string): TokenBalance[] {
-    const uusdPrice = parseFloat(uusdPriceStr);
+    // Remove $ sign if present and parse
+    const uusdPriceClean = uusdPriceStr.replace(/^\$/, "");
+    const uusdPrice = parseFloat(uusdPriceClean);
+
+    // Validate all prices
+    if (isNaN(uusdPrice) || !isFinite(uusdPrice) || uusdPrice <= 0) {
+      throw new Error(`Invalid UUSD price: ${uusdPriceStr} -> ${uusdPrice}`);
+    }
+
+    const lusdPriceFloat = parseFloat(formatUnits(lusdPrice, 6));
+    const ubqPriceFloat = parseFloat(formatUnits(ubqPrice, 6));
+
+    if (isNaN(lusdPriceFloat) || !isFinite(lusdPriceFloat) || lusdPriceFloat <= 0) {
+      throw new Error(`Invalid LUSD price: ${lusdPrice} -> ${lusdPriceFloat}`);
+    }
+
+    if (isNaN(ubqPriceFloat) || !isFinite(ubqPriceFloat) || ubqPriceFloat <= 0) {
+      throw new Error(`Invalid UBQ price: ${ubqPrice} -> ${ubqPriceFloat}`);
+    }
+
+    console.log("💰 Calculating USD values with prices:", {
+      lusdPrice: lusdPriceFloat,
+      ubqPrice: ubqPriceFloat,
+      uusdPrice,
+    });
 
     return tokenBalances.map((balance) => {
-      let priceInUsd = 1; // Default fallback
+      let priceInUsd: number;
 
       if (balance.symbol === "UUSD") {
         priceInUsd = uusdPrice;
       } else if (balance.symbol === "UBQ") {
-        priceInUsd = parseFloat(formatUnits(ubqPrice, 6));
+        priceInUsd = ubqPriceFloat;
       } else if (balance.symbol === "LUSD") {
-        priceInUsd = parseFloat(formatUnits(lusdPrice, 6));
+        priceInUsd = lusdPriceFloat;
+      } else {
+        throw new Error(`Unknown token symbol: ${balance.symbol}`);
       }
 
       const tokenAmount = parseFloat(formatUnits(balance.balance, balance.decimals));
       const usdValue = tokenAmount * priceInUsd;
+
+      // Validate USD value
+      if (isNaN(usdValue) || !isFinite(usdValue) || usdValue < 0) {
+        throw new Error(`Invalid USD value calculated for ${balance.symbol}: ${tokenAmount} × $${priceInUsd} = ${usdValue}`);
+      }
+
+      console.log(`💵 ${balance.symbol}: ${tokenAmount} × $${priceInUsd} = $${usdValue}`);
 
       return {
         ...balance,
