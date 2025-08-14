@@ -1,4 +1,4 @@
-import { createPublicClient, http, type Address, toHex, hexToBigInt, type PublicClient } from "viem";
+import { createPublicClient, http, toHex, hexToBigInt, type PublicClient } from "viem";
 import { mainnet } from "viem/chains";
 import { ADDRESSES, PRICE_THRESHOLD_CONFIG } from "../contracts/constants.ts";
 

@@ -41,8 +41,8 @@ export const CACHE_CONFIGS = {
 } as const;
 
 export class CacheService {
-  private _cache = new Map<string, CacheEntry<any>>();
-  private _pendingRequests = new Map<string, Promise<any>>();
+  private _cache = new Map<string, CacheEntry<unknown>>();
+  private _pendingRequests = new Map<string, Promise<unknown>>();
   private _maxCacheSize = 1000; // Prevent memory bloat
 
   /**
@@ -54,14 +54,14 @@ export class CacheService {
 
     // Return fresh cached data
     if (cached && now - cached.timestamp < cached.ttl) {
-      return cached.data;
+      return cached.data as T;
     }
 
     // Check if we have a pending request for this key
     if (this._pendingRequests.has(key)) {
       const pendingRequest = this._pendingRequests.get(key);
       if (pendingRequest) {
-        return pendingRequest;
+        return pendingRequest as Promise<T>;
       }
     }
 
@@ -71,7 +71,7 @@ export class CacheService {
 
     try {
       const result = await fetchPromise;
-      return result;
+      return result as T;
     } finally {
       this._pendingRequests.delete(key);
     }
@@ -210,7 +210,7 @@ export class CacheService {
    * Warm cache with commonly needed data
    */
   async warmCache(contractService: ContractService): Promise<void> {
-    const warmupTasks: Array<{ key: string; fn: () => Promise<any>; config: CacheOptions }> = [
+    const warmupTasks: Array<{ key: string; fn: () => Promise<unknown>; config: CacheOptions }> = [
       { key: "collateral-ratio", fn: () => contractService.getCollateralRatio(), config: CACHE_CONFIGS.COLLATERAL_RATIO },
       { key: "lusd-oracle-price", fn: () => contractService.getLUSDOraclePrice(), config: CACHE_CONFIGS.LUSD_ORACLE_PRICE },
       { key: "protocol-settings", fn: () => contractService.getProtocolSettings(), config: CACHE_CONFIGS.PROTOCOL_SETTINGS },

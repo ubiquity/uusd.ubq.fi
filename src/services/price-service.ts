@@ -12,6 +12,7 @@ import {
 import type { ContractService, CollateralOption } from "./contract-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import { PriceHistoryService, type PriceDataPoint } from "./price-history-service.ts";
+import type { WalletService } from "./wallet-service.ts";
 import { PriceThresholdService, type PriceThresholds as _PriceThresholds } from "./price-threshold-service.ts";
 
 /**
@@ -61,16 +62,19 @@ interface CacheEntry<T> {
  */
 export class PriceService {
   private _contractService: ContractService;
-  private _priceHistoryService: PriceHistoryService;
+  private _priceHistoryService?: PriceHistoryService;
   private _priceThresholdService: PriceThresholdService;
   private _collateralOptions: CollateralOption[] = [];
   private _cache = new Map<string, CacheEntry<unknown>>();
   private _initialized = false;
 
-  constructor(contractService: ContractService, walletService?: unknown) {
+  constructor(contractService: ContractService, walletService?: WalletService) {
     this._contractService = contractService;
     // Create WalletService if not provided
-    this._priceHistoryService = new PriceHistoryService((walletService as any) || contractService);
+    // Only create PriceHistoryService if we have a WalletService
+    if (walletService) {
+      this._priceHistoryService = new PriceHistoryService(walletService);
+    }
     this._priceThresholdService = new PriceThresholdService();
   }
 
@@ -331,6 +335,9 @@ export class PriceService {
    * Get UUSD price history for sparkline visualization
    */
   async getUUSDPriceHistory(): Promise<PriceDataPoint[]> {
+    if (!this._priceHistoryService) {
+      return [];
+    }
     return this._priceHistoryService.getUUSDPriceHistory({
       maxDataPoints: 168,
       timeRangeHours: 168,
@@ -342,6 +349,9 @@ export class PriceService {
    * Get cached UUSD price history immediately (synchronous)
    */
   getCachedUUSDPriceHistory(): PriceDataPoint[] {
+    if (!this._priceHistoryService) {
+      return [];
+    }
     return this._priceHistoryService.getCachedPriceHistory({
       maxDataPoints: 168,
       timeRangeHours: 168,
@@ -353,7 +363,9 @@ export class PriceService {
    * Clear price history cache (useful for refreshing data)
    */
   clearPriceHistoryCache(): void {
-    this._priceHistoryService.clearCache();
+    if (this._priceHistoryService) {
+      this._priceHistoryService.clearCache();
+    }
   }
 
   /**

@@ -118,10 +118,10 @@ export class RPCBatchService {
           errors.push(`Block ${blockNumbers[i]}: ${response.error.message}`);
           blocks.push(null);
         } else if (response?.result) {
-          const blockResult = response.result as any;
+          const blockResult = response.result as Record<string, unknown>;
           blocks.push({
             ...blockResult,
-            timestamp: BigInt(blockResult.timestamp),
+            timestamp: BigInt(blockResult.timestamp as string),
           });
         } else {
           errors.push(`Block ${blockNumbers[i]}: No response`);
