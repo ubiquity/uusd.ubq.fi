@@ -21,9 +21,12 @@ export class PriceThresholdService {
   private _lastCacheTime = 0;
 
   constructor(rpcUrl?: string) {
+    // Use environment-aware RPC URL
+    const defaultRpcUrl = this._getDefaultRpcUrl();
+    
     this._client = createPublicClient({
       chain: mainnet,
-      transport: http(rpcUrl || "https://mainnet.gateway.tenderly.co"),
+      transport: http(rpcUrl || defaultRpcUrl),
     });
   }
 
@@ -140,6 +143,26 @@ export class PriceThresholdService {
   private _isValidThreshold(value: bigint): boolean {
     const { MIN_VALID_THRESHOLD, MAX_VALID_THRESHOLD } = PRICE_THRESHOLD_CONFIG;
     return value >= MIN_VALID_THRESHOLD && value <= MAX_VALID_THRESHOLD;
+  }
+
+  /**
+   * Get the default RPC URL based on environment
+   * Production: use same domain /rpc/1
+   * Development/local: use https://rpc.ubq.fi/1
+   */
+  private _getDefaultRpcUrl(): string {
+    // Check if we're in a browser environment with a domain
+    if (typeof window !== "undefined" && window.location) {
+      const { protocol, hostname } = window.location;
+      
+      // If hostname suggests production deployment (not localhost/development)
+      if (hostname !== "localhost" && hostname !== "127.0.0.1" && !hostname.includes("dev")) {
+        return `${protocol}//${hostname}/rpc/1`;
+      }
+    }
+    
+    // Default to Ubiquity RPC for development/local environments
+    return "https://rpc.ubq.fi/1";
   }
 
   /**
