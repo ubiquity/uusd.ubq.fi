@@ -19,9 +19,7 @@ export function analyzeOracleError(errorMessage: string): {
 } {
   const message = errorMessage.toLowerCase();
 
-  if (message.includes('stale stable/usd data') ||
-      (message.includes('stale') && message.includes('data'))) {
-
+  if (message.includes("stale stable/usd data") || (message.includes("stale") && message.includes("data"))) {
     return {
       isOracleIssue: true,
       userMessage: "💡 Oracle Price Feed Issue Detected",
@@ -31,15 +29,15 @@ export function analyzeOracleError(errorMessage: string): {
         "🏦 Oracle keepers will update the price feed soon",
         "💰 Consider using a different collateral type if available",
         "📊 Try again in 30-60 minutes for the best results",
-        "🌐 This is a network-wide issue, not specific to this app"
-      ]
+        "🌐 This is a network-wide issue, not specific to this app",
+      ],
     };
   }
 
   return {
     isOracleIssue: false,
     userMessage: errorMessage,
-    suggestions: []
+    suggestions: [],
   };
 }
 
@@ -63,6 +61,6 @@ export function getAlternativeActions(): string[] {
     "📈 Monitor oracle status on Chainlink Data Feeds website",
     "⏰ Set a reminder to try again in 1-2 hours",
     "🗨️ Join Ubiquity Discord for real-time updates on oracle status",
-    "📱 Consider using the protocol when oracle feeds are fresh"
+    "📱 Consider using the protocol when oracle feeds are fresh",
   ];
 }

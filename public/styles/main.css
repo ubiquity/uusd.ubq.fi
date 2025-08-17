@@ -21,9 +21,9 @@ h1 { text-align: center; }
 .price-section {text-align: center;padding: 15px;}
 .uusd-price { font-size: 16px; margin: 0; }
 #uusdPrice { font-weight: 600; font-size: 18px; }
-.wallet-section {text-align: center;/* padding: 20px; */}
+.wallet-section {text-align: center;}
 .wallet-address { font-family: monospace; font-size: 14px; }
-button {border: none;padding: 12px 24px;font-size: 16px;cursor: pointer;transition: background 0.3s;box-shadow: 0 0 96px #ffffff40;border-radius: 6px;color: #fff;background-color: transparent;}
+button {border: none;padding: 12px 24px;font-size: 16px;cursor: pointer;transition: background 0.3s;box-shadow: 0 0 96px #ffffff40;border-radius: 6px;color: #fff;background-color: transparent;/* margin: 20px auto; */}
 button:hover {box-shadow: inset 0 0 96px #ffffff40;}
 button:disabled { cursor: not-allowed; }
 .tabs {display: flex;margin-bottom: 15px;}
@@ -572,4 +572,259 @@ hr{border: 0.5px solid #ffffff40;margin-bottom: 10px;margin-left: 8px;margin: 20
     height: 16px;
     vertical-align: middle;
     margin-right: 4px;
+}
+
+/* Direction Toggle Styles */
+.direction-toggle {
+    display: flex;
+    margin-bottom: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 4px;
+    backdrop-filter: blur(8px);
+}
+
+.direction-button {
+    flex: 1;
+    padding: 12px 20px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.direction-button.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+}
+
+.direction-button:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Unified Exchange Form Styles */
+.exchange-form {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Route Display Styles */
+.route-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.route-action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.route-action span:first-child {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.market-price {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    font-family: monospace;
+}
+
+.savings-positive {
+    background: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.main-output {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 16px;
+}
+
+.main-output .output-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+}
+
+.main-output .output-value {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.route-explanation {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid rgba(0, 123, 255, 0.5);
+}
+
+.route-reason {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.4;
+}
+
+.route-warning {
+    background: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    font-size: 14px;
+    text-align: center;
+    margin-top: 12px;
+}
+
+/* Notification Container */
+.notification-container {
+    margin-top: 16px;
+}
+
+.notification-container .error,
+.notification-container .success {
+    display: block;
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.notification-container .error {
+    background: rgba(255, 71, 87, 0.1);
+    color: #ff4757;
+    border: 1px solid rgba(255, 71, 87, 0.3);
+}
+
+.notification-container .success {
+    background: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+/* Hide old tab styles when using unified interface */
+.tabs {
+    display: none !important;
+}
+
+.tab-content {
+    display: none !important;
+}
+
+/* Responsive adjustments for unified interface */
+@media (max-width: 768px) {
+    .exchange-form {
+        padding: 20px;
+    }
+
+    .route-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .direction-toggle {
+        margin-bottom: 16px;
+    }
+
+    .direction-button {
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .exchange-form {
+        padding: 16px;
+        margin: 0 -4px;
+    }
+
+    .main-output .output-value {
+        font-size: 16px;
+    }
+
+    .route-action span:first-child {
+        font-size: 16px;
+    }
+}
+
+/* Mint Options Styling */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #007bff;
+    cursor: pointer;
+}
+
+.checkbox-group label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Simplified Exchange Component Styles */
+.route-type {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.output-row.main-output {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 16px 0;
+    font-size: 18px;
+}
+
+.option-explanation {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    padding: 12px;
+    border-left: 3px solid rgba(0, 123, 255, 0.3);
+}
+
+.explanation-text {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.4;
+}
+
+
+button#connectWallet {
+    margin: 20px auto;
 }

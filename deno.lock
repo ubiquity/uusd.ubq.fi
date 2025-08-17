@@ -50,11 +50,19 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@eslint/js@^9.33.0",
         "npm:@types/bun@latest",
+        "npm:@typescript-eslint/eslint-plugin@^8.39.1",
+        "npm:@typescript-eslint/parser@^8.39.1",
         "npm:@ubiquity-dao/permit2-rpc-client@~0.1.2",
         "npm:commander@14",
         "npm:dotenv@^16.5.0",
         "npm:esbuild@0.19",
+        "npm:eslint-config-prettier@^10.1.8",
+        "npm:eslint-plugin-prettier@^5.5.4",
+        "npm:eslint@^9.33.0",
+        "npm:globals@^16.3.0",
+        "npm:prettier@^3.6.2",
         "npm:viem@^2.31.2"
       ]
     }
