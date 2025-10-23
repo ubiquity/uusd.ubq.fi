@@ -7,6 +7,7 @@ import { batchFetchTokenBalances, type TokenBalanceBatchResult } from "../utils/
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
 import type { TokenBalance } from "../types/inventory.types.ts";
 import { ADDRESSES, DIAMOND_ABI } from "../contracts/constants.ts";
+import { WALLET_EVENTS } from "./wallet-service.ts";
 
 /**
  * Centralized data that gets refreshed every 15 seconds
@@ -54,6 +55,8 @@ export interface RefreshServiceDependencies {
 /**
  * Centralized refresh service that batches all periodic RPC calls
  * Reduces ~13-15 individual calls to 2-3 efficient batch calls
+ * 
+ * UPDATED: Now integrates with new WalletService and AppKit
  */
 export class CentralizedRefreshService {
   private _services: RefreshServiceDependencies;
@@ -62,6 +65,7 @@ export class CentralizedRefreshService {
   private _lastData: RefreshData | null = null;
   private readonly _intervalMs = 15000; // 15 seconds - aligned with Ethereum block time
   private readonly _localStorageKey = "ubiquity_refresh_data";
+  private _isRefreshing: boolean = false;
 
   // Cache last successful price values
   private _lastGoodPrices: {
@@ -76,6 +80,34 @@ export class CentralizedRefreshService {
 
   constructor(services: RefreshServiceDependencies) {
     this._services = services;
+    this._setupWalletListeners();
+  }
+
+  /**
+   * Setup wallet event listeners to handle connect/disconnect
+   */
+  private _setupWalletListeners(): void {
+    // Listen for wallet connection changes
+    this._services.walletService.addEventListener(WALLET_EVENTS.CONNECT, () => {
+      console.log("🔗 Wallet connected - refreshing data...");
+      this._performRefresh().catch(console.error);
+    });
+
+    this._services.walletService.addEventListener(WALLET_EVENTS.DISCONNECT, () => {
+      console.log("🔌 Wallet disconnected - clearing token balances...");
+      if (this._lastData) {
+        this._lastData = {
+          ...this._lastData,
+          tokenBalances: null,
+        };
+        this._notifyCallbacks(this._lastData);
+      }
+    });
+
+    this._services.walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, () => {
+      console.log("👤 Account changed - refreshing data...");
+      this._performRefresh().catch(console.error);
+    });
   }
 
   /**
@@ -151,18 +183,48 @@ export class CentralizedRefreshService {
   }
 
   /**
+   * Check if a refresh is currently in progress
+   */
+  public isRefreshing(): boolean {
+    return this._isRefreshing;
+  }
+
+  /**
    * Perform the centralized refresh with batched RPC calls
    */
   private async _performRefresh(): Promise<void> {
+    // Prevent concurrent refreshes
+    if (this._isRefreshing) {
+      console.log("⏭️ Refresh already in progress, skipping...");
+      return;
+    }
+
+    this._isRefreshing = true;
+
     try {
       const publicClient = this._services.walletService.getPublicClient();
       const account = this._services.walletService.getAccount();
+      const isConnected = this._services.walletService.isConnected();
+
+      console.log("🔄 Starting refresh cycle...", {
+        isConnected,
+        hasAccount: !!account,
+      });
 
       // BATCH 1: Diamond contract multicall (most efficient)
       const diamondMulticallData = await this._fetchDiamondData(publicClient);
 
-      // BATCH 2: Token balances (only if wallet connected)
-      const tokenBalancesData = account ? await this._fetchTokenBalances(publicClient, account) : null;
+      // BATCH 2: Token balances (only if wallet connected AND validated)
+      let tokenBalancesData: TokenBalance[] | null = null;
+      if (isConnected && account) {
+        try {
+          this._services.walletService.validateConnection();
+          tokenBalancesData = await this._fetchTokenBalances(publicClient, account);
+        } catch (error) {
+          console.warn("Token balances fetch skipped:", error);
+          tokenBalancesData = null;
+        }
+      }
 
       // BATCH 3: External data (storage reads only - use price service for Curve data)
       const externalData = await this._fetchExternalData(publicClient);
@@ -201,9 +263,13 @@ export class CentralizedRefreshService {
       this._lastData = refreshData;
       this._saveToLocalStorage(refreshData);
       this._notifyCallbacks(refreshData);
+
+      console.log("✅ Refresh cycle completed successfully");
     } catch (error) {
-      console.error("Centralized refresh failed:", error);
+      console.error("❌ Centralized refresh failed:", error);
       // Continue with stale data - don't break the refresh cycle
+    } finally {
+      this._isRefreshing = false;
     }
   }
 
@@ -213,85 +279,95 @@ export class CentralizedRefreshService {
   private async _fetchDiamondData(publicClient: PublicClient) {
     const diamondAddress = ADDRESSES.DIAMOND;
 
-    // Single multicall with all Diamond contract reads
-    const multicallResults = await publicClient.multicall({
-      contracts: [
-        {
-          address: diamondAddress,
-          abi: DIAMOND_ABI,
-          functionName: "collateralRatio",
-        },
-        {
-          address: diamondAddress,
-          abi: DIAMOND_ABI,
-          functionName: "getDollarPriceUsd",
-        },
-        {
-          address: diamondAddress,
-          abi: DIAMOND_ABI,
-          functionName: "getGovernancePriceUsd",
-        },
-        {
-          address: diamondAddress,
-          abi: DIAMOND_ABI,
-          functionName: "allCollaterals",
-        },
-      ],
-    });
+    try {
+      // Single multicall with all Diamond contract reads
+      const multicallResults = await publicClient.multicall({
+        contracts: [
+          {
+            address: diamondAddress,
+            abi: DIAMOND_ABI,
+            functionName: "collateralRatio",
+          },
+          {
+            address: diamondAddress,
+            abi: DIAMOND_ABI,
+            functionName: "getDollarPriceUsd",
+          },
+          {
+            address: diamondAddress,
+            abi: DIAMOND_ABI,
+            functionName: "getGovernancePriceUsd",
+          },
+          {
+            address: diamondAddress,
+            abi: DIAMOND_ABI,
+            functionName: "allCollaterals",
+          },
+        ],
+      });
 
-    // Extract prices - throw error if critical data missing
-    if (!multicallResults || multicallResults.length < 4) {
-      throw new Error(`Insufficient multicall results: expected 4, got ${multicallResults?.length || 0}`);
+      // Extract prices - throw error if critical data missing
+      if (!multicallResults || multicallResults.length < 4) {
+        throw new Error(`Insufficient multicall results: expected 4, got ${multicallResults?.length || 0}`);
+      }
+
+      if (multicallResults[1].status !== "success") {
+        throw new Error("Failed to fetch LUSD price from Diamond contract");
+      }
+      const lusdPrice = multicallResults[1].result as bigint;
+      this._lastGoodPrices.lusdPrice = lusdPrice;
+
+      if (multicallResults[2].status !== "success") {
+        throw new Error("Failed to fetch UBQ price from Diamond contract");
+      }
+      const ubqPrice = multicallResults[2].result as bigint;
+      this._lastGoodPrices.ubqPrice = ubqPrice;
+
+      // For now, use LUSD oracle price as TWAP price (they're usually very close)
+      const twapPrice = lusdPrice;
+
+      return {
+        collateralRatio: multicallResults[0].status === "success" ? (multicallResults[0].result as bigint) : 0n,
+        lusdPrice,
+        ubqPrice,
+        allCollaterals: multicallResults[3].status === "success" ? (multicallResults[3].result as readonly Address[]) : [],
+        twapPrice,
+      };
+    } catch (error) {
+      console.error("Error fetching Diamond data:", error);
+      throw error;
     }
-
-    if (multicallResults[1].status !== "success") {
-      throw new Error("Failed to fetch LUSD price from Diamond contract");
-    }
-    const lusdPrice = multicallResults[1].result as bigint;
-    this._lastGoodPrices.lusdPrice = lusdPrice;
-
-    if (multicallResults[2].status !== "success") {
-      throw new Error("Failed to fetch UBQ price from Diamond contract");
-    }
-    const ubqPrice = multicallResults[2].result as bigint;
-    this._lastGoodPrices.ubqPrice = ubqPrice;
-
-    // For now, use LUSD oracle price as TWAP price (they're usually very close)
-    const twapPrice = lusdPrice;
-
-    return {
-      collateralRatio: multicallResults[0].status === "success" ? (multicallResults[0].result as bigint) : 0n,
-      lusdPrice,
-      ubqPrice,
-      allCollaterals: multicallResults[3].status === "success" ? (multicallResults[3].result as readonly Address[]) : [],
-      twapPrice,
-    };
   }
 
   /**
    * BATCH 2: Fetch token balances for connected wallet
    */
   private async _fetchTokenBalances(publicClient: PublicClient, account: Address): Promise<TokenBalance[]> {
-    // Prepare tokens for batch request
-    const tokens = Object.values(INVENTORY_TOKENS).map((token) => ({
-      address: token.address,
-      symbol: token.symbol,
-    }));
+    try {
+      // Prepare tokens for batch request
+      const tokens = Object.values(INVENTORY_TOKENS).map((token) => ({
+        address: token.address,
+        symbol: token.symbol,
+      }));
 
-    // Execute batch request for all token balances
-    const batchResults = await batchFetchTokenBalances(publicClient, tokens, account);
+      // Execute batch request for all token balances
+      const batchResults = await batchFetchTokenBalances(publicClient, tokens, account);
 
-    // Convert to TokenBalance format (USD values will be calculated from cached price data)
-    return batchResults.map((result: TokenBalanceBatchResult): TokenBalance => {
-      const tokenMetadata = INVENTORY_TOKENS[result.symbol];
-      return {
-        symbol: result.symbol,
-        address: result.tokenAddress,
-        balance: result.balance,
-        decimals: tokenMetadata.decimals,
-        usdValue: 0, // Will be calculated after we have all price data
-      };
-    });
+      // Convert to TokenBalance format (USD values will be calculated from cached price data)
+      return batchResults.map((result: TokenBalanceBatchResult): TokenBalance => {
+        const tokenMetadata = INVENTORY_TOKENS[result.symbol];
+        return {
+          symbol: result.symbol,
+          address: result.tokenAddress,
+          balance: result.balance,
+          decimals: tokenMetadata.decimals,
+          usdValue: 0, // Will be calculated after we have all price data
+        };
+      });
+    } catch (error) {
+      console.error("Error fetching token balances:", error);
+      throw error;
+    }
   }
 
   /**
@@ -300,35 +376,20 @@ export class CentralizedRefreshService {
   private async _fetchExternalData(publicClient: PublicClient) {
     const diamondAddress = ADDRESSES.DIAMOND;
 
-    // Get storage data (no multicall needed since it's just storage reads)
-    const [mintThreshold, redeemThreshold] = await Promise.all([
-      publicClient.getStorageAt({ address: diamondAddress, slot: "0x0c" }), // slot 12
-      publicClient.getStorageAt({ address: diamondAddress, slot: "0x0d" }), // slot 13
-    ]);
-
-    return {
-      mintThreshold: mintThreshold ? BigInt(mintThreshold) : 0n,
-      redeemThreshold: redeemThreshold ? BigInt(redeemThreshold) : 0n,
-    };
-  }
-
-  /**
-   * Calculate UUSD price from LUSD price and Curve exchange rate
-   */
-  private _calculateUUSDPrice(lusdPrice: bigint, curveExchangeRate: bigint): string {
     try {
-      const lusdPriceFloat = parseFloat(formatUnits(lusdPrice, 6));
-      const exchangeRateFloat = parseFloat(formatUnits(curveExchangeRate, 18));
+      // Get storage data (no multicall needed since it's just storage reads)
+      const [mintThreshold, redeemThreshold] = await Promise.all([
+        publicClient.getStorageAt({ address: diamondAddress, slot: "0x0c" }), // slot 12
+        publicClient.getStorageAt({ address: diamondAddress, slot: "0x0d" }), // slot 13
+      ]);
 
-      if (exchangeRateFloat === 0) {
-        return "1.000000"; // Fallback
-      }
-
-      const uusdPrice = lusdPriceFloat / exchangeRateFloat;
-      return uusdPrice.toFixed(6);
+      return {
+        mintThreshold: mintThreshold ? BigInt(mintThreshold) : 0n,
+        redeemThreshold: redeemThreshold ? BigInt(redeemThreshold) : 0n,
+      };
     } catch (error) {
-      console.warn("Failed to calculate UUSD price:", error);
-      return "1.000000"; // Fallback
+      console.error("Error fetching external data:", error);
+      throw error;
     }
   }
 
@@ -336,60 +397,65 @@ export class CentralizedRefreshService {
    * Calculate USD values for token balances using cached price data
    */
   private _calculateTokenUSDValues(tokenBalances: TokenBalance[], lusdPrice: bigint, ubqPrice: bigint, uusdPriceStr: string): TokenBalance[] {
-    // Remove $ sign if present and parse
-    const uusdPriceClean = uusdPriceStr.replace(/^\$/, "");
-    const uusdPrice = parseFloat(uusdPriceClean);
+    try {
+      // Remove $ sign if present and parse
+      const uusdPriceClean = uusdPriceStr.replace(/^\$/, "");
+      const uusdPrice = parseFloat(uusdPriceClean);
 
-    // Validate all prices
-    if (isNaN(uusdPrice) || !isFinite(uusdPrice) || uusdPrice <= 0) {
-      throw new Error(`Invalid UUSD price: ${uusdPriceStr} -> ${uusdPrice}`);
-    }
-
-    const lusdPriceFloat = parseFloat(formatUnits(lusdPrice, 6));
-    const ubqPriceFloat = parseFloat(formatUnits(ubqPrice, 6));
-
-    if (isNaN(lusdPriceFloat) || !isFinite(lusdPriceFloat) || lusdPriceFloat <= 0) {
-      throw new Error(`Invalid LUSD price: ${lusdPrice} -> ${lusdPriceFloat}`);
-    }
-
-    if (isNaN(ubqPriceFloat) || !isFinite(ubqPriceFloat) || ubqPriceFloat <= 0) {
-      throw new Error(`Invalid UBQ price: ${ubqPrice} -> ${ubqPriceFloat}`);
-    }
-
-    console.log("💰 Calculating USD values with prices:", {
-      lusdPrice: lusdPriceFloat,
-      ubqPrice: ubqPriceFloat,
-      uusdPrice,
-    });
-
-    return tokenBalances.map((balance) => {
-      let priceInUsd: number;
-
-      if (balance.symbol === "UUSD") {
-        priceInUsd = uusdPrice;
-      } else if (balance.symbol === "UBQ") {
-        priceInUsd = ubqPriceFloat;
-      } else if (balance.symbol === "LUSD") {
-        priceInUsd = lusdPriceFloat;
-      } else {
-        throw new Error(`Unknown token symbol: ${balance.symbol}`);
+      // Validate all prices
+      if (isNaN(uusdPrice) || !isFinite(uusdPrice) || uusdPrice <= 0) {
+        throw new Error(`Invalid UUSD price: ${uusdPriceStr} -> ${uusdPrice}`);
       }
 
-      const tokenAmount = parseFloat(formatUnits(balance.balance, balance.decimals));
-      const usdValue = tokenAmount * priceInUsd;
+      const lusdPriceFloat = parseFloat(formatUnits(lusdPrice, 6));
+      const ubqPriceFloat = parseFloat(formatUnits(ubqPrice, 6));
 
-      // Validate USD value
-      if (isNaN(usdValue) || !isFinite(usdValue) || usdValue < 0) {
-        throw new Error(`Invalid USD value calculated for ${balance.symbol}: ${tokenAmount} × $${priceInUsd} = ${usdValue}`);
+      if (isNaN(lusdPriceFloat) || !isFinite(lusdPriceFloat) || lusdPriceFloat <= 0) {
+        throw new Error(`Invalid LUSD price: ${lusdPrice} -> ${lusdPriceFloat}`);
       }
 
-      console.log(`💵 ${balance.symbol}: ${tokenAmount} × $${priceInUsd} = $${usdValue}`);
+      if (isNaN(ubqPriceFloat) || !isFinite(ubqPriceFloat) || ubqPriceFloat <= 0) {
+        throw new Error(`Invalid UBQ price: ${ubqPrice} -> ${ubqPriceFloat}`);
+      }
 
-      return {
-        ...balance,
-        usdValue,
-      };
-    });
+      console.log("💰 Calculating USD values with prices:", {
+        lusdPrice: lusdPriceFloat,
+        ubqPrice: ubqPriceFloat,
+        uusdPrice,
+      });
+
+      return tokenBalances.map((balance) => {
+        let priceInUsd: number;
+
+        if (balance.symbol === "UUSD") {
+          priceInUsd = uusdPrice;
+        } else if (balance.symbol === "UBQ") {
+          priceInUsd = ubqPriceFloat;
+        } else if (balance.symbol === "LUSD") {
+          priceInUsd = lusdPriceFloat;
+        } else {
+          throw new Error(`Unknown token symbol: ${balance.symbol}`);
+        }
+
+        const tokenAmount = parseFloat(formatUnits(balance.balance, balance.decimals));
+        const usdValue = tokenAmount * priceInUsd;
+
+        // Validate USD value
+        if (isNaN(usdValue) || !isFinite(usdValue) || usdValue < 0) {
+          throw new Error(`Invalid USD value calculated for ${balance.symbol}: ${tokenAmount} × $${priceInUsd} = ${usdValue}`);
+        }
+
+        console.log(`💵 ${balance.symbol}: ${tokenAmount} × $${priceInUsd} = $${usdValue}`);
+
+        return {
+          ...balance,
+          usdValue,
+        };
+      });
+    } catch (error) {
+      console.error("Error calculating token USD values:", error);
+      throw error;
+    }
   }
 
   /**
@@ -409,6 +475,18 @@ export class CentralizedRefreshService {
    * Force a manual refresh
    */
   public async forceRefresh(): Promise<void> {
+    if (this._isRefreshing) {
+      console.log("⏭️ Refresh already in progress, waiting...");
+      // Wait for current refresh to complete
+      await new Promise<void>((resolve) => {
+        const checkInterval = setInterval(() => {
+          if (!this._isRefreshing) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+      });
+    }
     await this._performRefresh();
   }
 
@@ -419,6 +497,11 @@ export class CentralizedRefreshService {
     this.stop();
     this._callbacks = [];
     this._lastData = null;
+    
+    // Remove wallet event listeners
+    this._services.walletService.removeEventListener(WALLET_EVENTS.CONNECT, () => {});
+    this._services.walletService.removeEventListener(WALLET_EVENTS.DISCONNECT, () => {});
+    this._services.walletService.removeEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, () => {});
   }
 
   /**
@@ -486,5 +569,20 @@ export class CentralizedRefreshService {
       console.warn("Failed to load from localStorage:", error);
       return null;
     }
+  }
+
+  /**
+   * Get current wallet connection status
+   */
+  public getConnectionStatus(): {
+    isConnected: boolean;
+    account: Address | null;
+    hasTokenBalances: boolean;
+  } {
+    return {
+      isConnected: this._services.walletService.isConnected(),
+      account: this._services.walletService.getAccount(),
+      hasTokenBalances: !!this._lastData?.tokenBalances,
+    };
   }
 }

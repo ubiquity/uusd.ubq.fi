@@ -8,7 +8,7 @@ import type { SwapService } from "../services/swap-service.ts";
 import { TransactionStateService } from "../services/transaction-state-service.ts";
 import { OptimalRouteService, type OptimalRouteResult, type ExchangeDirection } from "../services/optimal-route-service.ts";
 import { WALLET_EVENTS } from "../services/wallet-service.ts";
-import { LUSD_COLLATERAL } from "../contracts/constants.ts";
+import { LUSD_COLLATERAL, ADDRESSES } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
 import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
@@ -44,8 +44,8 @@ export class SimplifiedExchangeComponent {
     useUbqDiscount: false,
     forceSwapOnly: false,
     acceptFractionalRedemption: false,
-    redemptionsDisabled: false, // Track protocol redemption status separately
-    mintingDisabled: true, // Default to true until we verify minting is allowed
+    redemptionsDisabled: false,
+    mintingDisabled: true,
     protocolSettings: null as ProtocolSettings | null,
     routeResult: null as OptimalRouteResult | null,
     isCalculating: false,
@@ -54,24 +54,27 @@ export class SimplifiedExchangeComponent {
   constructor(services: SimplifiedExchangeServices) {
     this._services = services;
     this._transactionStateService = TransactionStateService.getInstance();
-    this._optimalRouteService = new OptimalRouteService(services.priceService, services.curvePriceService, services.contractService, services.walletService);
+    this._optimalRouteService = new OptimalRouteService(
+      services.priceService, 
+      services.curvePriceService, 
+      services.contractService, 
+      services.walletService
+    );
 
     void this._init();
   }
 
   private async _init() {
     await this._loadProtocolSettings();
-
-    // Check redemption status on init
     await this._checkRedemptionStatus();
-
-    // Get minting status from centralized refresh service
     this._updateFromCentralizedData();
 
-    console.log("[INIT] Initial state after status checks:", {
-      mintingDisabled: this._state.mintingDisabled,
-      redemptionsDisabled: this._state.redemptionsDisabled,
-      direction: this._state.direction,
+    console.log("[SIMPLIFIED EXCHANGE] Initialized with addresses:", {
+      diamond: ADDRESSES.DIAMOND,
+      dollar: ADDRESSES.DOLLAR,
+      governance: ADDRESSES.GOVERNANCE,
+      curvePool: ADDRESSES.CURVE_POOL,
+      lusdCollateral: LUSD_COLLATERAL.address
     });
 
     this._registerTransactionButton();
@@ -79,38 +82,27 @@ export class SimplifiedExchangeComponent {
     this._setupWalletEventListeners();
     this._setupBalanceSubscription();
 
-    // Wait for initial balance load if wallet is connected
     if (this._isWalletConnected()) {
       await this._services.inventoryBar.waitForInitialLoad();
     }
 
     this._render();
 
-    // Auto-populate on initial load if wallet is connected
     if (this._isWalletConnected()) {
-      // Balances are guaranteed to be loaded now
       this._autoPopulateMaxBalance();
     }
 
-    // If we're starting on deposit mode, immediately hide UBQ option if minting disabled
+    // Hide UBQ option if minting disabled on init
     if (this._state.direction === "deposit" && this._state.mintingDisabled) {
-      const ubqOptionDiv = document.getElementById("ubqDiscountOption");
-      if (ubqOptionDiv) {
-        ubqOptionDiv.style.display = "none";
-      }
+      this._hideUbqDiscountOption();
     }
-
-    // Protocol settings and redemption status are now handled by centralized refresh service
   }
 
   /**
    * Update state from centralized refresh data
    */
   private _updateFromCentralizedData() {
-    // Get the centralized refresh service instance through app
-    const app = (
-      window as { app?: { centralizedRefreshService?: { getLastData: () => RefreshData | null; subscribe: (callback: (data: RefreshData) => void) => void } } }
-    ).app;
+    const app = (window as any).app;
     if (!app?.centralizedRefreshService) {
       console.warn("[SIMPLIFIED EXCHANGE] Centralized refresh service not available");
       return;
@@ -118,34 +110,29 @@ export class SimplifiedExchangeComponent {
 
     const refreshData = app.centralizedRefreshService.getLastData();
     if (refreshData) {
-      // Update minting disabled state from centralized data
       this._state.mintingDisabled = !refreshData.isMintingAllowed;
 
-      // If minting is disabled, ensure UBQ discount is unchecked
       if (this._state.mintingDisabled) {
         this._state.useUbqDiscount = false;
+        this._hideUbqDiscountOption();
       }
 
-      console.log("[CENTRALIZED DATA] Updated minting state:", {
+      console.log("[CENTRALIZED DATA] Updated state:", {
         mintingDisabled: this._state.mintingDisabled,
-        isMintingAllowed: refreshData.isMintingAllowed,
-        twapPrice: refreshData.twapPrice?.toString(),
-        mintThreshold: refreshData.mintThreshold?.toString(),
+        isMintingAllowed: refreshData.isMintingAllowed
       });
     }
 
-    // Subscribe to updates
     app.centralizedRefreshService.subscribe((data: RefreshData) => {
-      const didHaveMintingDisabled = this._state.mintingDisabled;
+      const previousMintingState = this._state.mintingDisabled;
       this._state.mintingDisabled = !data.isMintingAllowed;
 
-      // If minting became disabled, uncheck UBQ discount
-      if (this._state.mintingDisabled && !didHaveMintingDisabled) {
+      if (this._state.mintingDisabled && !previousMintingState) {
         this._state.useUbqDiscount = false;
+        this._hideUbqDiscountOption();
       }
 
-      // Re-render if minting state changed and we're on deposit
-      if (this._state.direction === "deposit" && didHaveMintingDisabled !== this._state.mintingDisabled) {
+      if (this._state.direction === "deposit" && previousMintingState !== this._state.mintingDisabled) {
         console.log("[CENTRALIZED UPDATE] Minting state changed, re-rendering");
         this._renderOptions();
       }
@@ -153,60 +140,59 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Load protocol settings and determine available options
+   * Load protocol settings
    */
   private async _loadProtocolSettings() {
     try {
       const settings = await this._services.contractService.getProtocolSettings(LUSD_COLLATERAL.index);
       this._state.protocolSettings = settings;
+      console.log("[PROTOCOL SETTINGS] Loaded:", settings);
     } catch (error) {
       console.error("Failed to load protocol settings:", error);
     }
   }
 
   private _isWalletConnected(): boolean {
-    return !!this._services.walletService.getAccount();
+    return this._services.walletService.isConnected();
   }
 
   private _setupWalletEventListeners() {
-    this._services.walletService.addEventListener(WALLET_EVENTS.CONNECT, async (_account?: Address | null) => {
-      // Clear state and re-evaluate on wallet connect
+    this._services.walletService.addEventListener(WALLET_EVENTS.CONNECT, async (account?: Address | null) => {
+      console.log("[WALLET] Connected:", account);
       this._state.amount = "";
       this._state.routeResult = null;
 
-      // Wait for balances to load before rendering
       await this._services.inventoryBar.waitForInitialLoad();
-
       this._render();
       this._autoPopulateMaxBalance();
     });
 
     this._services.walletService.addEventListener(WALLET_EVENTS.DISCONNECT, () => {
-      // Clear all state on disconnect
+      console.log("[WALLET] Disconnected");
       this._state.amount = "";
       this._state.routeResult = null;
-      this._state.direction = "deposit"; // Reset to default
+      this._state.direction = "deposit";
+      
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (amountInput) amountInput.value = "";
+      
       this._render();
     });
 
     this._services.walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, async (account?: Address | null) => {
-      // Clear state and force re-evaluation when switching accounts
+      console.log("[WALLET] Account changed:", account);
       this._state.amount = "";
       this._state.routeResult = null;
+      
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (amountInput) amountInput.value = "";
 
-      // If connected, wait for balance load
       if (account) {
         await this._services.inventoryBar.waitForInitialLoad();
       }
 
-      // Force a fresh render that will auto-select the correct direction
       this._render();
 
-      // If connected, auto-populate balance for the new account
       if (account) {
         this._autoPopulateMaxBalance();
       }
@@ -214,11 +200,9 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Setup event listeners
+   * Setup event listeners for UI elements
    */
   private _setupEventListeners() {
-    // Use requestAnimationFrame to ensure DOM is ready
-    // eslint-disable-next-line func-style
     const setupListeners = () => {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
@@ -227,38 +211,27 @@ export class SimplifiedExchangeComponent {
       const swapOnlyCheckbox = document.getElementById("forceSwapOnly") as HTMLInputElement;
       const fractionalRedemptionCheckbox = document.getElementById("acceptFractionalRedemption") as HTMLInputElement;
 
-      // Check if critical elements exist, if not retry
       if (!amountInput || !depositButton || !withdrawButton) {
         requestAnimationFrame(setupListeners);
         return;
       }
 
-      if (amountInput) {
-        amountInput.addEventListener("input", () => this._handleAmountChange());
-      }
+      // Amount input
+      amountInput.addEventListener("input", () => this._handleAmountChange());
 
-      if (depositButton) {
-        depositButton.addEventListener("click", () => this._switchDirection("deposit"));
-      }
+      // Direction buttons
+      depositButton.addEventListener("click", () => this._switchDirection("deposit"));
+      withdrawButton.addEventListener("click", () => this._switchDirection("withdraw"));
 
-      if (withdrawButton) {
-        withdrawButton.addEventListener("click", () => this._switchDirection("withdraw"));
-      }
-
+      // UBQ discount
       if (ubqDiscountCheckbox) {
         ubqDiscountCheckbox.addEventListener("change", async (e) => {
-          // Double-check minting is allowed before accepting the change
           if (this._state.direction === "deposit" && this._state.mintingDisabled) {
-            console.warn("[UBQ DISCOUNT] Minting disabled - preventing UBQ discount selection");
+            console.warn("[UBQ DISCOUNT] Minting disabled - preventing selection");
             e.preventDefault();
             (e.target as HTMLInputElement).checked = false;
             this._state.useUbqDiscount = false;
-
-            // Hide the option immediately
-            const ubqOptionDiv = document.getElementById("ubqDiscountOption");
-            if (ubqOptionDiv) {
-              ubqOptionDiv.style.display = "none";
-            }
+            this._hideUbqDiscountOption();
             return;
           }
 
@@ -267,24 +240,23 @@ export class SimplifiedExchangeComponent {
         });
       }
 
+      // Swap only option
       if (swapOnlyCheckbox) {
         swapOnlyCheckbox.addEventListener("change", (e) => {
-          // CRITICAL: Never allow user to change this when redemptions are disabled
           if (this._state.redemptionsDisabled) {
-            console.warn("Redemptions disabled - ignoring user checkbox change");
+            console.warn("Redemptions disabled - ignoring checkbox change");
             e.preventDefault();
             e.stopPropagation();
-            // Force checkbox back to checked state
             swapOnlyCheckbox.checked = true;
             return;
           }
 
-          // Only allow changes when redemptions are enabled
           this._state.forceSwapOnly = (e.target as HTMLInputElement).checked;
           void this._calculateRoute();
         });
       }
 
+      // Fractional redemption
       if (fractionalRedemptionCheckbox) {
         fractionalRedemptionCheckbox.addEventListener("change", (e) => {
           this._state.acceptFractionalRedemption = (e.target as HTMLInputElement).checked;
@@ -297,13 +269,12 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Handle amount input changes
+   * Handle amount input changes with debounce
    */
   private _handleAmountChange() {
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
     this._state.amount = amountInput?.value || "";
 
-    // Debounce calculation
     if (this._debounceTimer) {
       clearTimeout(this._debounceTimer);
     }
@@ -314,46 +285,35 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Switch between buy and sell
+   * Switch between deposit and withdraw directions
    */
   private async _switchDirection(direction: ExchangeDirection) {
-    // Clear current state
+    console.log("[DIRECTION] Switching to:", direction);
+    
     this._state.direction = direction;
     this._state.amount = "";
     this._state.routeResult = null;
 
-    // Clear input
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
     if (amountInput) amountInput.value = "";
 
-    // IMPORTANT: Never reset redemptionsDisabled - it's a protocol state, not a UI state!
-    // Only reset forceSwapOnly for deposits (user preference)
+    // Reset options based on direction
     if (direction === "deposit") {
       this._state.forceSwapOnly = false;
-    }
-
-    // For withdrawals, ensure checkbox is hidden if redemptions are disabled
-    if (direction === "withdraw" && this._state.redemptionsDisabled) {
-      // Force the state
-      this._state.forceSwapOnly = true;
-
-      // Hide checkbox IMMEDIATELY
-      const swapOnlyDiv = document.getElementById("swapOnlyOption");
-      if (swapOnlyDiv) {
-        swapOnlyDiv.style.display = "none";
-        swapOnlyDiv.style.visibility = "hidden";
+    } else {
+      // For withdrawals, enforce swap-only if redemptions disabled
+      if (this._state.redemptionsDisabled) {
+        this._state.forceSwapOnly = true;
+        this._hideSwapOnlyOption();
       }
     }
 
-    // Re-render UI
     this._render();
-
-    // Auto-populate with max balance if available
     this._autoPopulateMaxBalance();
   }
 
   /**
-   * Calculate the optimal route
+   * Calculate optimal route based on current state
    */
   private async _calculateRoute() {
     const amount = this._state.amount;
@@ -370,13 +330,10 @@ export class SimplifiedExchangeComponent {
       let routeResult: OptimalRouteResult;
 
       if (this._state.direction === "deposit") {
-        // For deposits, check if UBQ discount is available and user wants it
         const shouldForceCollateralOnly = !this._state.useUbqDiscount;
         routeResult = await this._optimalRouteService.getOptimalDepositRoute(inputAmount, shouldForceCollateralOnly);
       } else {
-        // For withdrawals, ALWAYS use forceSwapOnly when redemptions are disabled
         const shouldForceSwap = this._state.redemptionsDisabled || this._state.forceSwapOnly;
-
         routeResult = await this._optimalRouteService.getOptimalWithdrawRoute(inputAmount, shouldForceSwap);
       }
 
@@ -391,20 +348,28 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Debounced render to prevent rapid UI updates
+   * Check redemption status from protocol
    */
-  private _debouncedRender(immediate: boolean = false) {
-    if (this._renderDebounceTimer) {
-      clearTimeout(this._renderDebounceTimer);
-    }
+  private async _checkRedemptionStatus() {
+    try {
+      const testAmount = parseEther("1");
+      const redeemResult = await this._services.priceService.calculateRedeemOutput({
+        dollarAmount: testAmount,
+        collateralIndex: LUSD_COLLATERAL.index,
+      });
 
-    if (immediate) {
-      this._render();
-    } else {
-      this._renderDebounceTimer = setTimeout(() => {
-        this._render();
-        this._renderDebounceTimer = null;
-      }, 50);
+      console.log("[REDEMPTION CHECK] Result:", redeemResult);
+      this._state.redemptionsDisabled = !redeemResult.isRedeemingAllowed;
+
+      if (this._state.redemptionsDisabled) {
+        this._state.forceSwapOnly = true;
+        this._hideSwapOnlyOption();
+      }
+    } catch (error) {
+      console.error("[REDEMPTION CHECK] Error:", error);
+      this._state.redemptionsDisabled = true;
+      this._state.forceSwapOnly = true;
+      this._hideSwapOnlyOption();
     }
   }
 
@@ -413,43 +378,26 @@ export class SimplifiedExchangeComponent {
    */
   private _render() {
     const isConnected = this._isWalletConnected();
-
-    // Get main exchange interface elements
     const exchangeContainer = document.querySelector(".exchange-container") as HTMLElement;
     const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
     const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
 
-    // Hide entire exchange interface when wallet is not connected
+    // Handle disconnected state
     if (!isConnected) {
-      if (exchangeContainer) {
-        exchangeContainer.style.display = "none";
-      }
-      // Clear any visible output
+      if (exchangeContainer) exchangeContainer.style.display = "none";
       const outputSection = document.getElementById("exchangeOutput");
       if (outputSection) outputSection.style.display = "none";
       return;
     }
 
-    // Check if balances are still loading
+    // Show exchange interface when connected
+    if (exchangeContainer) exchangeContainer.style.display = "block";
+
     const isBalancesLoading = !this._services.inventoryBar.isInitialLoadComplete();
 
-    // Show exchange interface when connected
-    if (exchangeContainer) {
-      exchangeContainer.style.display = "block";
-    }
-
-    console.log("[RENDER] Button visibility:", {
-      isConnected,
-      isBalancesLoading,
-      depositExists: !!depositButton,
-      withdrawExists: !!withdrawButton,
-      depositHidden: depositButton?.style.display === "none",
-      withdrawHidden: withdrawButton?.style.display === "none",
-    });
-
+    // Update button states
     if (depositButton && withdrawButton) {
       if (isBalancesLoading) {
-        // While loading, show both buttons but disabled
         depositButton.style.display = "block";
         withdrawButton.style.display = "block";
         depositButton.disabled = true;
@@ -457,7 +405,6 @@ export class SimplifiedExchangeComponent {
         depositButton.textContent = "Loading...";
         withdrawButton.textContent = "Loading...";
       } else {
-        // Enable buttons
         depositButton.disabled = false;
         withdrawButton.disabled = false;
         depositButton.textContent = "Buy UUSD";
@@ -469,7 +416,7 @@ export class SimplifiedExchangeComponent {
         depositButton.style.display = hasLUSD ? "block" : "none";
         withdrawButton.style.display = hasUUSD ? "block" : "none";
 
-        // Auto-select the visible direction if only one is available
+        // Auto-select direction based on available balances
         if (hasLUSD && !hasUUSD) {
           this._state.direction = "deposit";
         } else if (hasUUSD && !hasLUSD) {
@@ -481,7 +428,7 @@ export class SimplifiedExchangeComponent {
       }
     }
 
-    // Update input label
+    // Update input field
     const amountLabel = document.getElementById("amountLabel");
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
 
@@ -499,83 +446,15 @@ export class SimplifiedExchangeComponent {
       }
     }
 
-    // Show/hide options based on protocol state and direction
     this._renderOptions();
     this._renderOutput();
   }
 
   /**
-   * Check redemption status and update state
-   */
-  private async _checkRedemptionStatus() {
-    try {
-      // Check if redemptions are allowed
-      const testAmount = parseEther("1"); // Test with 1 UUSD
-
-      const redeemResult = await this._services.priceService.calculateRedeemOutput({
-        dollarAmount: testAmount,
-        collateralIndex: LUSD_COLLATERAL.index,
-      });
-
-      console.log("[REDEMPTION CHECK] Result from calculateRedeemOutput:", {
-        isRedeemingAllowed: redeemResult.isRedeemingAllowed,
-        raw: redeemResult,
-      });
-
-      // Update redemption disabled state
-      this._state.redemptionsDisabled = !redeemResult.isRedeemingAllowed;
-
-      // Force swap-only if redemptions are disabled
-      if (this._state.redemptionsDisabled) {
-        this._state.forceSwapOnly = true;
-
-        // Immediately hide and disable the checkbox
-        const swapOnlyDiv = document.getElementById("swapOnlyOption");
-        const swapOnlyCheckbox = document.getElementById("forceSwapOnly") as HTMLInputElement;
-
-        if (swapOnlyDiv) {
-          swapOnlyDiv.style.display = "none";
-        }
-
-        if (swapOnlyCheckbox) {
-          swapOnlyCheckbox.checked = true;
-          swapOnlyCheckbox.disabled = true;
-        }
-      } else {
-        // Only reset if redemptions are enabled
-        this._state.redemptionsDisabled = false;
-        this._state.forceSwapOnly = false;
-      }
-    } catch (error) {
-      console.error("[REDEMPTION CHECK] Error caught:", error);
-      // On error, assume redemptions are disabled to be safe
-      this._state.redemptionsDisabled = true;
-      this._state.forceSwapOnly = true;
-
-      // Hide checkbox on error too
-      const swapOnlyDiv = document.getElementById("swapOnlyOption");
-      if (swapOnlyDiv) {
-        swapOnlyDiv.style.display = "none";
-      }
-    }
-
-    console.log("[REDEMPTION CHECK] Complete. Final State:", {
-      redemptionsDisabled: this._state.redemptionsDisabled,
-      forceSwapOnly: this._state.forceSwapOnly,
-    });
-  }
-
-  /**
-   * Render options based on protocol state
+   * Render options based on protocol state and direction
    */
   private _renderOptions() {
-    console.log("[RENDER OPTIONS] Starting render with state:", {
-      direction: this._state.direction,
-      redemptionsDisabled: this._state.redemptionsDisabled,
-      mintingDisabled: this._state.mintingDisabled,
-      forceSwapOnly: this._state.forceSwapOnly,
-      protocolIsFractional: this._state.protocolSettings?.isFractional,
-    });
+    console.log("[RENDER OPTIONS] Current state:", this._state);
 
     const ubqOptionDiv = document.getElementById("ubqDiscountOption");
     const swapOnlyDiv = document.getElementById("swapOnlyOption");
@@ -584,7 +463,6 @@ export class SimplifiedExchangeComponent {
     const fractionalRedemptionCheckbox = document.getElementById("acceptFractionalRedemption") as HTMLInputElement;
 
     if (!this._state.protocolSettings) {
-      // Hide all options if settings not loaded
       if (ubqOptionDiv) ubqOptionDiv.style.display = "none";
       if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
       if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
@@ -592,21 +470,11 @@ export class SimplifiedExchangeComponent {
     }
 
     if (this._state.direction === "deposit") {
-      // For deposits: Show UBQ discount option only if protocol is fractional AND minting is allowed
+      // Deposits: Show UBQ discount only if fractional and minting allowed
       if (ubqOptionDiv) {
-        // Only show UBQ option if fractional AND minting is allowed
         const shouldShowUbqOption = this._state.protocolSettings.isFractional && !this._state.mintingDisabled;
-
-        console.log("[UBQ DISCOUNT] Visibility check:", {
-          isFractional: this._state.protocolSettings.isFractional,
-          mintingDisabled: this._state.mintingDisabled,
-          shouldShow: shouldShowUbqOption,
-          currentDisplay: ubqOptionDiv.style.display,
-        });
-
         ubqOptionDiv.style.display = shouldShowUbqOption ? "block" : "none";
 
-        // If minting not allowed, ensure the checkbox is unchecked
         if (this._state.mintingDisabled) {
           const ubqDiscountCheckbox = document.getElementById("useUbqDiscount") as HTMLInputElement;
           if (ubqDiscountCheckbox) {
@@ -615,17 +483,15 @@ export class SimplifiedExchangeComponent {
         }
       }
 
-      // Hide swap-only and fractional redemption options for deposits
+      // Hide withdrawal options
       if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
       if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
     } else {
-      // WITHDRAWALS: Intelligent routing based on protocol economics
+      // Withdrawals: Handle different protocol states
       const settings = this._state.protocolSettings;
 
       if (this._state.redemptionsDisabled) {
-        // Case 1: Price too high OR protocol conditions don't allow redemption
-        // Force Curve swap only, hide all choices to declutter UI
-
+        // Redemptions disabled - force swap only
         this._state.forceSwapOnly = true;
         if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
         if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
@@ -634,9 +500,7 @@ export class SimplifiedExchangeComponent {
           swapOnlyCheckbox.disabled = true;
         }
       } else if (settings.isFullyCollateralized) {
-        // Case 2: Protocol 100%+ collateralized AND price below peg
-        // Show swap vs redemption choice (both give pure LUSD)
-
+        // Fully collateralized - show swap vs redemption choice
         if (swapOnlyDiv && swapOnlyCheckbox) {
           swapOnlyDiv.style.display = "block";
           swapOnlyCheckbox.disabled = false;
@@ -644,12 +508,9 @@ export class SimplifiedExchangeComponent {
         }
         if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
       } else if (settings.isFractional) {
-        // Case 3: Protocol fractionally collateralized (~65%) AND price below peg
-        // Default to Curve swap (pure LUSD), allow opt-in to fractional redemption (LUSD+UBQ)
-
+        // Fractionally collateralized - show fractional redemption option
         this._state.forceSwapOnly = !this._state.acceptFractionalRedemption;
-        if (swapOnlyDiv) swapOnlyDiv.style.display = "none"; // Hide the old swap checkbox
-
+        if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
         if (fractionalRedemptionDiv && fractionalRedemptionCheckbox) {
           fractionalRedemptionDiv.style.display = "block";
           fractionalRedemptionCheckbox.checked = this._state.acceptFractionalRedemption;
@@ -659,56 +520,10 @@ export class SimplifiedExchangeComponent {
       // Hide UBQ option for withdrawals
       if (ubqOptionDiv) ubqOptionDiv.style.display = "none";
     }
-
-    console.log("[RENDER OPTIONS] Complete. DOM state:", {
-      ubqDiscountDisplay: ubqOptionDiv?.style.display,
-      swapOnlyDisplay: swapOnlyDiv?.style.display,
-      fractionalRedemptionDisplay: fractionalRedemptionDiv?.style.display,
-      forceSwapOnly: this._state.forceSwapOnly,
-      acceptFractionalRedemption: this._state.acceptFractionalRedemption,
-      useUbqDiscount: this._state.useUbqDiscount,
-      mintingDisabled: this._state.mintingDisabled,
-      swapOnlyCheckboxChecked: swapOnlyCheckbox?.checked,
-      fractionalRedemptionCheckboxChecked: fractionalRedemptionCheckbox?.checked,
-    });
-  }
-
-  private _renderNoTokensState() {
-    const exchangeContainer = document.querySelector(".exchange-container");
-    const amountInput = document.getElementById("amountInput") as HTMLInputElement;
-    const executeButton = document.getElementById("executeButton") as HTMLButtonElement;
-
-    if (amountInput) {
-      amountInput.disabled = true;
-      amountInput.placeholder = "No tokens available";
-      amountInput.value = "";
-    }
-
-    if (executeButton) {
-      executeButton.disabled = true;
-      executeButton.textContent = "Connect wallet with tokens to continue";
-    }
-
-    let noTokensMessage = document.getElementById("noTokensMessage");
-    if (!noTokensMessage) {
-      noTokensMessage = document.createElement("div");
-      noTokensMessage.id = "noTokensMessage";
-      noTokensMessage.className = "no-tokens-message";
-      noTokensMessage.innerHTML = `
-                <p>No LUSD or UUSD tokens found in your wallet.</p>
-                <p>Please acquire tokens to use the exchange.</p>
-            `;
-
-      if (exchangeContainer) {
-        exchangeContainer.appendChild(noTokensMessage);
-      }
-    }
-
-    noTokensMessage.style.display = "block";
   }
 
   /**
-   * Render the output section
+   * Render output section with route results
    */
   private _renderOutput() {
     const outputSection = document.getElementById("exchangeOutput");
@@ -716,7 +531,6 @@ export class SimplifiedExchangeComponent {
 
     if (!outputSection || !button) return;
 
-    // Hide output if no route calculated
     if (!this._state.routeResult || !this._state.amount) {
       outputSection.style.display = "none";
       button.textContent = "Enter amount to continue";
@@ -724,7 +538,6 @@ export class SimplifiedExchangeComponent {
       return;
     }
 
-    // Show output
     outputSection.style.display = "block";
 
     // Update expected output
@@ -733,7 +546,6 @@ export class SimplifiedExchangeComponent {
       const outputToken = this._state.direction === "deposit" ? "UUSD" : "LUSD";
       let outputText = `${formatEther(this._state.routeResult.expectedOutput)} ${outputToken}`;
 
-      // Add UBQ if it's part of the transaction
       if (this._state.routeResult.isUbqOperation && this._state.routeResult.ubqAmount) {
         if (this._state.direction === "withdraw") {
           outputText += ` + ${formatEther(this._state.routeResult.ubqAmount)} UBQ`;
@@ -743,35 +555,11 @@ export class SimplifiedExchangeComponent {
       expectedOutputEl.textContent = outputText;
     }
 
-    // // Update route type indicator
-    // const routeIndicator = document.getElementById('routeIndicator');
-    // if (routeIndicator) {
-    //     const routeText = this._getRouteTypeText(this._state.routeResult.routeType);
-    //     routeIndicator.textContent = routeText;
-    // }
-
-    // Update button
     void this._updateActionButton();
   }
 
   /**
-   * Get human-readable route type text
-   */
-  private _getRouteTypeText(routeType: string): string {
-    switch (routeType) {
-      case "mint":
-        return "🔨 Protocol Mint";
-      case "redeem":
-        return "🔄 Protocol Redeem";
-      case "swap":
-        return "🔀 Curve Swap";
-      default:
-        return "";
-    }
-  }
-
-  /**
-   * Update action button based on wallet state and approvals
+   * Update action button based on approvals and state
    */
   private async _updateActionButton() {
     const button = document.getElementById("exchangeButton") as HTMLButtonElement;
@@ -791,8 +579,8 @@ export class SimplifiedExchangeComponent {
       return;
     }
 
-    // Check approvals
-    let hasNeedsApproval = false;
+    // Check approval requirements
+    let needsApproval = false;
     let approvalToken = "";
 
     try {
@@ -804,20 +592,19 @@ export class SimplifiedExchangeComponent {
         });
 
         const approvalStatus = await this._services.transactionService.getMintApprovalStatus(LUSD_COLLATERAL, account, mintResult);
-        hasNeedsApproval = approvalStatus.needsCollateralApproval || approvalStatus.needsGovernanceApproval;
+        needsApproval = approvalStatus.needsCollateralApproval || approvalStatus.needsGovernanceApproval;
         approvalToken = approvalStatus.needsCollateralApproval ? "LUSD" : "UBQ";
       } else if (this._state.routeResult.routeType === "redeem") {
         const allowance = await this._services.transactionService.getRedeemApprovalStatus(account, this._state.routeResult.inputAmount);
-        hasNeedsApproval = allowance.needsApproval;
+        needsApproval = allowance.needsApproval;
         approvalToken = "UUSD";
       } else if (this._state.routeResult.routeType === "swap") {
         const fromToken = this._state.direction === "deposit" ? "LUSD" : "UUSD";
-        const tokenAddress =
-          fromToken === "LUSD" ? ("0x5f98805A4E8be255a32880FDeC7F6728C6568bA0" as Address) : ("0xb6919Ef2ee4aFC163BC954C5678e2BB570c2D103" as Address);
-        const poolAddress = this._services.swapService.getPoolAddress();
+        const tokenAddress = fromToken === "LUSD" ? LUSD_COLLATERAL.address : ADDRESSES.DOLLAR;
+        const poolAddress = ADDRESSES.CURVE_POOL;
 
         const allowance = await this._services.contractService.getAllowance(tokenAddress, account, poolAddress);
-        hasNeedsApproval = allowance < this._state.routeResult.inputAmount;
+        needsApproval = allowance < this._state.routeResult.inputAmount;
         approvalToken = fromToken;
       }
     } catch (error) {
@@ -825,7 +612,7 @@ export class SimplifiedExchangeComponent {
     }
 
     // Update button text
-    if (hasNeedsApproval) {
+    if (needsApproval) {
       button.textContent = `Approve ${approvalToken}`;
     } else {
       const actionVerb = this._state.direction === "deposit" ? "Buy UUSD" : "Sell UUSD";
@@ -872,8 +659,8 @@ export class SimplifiedExchangeComponent {
           break;
 
         case "swap":
-          const fromToken = this._state.direction === "deposit" ? ("LUSD" as const) : ("UUSD" as const);
-          const toToken = this._state.direction === "deposit" ? ("UUSD" as const) : ("LUSD" as const);
+          const fromToken = this._state.direction === "deposit" ? "LUSD" as const : "UUSD" as const;
+          const toToken = this._state.direction === "deposit" ? "UUSD" as const : "LUSD" as const;
 
           await this._services.swapService.executeSwap({
             fromToken,
@@ -885,7 +672,6 @@ export class SimplifiedExchangeComponent {
           break;
       }
 
-      // Success - clear form
       this._handleTransactionSuccess();
     } catch (error: unknown) {
       this._handleTransactionError(error as Error);
@@ -893,7 +679,7 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Handle transaction success
+   * Handle successful transaction
    */
   private _handleTransactionSuccess() {
     const direction = this._state.direction === "deposit" ? "Bought" : "Sold";
@@ -911,7 +697,7 @@ export class SimplifiedExchangeComponent {
     if (amountInput) amountInput.value = "";
     this._renderOutput();
 
-    // Immediately refresh balances after successful transaction
+    // Refresh balances
     void this._services.inventoryBar.refreshBalances();
   }
 
@@ -925,18 +711,16 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Register transaction button
+   * Register transaction button with state service
    */
   private _registerTransactionButton() {
     setTimeout(() => {
       const button = document.getElementById("exchangeButton") as HTMLButtonElement;
       if (button) {
-        // Set up direct click handler
         button.onclick = async () => {
           await this.executeTransaction();
         };
 
-        // Also register with transaction state service for state management
         this._transactionStateService.registerButton("exchangeButton", {
           buttonElement: button,
           originalText: "Exchange",
@@ -947,12 +731,11 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Setup balance subscription for auto-populate
+   * Setup balance subscription for auto-refresh
    */
   private _setupBalanceSubscription() {
     if (this._services.inventoryBar) {
       this._services.inventoryBar.onBalancesUpdated(() => {
-        // Re-render the UI to update button visibility based on new balances
         this._render();
         this._autoPopulateMaxBalance();
       });
@@ -962,10 +745,9 @@ export class SimplifiedExchangeComponent {
   private _autoPopulateRetryTimeout: ReturnType<typeof setTimeout> | null = null;
 
   /**
-   * Auto-populate with max balance
+   * Auto-populate input with max balance
    */
   private _autoPopulateMaxBalance(retryCount: number = 0) {
-    // Cancel any pending retries when called
     if (this._autoPopulateRetryTimeout) {
       clearTimeout(this._autoPopulateRetryTimeout);
       this._autoPopulateRetryTimeout = null;
@@ -975,14 +757,13 @@ export class SimplifiedExchangeComponent {
 
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
     if (!amountInput) {
-      // Retry if DOM element not ready (max 3 retries)
       if (retryCount < 3) {
         this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 50);
       }
       return;
     }
 
-    // Only auto-populate if input is empty or zero
+    // Only auto-populate if input is empty
     if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
 
     try {
@@ -993,7 +774,6 @@ export class SimplifiedExchangeComponent {
         this._state.amount = maxBalance;
         void this._calculateRoute();
       } else if (retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
-        // If balances not loaded yet, retry
         this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
       }
     } catch {
@@ -1001,14 +781,26 @@ export class SimplifiedExchangeComponent {
     }
   }
 
-  /**
-   * Handle wallet connection changes
-   */
+  // Helper methods to hide options
+  private _hideUbqDiscountOption() {
+    const ubqOptionDiv = document.getElementById("ubqDiscountOption");
+    if (ubqOptionDiv) {
+      ubqOptionDiv.style.display = "none";
+    }
+  }
+
+  private _hideSwapOnlyOption() {
+    const swapOnlyDiv = document.getElementById("swapOnlyOption");
+    if (swapOnlyDiv) {
+      swapOnlyDiv.style.display = "none";
+    }
+  }
+
+  // Public methods for external integration
   updateWalletConnection(isConnected: boolean) {
     if (isConnected) {
       void this._loadProtocolSettings();
       void this._calculateRoute();
-      // Wait for balances to load then re-render UI to update button visibility
       void this._services.inventoryBar.waitForInitialLoad().then(() => {
         this._render();
       });
@@ -1019,16 +811,11 @@ export class SimplifiedExchangeComponent {
     }
   }
 
-  /**
-   * Handle form submission
-   */
   async handleSubmit(event: Event) {
     event.preventDefault();
-    // Execute the transaction when form is submitted
     await this.executeTransaction();
   }
-
-  // Transaction event handlers for app.ts integration
+  
   handleTransactionStart() {
     this._transactionStateService.startTransaction("exchangeButton");
   }

@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun run build:watch & bun run serve:dev",
-    "build": "bun run esbuild src/app.ts --bundle --outfile=public/app.js --minify --format=esm --platform=browser --sourcemap",
-    "build:watch": "bun run esbuild src/app.ts --bundle --outfile=public/app.js --format=esm --platform=browser --sourcemap=inline --watch=forever",
+    "build": "bun run esbuild.config.js --minify",
+    "build:watch": "bun run esbuild.config.js --watch",
     "serve": "deno run --allow-all serve.ts",
     "serve:dev": "deno run --allow-all serve-dev.ts",
     "serve:bun": "bun run serve.ts",
@@ -34,9 +34,13 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@reown/appkit": "^1.8.11",
+    "@reown/appkit-adapter-wagmi": "^1.8.11",
+    "@tanstack/react-query": "^5.90.5",
     "@ubiquity-dao/permit2-rpc-client": "^0.1.2",
     "commander": "^14.0.0",
     "dotenv": "^16.5.0",
-    "viem": "^2.31.2"
+    "viem": "^2.38.3",
+    "wagmi": "^2.18.2"
   }
 }

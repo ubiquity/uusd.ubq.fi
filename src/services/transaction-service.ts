@@ -49,6 +49,7 @@ export enum TransactionOperation {
 
 /**
  * Service responsible for orchestrating multi-step transaction flows
+ * Updated for Reown AppKit integration
  */
 export class TransactionService {
   private _walletService: WalletService;
@@ -92,7 +93,7 @@ export class TransactionService {
   }
 
   /**
-   * Execute complete mint workflow with approval handling
+   * Execute complete mint workflow with approval handling using AppKit
    */
   async executeMint(params: MintTransactionParams): Promise<string> {
     const { collateralIndex, dollarAmount, isForceCollateralOnly } = params;
@@ -144,8 +145,7 @@ export class TransactionService {
         governanceNeeded: mintResult.governanceNeeded.toString(),
       });
 
-      // Handle approvals if needed
-
+      // Handle approvals if needed using AppKit
       await this._handleMintApprovals(collateral, account, mintResult);
 
       // Execute mint transaction with slippage tolerance
@@ -169,6 +169,7 @@ export class TransactionService {
       });
 
       try {
+        // Use AppKit for the transaction
         const hash = await this._contractService.mintDollar(
           collateralIndex,
           dollarAmount,
@@ -179,6 +180,10 @@ export class TransactionService {
         );
 
         this._events.onTransactionSubmitted?.(TransactionOperation.MINT, hash);
+        
+        // Wait for transaction confirmation
+        await this._waitForTransaction(hash);
+        
         this._events.onTransactionSuccess?.(TransactionOperation.MINT, hash);
         return hash;
       } catch (contractError: unknown) {
@@ -220,7 +225,7 @@ export class TransactionService {
   }
 
   /**
-   * Execute complete redeem workflow with approval handling
+   * Execute complete redeem workflow with approval handling using AppKit
    */
   async executeRedeem(params: RedeemTransactionParams): Promise<string> {
     const { collateralIndex, dollarAmount } = params;
@@ -254,7 +259,6 @@ export class TransactionService {
       this._events.onTransactionStart?.(TransactionOperation.REDEEM);
 
       // Check if there's a pending redemption to collect first
-
       const redeemBalance = await this._contractService.getRedeemCollateralBalance(account, collateralIndex);
 
       if (redeemBalance > 0n) {
@@ -263,7 +267,6 @@ export class TransactionService {
       }
 
       // Calculate redeem output for slippage protection
-
       const redeemResult = await this._priceService.calculateRedeemOutput({
         dollarAmount,
         collateralIndex,
@@ -273,8 +276,7 @@ export class TransactionService {
         governanceRedeemed: redeemResult.governanceRedeemed.toString(),
       });
 
-      // Handle UUSD approval if needed
-
+      // Handle UUSD approval if needed using AppKit
       await this._handleRedeemApproval(account, dollarAmount);
 
       // Execute redeem transaction with slippage tolerance
@@ -299,6 +301,11 @@ export class TransactionService {
         collateralOutMin // Minimum collateral expected (with slippage)
       );
 
+      this._events.onTransactionSubmitted?.(TransactionOperation.REDEEM, hash);
+      
+      // Wait for transaction confirmation
+      await this._waitForTransaction(hash);
+      
       this._events.onTransactionSuccess?.(TransactionOperation.REDEEM, hash);
       return hash;
     } catch (error) {
@@ -326,7 +333,7 @@ export class TransactionService {
   }
 
   /**
-   * Execute collect redemption transaction
+   * Execute collect redemption transaction using AppKit
    */
   async executeCollectRedemption(collateralIndex: number): Promise<string> {
     // Validate wallet connection
@@ -337,10 +344,65 @@ export class TransactionService {
 
       const hash = await this._contractService.collectRedemption(collateralIndex);
 
+      this._events.onTransactionSubmitted?.(TransactionOperation.COLLECT_REDEMPTION, hash);
+      
+      // Wait for transaction confirmation
+      await this._waitForTransaction(hash);
+      
       this._events.onTransactionSuccess?.(TransactionOperation.COLLECT_REDEMPTION, hash);
       return hash;
     } catch (error) {
       this._events.onTransactionError?.(TransactionOperation.COLLECT_REDEMPTION, error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Execute token approval using AppKit
+   */
+  async executeApproval(
+    tokenAddress: Address,
+    spender: Address,
+    amount: bigint
+  ): Promise<string> {
+    try {
+      this._walletService.validateConnection();
+      const account = this._walletService.getAccount();
+      if (!account) {
+        throw new Error("Wallet not connected");
+      }
+
+      console.log("🔄 Executing approval with AppKit:", {
+        tokenAddress,
+        spender,
+        amount: amount.toString(),
+      });
+
+      const hash = await this._contractService.approveToken(tokenAddress, spender, amount);
+
+      this._events.onTransactionSubmitted?.(TransactionOperation.APPROVE_COLLATERAL, hash);
+      
+      // Wait for transaction confirmation
+      await this._waitForTransaction(hash);
+      
+      this._events.onTransactionSuccess?.(TransactionOperation.APPROVE_COLLATERAL, hash);
+      return hash;
+    } catch (error) {
+      console.error("❌ Approval transaction failed:", error);
+      this._events.onTransactionError?.(TransactionOperation.APPROVE_COLLATERAL, error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Wait for transaction confirmation using AppKit
+   */
+  private async _waitForTransaction(hash: string): Promise<void> {
+    try {
+      await this._walletService.waitForTransactionReceipt(hash);
+      console.log("✅ Transaction confirmed:", hash);
+    } catch (error) {
+      console.error("❌ Transaction confirmation failed:", error);
       throw error;
     }
   }
@@ -409,7 +471,7 @@ export class TransactionService {
   }
 
   /**
-   * Handle mint approvals sequentially
+   * Handle mint approvals sequentially using AppKit
    */
   private async _handleMintApprovals(collateral: CollateralOption, account: Address, mintResult: MintPriceResult): Promise<void> {
     const approvalStatus = await this.getMintApprovalStatus(collateral, account, mintResult);
@@ -418,7 +480,7 @@ export class TransactionService {
     if (approvalStatus.needsCollateralApproval) {
       this._events.onApprovalNeeded?.(collateral.name);
 
-      await this._contractService.approveToken(collateral.address, ADDRESSES.DIAMOND, maxUint256);
+      await this.executeApproval(collateral.address, ADDRESSES.DIAMOND, maxUint256);
 
       this._events.onApprovalComplete?.(collateral.name);
     }
@@ -427,14 +489,14 @@ export class TransactionService {
     if (approvalStatus.needsGovernanceApproval) {
       this._events.onApprovalNeeded?.("UBQ");
 
-      await this._contractService.approveToken(ADDRESSES.GOVERNANCE, ADDRESSES.DIAMOND, maxUint256);
+      await this.executeApproval(ADDRESSES.GOVERNANCE, ADDRESSES.DIAMOND, maxUint256);
 
       this._events.onApprovalComplete?.("UBQ");
     }
   }
 
   /**
-   * Handle redeem approval
+   * Handle redeem approval using AppKit
    */
   private async _handleRedeemApproval(account: Address, amount: bigint): Promise<void> {
     const approvalStatus = await this.getRedeemApprovalStatus(account, amount);
@@ -442,7 +504,7 @@ export class TransactionService {
     if (approvalStatus.needsApproval) {
       this._events.onApprovalNeeded?.("UUSD");
 
-      await this._contractService.approveToken(ADDRESSES.DOLLAR, ADDRESSES.DIAMOND, maxUint256);
+      await this.executeApproval(ADDRESSES.DOLLAR, ADDRESSES.DIAMOND, maxUint256);
 
       this._events.onApprovalComplete?.("UUSD");
     }
@@ -451,7 +513,7 @@ export class TransactionService {
   /**
    * Enhance error messages for better user experience
    */
-  private _enhanceErrorMessage(error: Error, _operation: string): Error {
+  private _enhanceErrorMessage(error: Error, operation: string): Error {
     const errorMessage = error.message.toLowerCase();
 
     // User rejection - keep user-friendly message
@@ -471,7 +533,45 @@ export class TransactionService {
       return new Error("Transaction failed due to insufficient gas. This may be caused by high network congestion. Please try again with higher gas settings.");
     }
 
+    // Network connection issues
+    if (errorMessage.includes("network error") || errorMessage.includes("failed to fetch")) {
+      return new Error("Network connection issue. Please check your internet connection and try again.");
+    }
+
+    // AppKit specific errors
+    if (errorMessage.includes("appkit") || errorMessage.includes("reown")) {
+      return new Error("Wallet connection issue. Please try reconnecting your wallet.");
+    }
+
     // For all other errors, return the raw error message
     return error;
+  }
+
+  /**
+   * Get wallet client for direct AppKit access if needed
+   */
+  getWalletClient() {
+    return this._walletService.getWalletClient();
+  }
+
+  /**
+   * Get public client for read operations
+   */
+  getPublicClient() {
+    return this._walletService.getPublicClient();
+  }
+
+  /**
+   * Check if wallet is connected via AppKit
+   */
+  isConnected(): boolean {
+    return this._walletService.isConnected();
+  }
+
+  /**
+   * Get current account address
+   */
+  getAccount(): Address | null {
+    return this._walletService.getAccount();
   }
 }

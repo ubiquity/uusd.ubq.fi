@@ -34,6 +34,7 @@ interface TokenExchangeEvent {
 
 /**
  * Service for reconstructing UUSD price history from blockchain data
+ * Updated to work with AppKit-based wallet service
  */
 export class PriceHistoryService {
   private _walletService: WalletService;
@@ -57,10 +58,45 @@ export class PriceHistoryService {
 
     // Clean up old cache entries on initialization
     this._cleanupOldCache();
+
+    // Set up wallet connection event listeners to potentially clear cache on network changes
+    this._setupWalletEvents();
+  }
+
+  /**
+   * Set up wallet event listeners
+   * This helps maintain cache consistency when wallet connection changes
+   */
+  private _setupWalletEvents(): void {
+    // Clear cache if account changes (might be switching networks)
+    this._walletService.addEventListener('wallet:account-changed', () => {
+      console.log('💼 Wallet account changed, clearing price history cache');
+      this.clearCache();
+    });
+
+    // Network changes aren't directly exposed in the wallet events, but we can infer from connection events
+    this._walletService.addEventListener('wallet:connect', () => {
+      // Only clear if connecting to a different network than what we had before
+      const currentChain = this._walletService.getChain();
+      const chainChanged = localStorage.getItem('last_price_history_chain_id') !== currentChain?.id.toString();
+      
+      if (chainChanged) {
+        console.log('🔄 Network changed, clearing price history cache');
+        this.clearCache();
+        
+        // Store current chain ID for future reference
+        try {
+          localStorage.setItem('last_price_history_chain_id', currentChain?.id.toString() || '1');
+        } catch {
+          // Ignore localStorage errors
+        }
+      }
+    });
   }
 
   /**
    * Get UUSD price history for the specified time range
+   * Updated to work with AppKit wallet service
    */
   async getUUSDPriceHistory(
     config: PriceHistoryConfig = {
@@ -77,6 +113,7 @@ export class PriceHistoryService {
     }
 
     try {
+      // Use public client from AppKit-based wallet service
       const publicClient = this._walletService.getPublicClient();
       const currentBlock = await publicClient.getBlockNumber();
 
@@ -200,6 +237,7 @@ export class PriceHistoryService {
 
   /**
    * Fetch price history by sampling prices at regular intervals using intelligent caching
+   * Updated for AppKit compatibility
    */
   private async _fetchPriceBySampling(
     publicClient: PublicClient,
@@ -353,25 +391,34 @@ export class PriceHistoryService {
    * Check if cache is valid
    */
   private _isCacheValid(cacheKey: string): boolean {
-    return this._cache.has(cacheKey) && Date.now() - this._cacheTimestamp < this._cacheTtlMs;
+    // Get network info to namespace cache by network
+    const chainId = this._walletService.getChain()?.id || 1;
+    const fullCacheKey = `${chainId}_${cacheKey}`;
+    
+    return this._cache.has(fullCacheKey) && Date.now() - this._cacheTimestamp < this._cacheTtlMs;
   }
 
   /**
    * Get a price point from cache if valid (checks both memory and localStorage)
+   * Updated to namespace by chainId
    */
   private _getPointFromCache(pointKey: string): PriceDataPoint | null {
+    // Get current chain ID for namespacing cache
+    const chainId = this._walletService.getChain()?.id || 1;
+    const namespacedKey = `chain_${chainId}_${pointKey}`;
+    
     // First check memory cache
-    let cached = this._pointCache.get(pointKey);
+    let cached = this._pointCache.get(namespacedKey);
 
     // If not in memory, try localStorage with current key format
     if (!cached) {
       try {
-        const stored = localStorage.getItem(`price_${pointKey}`);
+        const stored = localStorage.getItem(`price_${namespacedKey}`);
         if (stored) {
           cached = JSON.parse(stored);
           // Restore to memory cache
           if (cached) {
-            this._pointCache.set(pointKey, cached);
+            this._pointCache.set(namespacedKey, cached);
           }
         }
       } catch {
@@ -384,9 +431,9 @@ export class PriceHistoryService {
     // Check if cache entry is still valid (30 minutes)
     const cacheAge = Date.now() - cached.timestamp;
     if (cacheAge > this._pointCacheTtlMs) {
-      this._pointCache.delete(pointKey);
+      this._pointCache.delete(namespacedKey);
       try {
-        localStorage.removeItem(`price_${pointKey}`);
+        localStorage.removeItem(`price_${namespacedKey}`);
       } catch {
         // Ignore localStorage errors
       }
@@ -406,8 +453,13 @@ export class PriceHistoryService {
 
   /**
    * Cache a price point (stores in both memory and localStorage)
+   * Updated to namespace by chainId
    */
   private _cachePoint(pointKey: string, point: PriceDataPoint): void {
+    // Get current chain ID for namespacing cache
+    const chainId = this._walletService.getChain()?.id || 1;
+    const namespacedKey = `chain_${chainId}_${pointKey}`;
+    
     const cacheData = {
       point: {
         ...point,
@@ -418,14 +470,14 @@ export class PriceHistoryService {
     };
 
     // Store in memory
-    this._pointCache.set(pointKey, {
+    this._pointCache.set(namespacedKey, {
       point,
       timestamp: Date.now(),
     });
 
     // Store in localStorage
     try {
-      localStorage.setItem(`price_${pointKey}`, JSON.stringify(cacheData));
+      localStorage.setItem(`price_${namespacedKey}`, JSON.stringify(cacheData));
     } catch {
       // Ignore localStorage errors (quota exceeded, etc.)
     }
@@ -438,6 +490,24 @@ export class PriceHistoryService {
     this._cache.clear();
     this._pointCache.clear();
     this._cacheTimestamp = 0;
+    
+    // Clear localStorage cache entries related to price history
+    try {
+      const keysToRemove: string[] = [];
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('price_')) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+      });
+    } catch (error) {
+      console.warn("⚠️ Could not clean up cache entries:", error);
+    }
   }
 
   /**
@@ -454,7 +524,7 @@ export class PriceHistoryService {
 
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith("price_block_") || key.startsWith("price_hour_"))) {
+        if (key && key.startsWith("price_")) {
           try {
             const stored = localStorage.getItem(key);
             if (stored) {
@@ -477,11 +547,30 @@ export class PriceHistoryService {
       });
 
       if (cleanedCount > 0) {
-        // Cache cleanup completed
+        console.log(`🧹 Cleaned up ${cleanedCount} old price cache entries`);
       }
     } catch (error) {
       // Ignore localStorage errors
       console.warn("⚠️ Could not clean up old cache entries:", error);
+    }
+  }
+
+  /**
+   * Get the most recent price point (last 24h)
+   * Useful for quick price display without loading full history
+   */
+  async getLatestPrice(): Promise<PriceDataPoint | null> {
+    try {
+      const history = await this.getUUSDPriceHistory({
+        maxDataPoints: 1,
+        timeRangeHours: 24,
+        sampleIntervalMinutes: 60,
+      });
+      
+      return history.length > 0 ? history[history.length - 1] : null;
+    } catch (error) {
+      console.error("❌ Failed to fetch latest price:", error);
+      return null;
     }
   }
 }

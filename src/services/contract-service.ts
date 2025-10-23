@@ -64,6 +64,7 @@ export interface ContractWrites {
 
 /**
  * Service responsible for all blockchain contract interactions
+ * Updated for Reown AppKit integration
  */
 export class ContractService implements ContractReads, ContractWrites {
   private _walletService: WalletService;
@@ -366,15 +367,14 @@ export class ContractService implements ContractReads, ContractWrites {
    * Get token allowance for a specific owner and spender
    */
   async getAllowance(tokenAddress: Address, owner: Address, spender: Address): Promise<bigint> {
-    const publicClient = this._walletService.getPublicClient();
-    return (await publicClient.readContract({
-      address: tokenAddress,
-      abi: ERC20_ABI,
-      functionName: "allowance",
-      args: [owner, spender],
-    })) as bigint;
-  }
-
+      const publicClient = this._walletService.getPublicClient();
+      return await publicClient.readContract({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: "allowance",
+        args: [owner, spender],
+      }) as bigint;
+    }
   /**
    * Get pending redemption balance for a user and collateral
    */
@@ -388,54 +388,11 @@ export class ContractService implements ContractReads, ContractWrites {
     })) as bigint;
   }
 
-  /**
-   * Approve a token for spending by a spender
-   */
-  async approveToken(tokenAddress: Address, spender: Address, amount: bigint = maxUint256): Promise<string> {
-    this._walletService.validateConnection();
-    const walletClient = this._walletService.getWalletClient();
-    const publicClient = this._walletService.getPublicClient();
-    const account = this._walletService.getAccount();
-    if (!account) {
-      throw new Error("Wallet not connected");
-    }
-
-    const args = [spender, amount];
-
-    // Estimate gas with fallback handling
-    let gasEstimate: bigint;
-    try {
-      gasEstimate = await publicClient.estimateContractGas({
-        address: tokenAddress,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args,
-        account,
-      });
-    } catch {
-      // Fallback gas limit for approval operations
-      gasEstimate = 100000n;
-    }
-
-    // Add 20% buffer to gas estimate
-    const gasLimit = gasEstimate + (gasEstimate * 20n) / 100n;
-
-    const hash = await walletClient.writeContract({
-      address: tokenAddress,
-      abi: ERC20_ABI,
-      functionName: "approve",
-      args,
-      account,
-      chain: this._walletService.getChain(),
-      gas: gasLimit,
-    });
-
-    await publicClient.waitForTransactionReceipt({ hash });
-    return hash;
-  }
+ 
+  
 
   /**
-   * Execute mint dollar transaction
+   * Execute mint dollar transaction using AppKit
    */
   async mintDollar(
     collateralIndex: number,
@@ -447,7 +404,6 @@ export class ContractService implements ContractReads, ContractWrites {
   ): Promise<string> {
     this._walletService.validateConnection();
     const walletClient = this._walletService.getWalletClient();
-    const publicClient = this._walletService.getPublicClient();
     const account = this._walletService.getAccount();
     if (!account) {
       throw new Error("Wallet not connected");
@@ -462,19 +418,31 @@ export class ContractService implements ContractReads, ContractWrites {
       isOneToOne,
     ];
 
-    // Estimate gas with oracle error detection
-    let gasEstimate: bigint;
+    console.log("🚀 Executing mint transaction with AppKit:", {
+      collateralIndex,
+      dollarAmount: dollarAmount.toString(),
+      dollarOutMin: dollarOutMin.toString(),
+      maxCollateralIn: maxCollateralIn.toString(),
+      maxGovernanceIn: maxGovernanceIn.toString(),
+      isOneToOne,
+    });
+
     try {
-      gasEstimate = await publicClient.estimateContractGas({
+      const hash = await walletClient.writeContract({
         address: ADDRESSES.DIAMOND,
         abi: DIAMOND_ABI,
         functionName: "mintDollar",
         args,
         account,
       });
-    } catch (estimationError: unknown) {
+
+      console.log("✅ Mint transaction submitted:", hash);
+      return hash;
+    } catch (error: unknown) {
+      console.error("❌ Mint transaction failed:", error);
+
       // Analyze oracle error with enhanced messaging
-      const errorMessage = (estimationError as Error).message || String(estimationError);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const oracleAnalysis = analyzeOracleError(errorMessage);
 
       if (oracleAnalysis.isOracleIssue) {
@@ -494,35 +462,22 @@ export class ContractService implements ContractReads, ContractWrites {
         throw new Error(enhancedMessage);
       }
 
-      // For other gas estimation failures, use fallback
+      // Handle user rejection specifically
+      if (errorMessage.includes("rejected") || errorMessage.includes("denied") || errorMessage.includes("user rejected")) {
+        throw new Error("Mint transaction was cancelled by user");
+      }
 
-      gasEstimate = 500000n;
+      // Re-throw other errors
+      throw error;
     }
-
-    // Add 20% buffer to gas estimate
-    const gasLimit = gasEstimate + (gasEstimate * 20n) / 100n;
-
-    const hash = await walletClient.writeContract({
-      address: ADDRESSES.DIAMOND,
-      abi: DIAMOND_ABI,
-      functionName: "mintDollar",
-      args,
-      account,
-      chain: this._walletService.getChain(),
-      gas: gasLimit,
-    });
-
-    await publicClient.waitForTransactionReceipt({ hash });
-    return hash;
   }
 
   /**
-   * Execute redeem dollar transaction
+   * Execute redeem dollar transaction using AppKit
    */
   async redeemDollar(collateralIndex: number, dollarAmount: bigint, governanceOutMin: bigint = 0n, collateralOutMin: bigint = 0n): Promise<string> {
     this._walletService.validateConnection();
     const walletClient = this._walletService.getWalletClient();
-    const publicClient = this._walletService.getPublicClient();
     const account = this._walletService.getAccount();
     if (!account) {
       throw new Error("Wallet not connected");
@@ -530,19 +485,29 @@ export class ContractService implements ContractReads, ContractWrites {
 
     const args: readonly [bigint, bigint, bigint, bigint] = [BigInt(collateralIndex), dollarAmount, governanceOutMin, collateralOutMin];
 
-    // Estimate gas with oracle error detection
-    let gasEstimate: bigint;
+    console.log("🚀 Executing redeem transaction with AppKit:", {
+      collateralIndex,
+      dollarAmount: dollarAmount.toString(),
+      governanceOutMin: governanceOutMin.toString(),
+      collateralOutMin: collateralOutMin.toString(),
+    });
+
     try {
-      gasEstimate = await publicClient.estimateContractGas({
+      const hash = await walletClient.writeContract({
         address: ADDRESSES.DIAMOND,
         abi: DIAMOND_ABI,
         functionName: "redeemDollar",
         args,
         account,
       });
-    } catch (estimationError: unknown) {
+
+      console.log("✅ Redeem transaction submitted:", hash);
+      return hash;
+    } catch (error: unknown) {
+      console.error("❌ Redeem transaction failed:", error);
+
       // Analyze error message for specific contract errors
-      const errorMessage = estimationError instanceof Error ? estimationError.message : String(estimationError);
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
       // Check for specific contract errors first
       if (errorMessage.includes("Dollar price too high")) {
@@ -579,51 +544,51 @@ export class ContractService implements ContractReads, ContractWrites {
         throw new Error(enhancedMessage);
       }
 
-      // For other gas estimation failures, use fallback
+      // Handle user rejection specifically
+      if (errorMessage.includes("rejected") || errorMessage.includes("denied") || errorMessage.includes("user rejected")) {
+        throw new Error("Redeem transaction was cancelled by user");
+      }
 
-      gasEstimate = 400000n;
+      // Re-throw other errors
+      throw error;
     }
-
-    // Add 20% buffer to gas estimate
-    const gasLimit = gasEstimate + (gasEstimate * 20n) / 100n;
-
-    const hash = await walletClient.writeContract({
-      address: ADDRESSES.DIAMOND,
-      abi: DIAMOND_ABI,
-      functionName: "redeemDollar",
-      args,
-      account,
-      chain: this._walletService.getChain(),
-      gas: gasLimit,
-    });
-
-    await publicClient.waitForTransactionReceipt({ hash });
-    return hash;
   }
 
   /**
-   * Collect pending redemption
+   * Collect pending redemption using AppKit
    */
   async collectRedemption(collateralIndex: number): Promise<string> {
     this._walletService.validateConnection();
     const walletClient = this._walletService.getWalletClient();
-    const publicClient = this._walletService.getPublicClient();
     const account = this._walletService.getAccount();
     if (!account) {
       throw new Error("Wallet not connected");
     }
 
-    const hash = await walletClient.writeContract({
-      address: ADDRESSES.DIAMOND,
-      abi: DIAMOND_ABI,
-      functionName: "collectRedemption",
-      args: [BigInt(collateralIndex)],
-      account,
-      chain: this._walletService.getChain(),
-    });
+    console.log("🔄 Collecting redemption with AppKit:", { collateralIndex });
 
-    await publicClient.waitForTransactionReceipt({ hash });
-    return hash;
+    try {
+      const hash = await walletClient.writeContract({
+        address: ADDRESSES.DIAMOND,
+        abi: DIAMOND_ABI,
+        functionName: "collectRedemption",
+        args: [BigInt(collateralIndex)],
+        account,
+      });
+
+      console.log("✅ Collect redemption transaction submitted:", hash);
+      return hash;
+    } catch (error) {
+      console.error("❌ Collect redemption transaction failed:", error);
+      
+      // Handle user rejection specifically
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("rejected") || errorMessage.includes("denied") || errorMessage.includes("user rejected")) {
+        throw new Error("Collect redemption transaction was cancelled by user");
+      }
+      
+      throw error;
+    }
   }
 
   /**
@@ -725,6 +690,86 @@ export class ContractService implements ContractReads, ContractWrites {
       throw new Error(`Cannot load protocol settings: ${error}`);
     }
   }
+
+  /**
+   * Get the Diamond contract address for approvals
+   */
+  getDiamondAddress(): Address {
+    return ADDRESSES.DIAMOND;
+  }
+
+  /**
+   * Get the CreditMinter address (same as Diamond for Ubiquity)
+   */
+  getCreditMinterAddress(): Address {
+    return ADDRESSES.DIAMOND;
+  }
+
+  async getBalance(tokenAddress: Address, account: Address): Promise<bigint> {
+      const publicClient = this._walletService.getPublicClient();
+      return await publicClient.readContract({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [account],
+      }) as bigint;
+    }
+
+    /**
+    * Approve a token for spending by a spender using AppKit
+    */
+    async approveToken(tokenAddress: Address, spender: Address, amount: bigint): Promise<Hash> {
+      if (!this._walletService.isConnected()) {
+        throw new Error("Wallet not connected");
+      }
+      
+      const account = this._walletService.getAccount();
+      if (!account) {
+        throw new Error("Wallet not connected");
+      }
+  
+      try {
+        // Use the wallet service to sign and send the transaction
+        const walletClient = this._walletService.getWalletClient();
+        
+        const hash = await walletClient.writeContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: "approve",
+          args: [spender, amount],
+          account,
+          chain: this._walletService.getChain(),
+        });
+        
+        return hash;
+      } catch (error) {
+        console.error("Token approval failed:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        if (errorMessage.includes("ChainMismatchError")) {
+          this._walletService.switchNetwork(1); // Switch to Ethereum mainnet
+          throw new Error("Wrong network. Please switch to Ethereum mainnet.");
+        }
+        throw new Error(`Token approval failed: ${errorMessage}`);
+      }
+    }
+  
+    async getTokenSymbol(tokenAddress: Address): Promise<string> {
+      const publicClient = this._walletService.getPublicClient();
+      return await publicClient.readContract({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: "symbol",
+      }) as string;
+    }
+  
+    async getTokenDecimals(tokenAddress: Address): Promise<number> {
+      const publicClient = this._walletService.getPublicClient();
+      return Number(await publicClient.readContract({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: "decimals",
+      }));
+    }
 }
 
 /**

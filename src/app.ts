@@ -26,6 +26,14 @@ declare global {
       on: (event: string, callback: (...args: unknown[]) => void) => void;
       removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
     };
+    app: {
+      connectWallet: () => Promise<void>;
+      disconnectWallet: () => Promise<void>;
+      handleExchange: (event: Event) => Promise<void>;
+      demoTransactionUX: (buttonId?: string) => Promise<void>;
+      getTransactionStatus: () => { hasActive: boolean; active: string[] };
+      exchange: SimplifiedExchangeComponent;
+    };
   }
 }
 
@@ -95,19 +103,30 @@ class UUSDApp {
 
     this._setupServiceEventHandlers();
 
-    // Expose to window for HTML onclick handlers and debugging
-    (window as unknown as Record<string, unknown>).app = {
-      ...this,
-      exchange: this._simplifiedExchangeComponent,
-      connectWallet: () => this.connectWallet(),
-      handleExchange: (event: Event) => this.handleExchange(event),
-      demoTransactionUX: (buttonId?: string) => this.demoTransactionUX(buttonId),
-      getTransactionStatus: () => this.getTransactionStatus(),
-    };
+    // ✅ CORREÇÃO: Expor métodos corretamente para o window
+    this._exposeToWindow();
 
     void this._init().catch((error) => {
       console.error("Failed to initialize app:", error);
     });
+  }
+
+  /**
+   * ✅ CORREÇÃO: Expor métodos para o window object de forma segura
+   */
+  private _exposeToWindow(): void {
+    // Criar um objeto com os métodos que precisam ser acessados globalmente
+    const exposedMethods = {
+      connectWallet: () => this.connectWallet(),
+      disconnectWallet: () => this.disconnectWallet(),
+      handleExchange: (event: Event) => this.handleExchange(event),
+      demoTransactionUX: (buttonId?: string) => this.demoTransactionUX(buttonId),
+      getTransactionStatus: () => this.getTransactionStatus(),
+      exchange: this._simplifiedExchangeComponent,
+    };
+
+    // Atribuir ao window.app
+    (window as any).app = exposedMethods;
   }
 
   private async _init() {
@@ -434,23 +453,23 @@ class UUSDApp {
 
   private _updateWalletUI(account: Address | null) {
     const connectButton = document.getElementById("connectWallet") as HTMLButtonElement;
+    const disconnectButton = document.getElementById("disconnectWallet") as HTMLButtonElement;
 
     if (account) {
       // When connected, show disconnect button and wallet info
-
-      connectButton.textContent = "Disconnect";
+      connectButton.textContent = "Connected";
       connectButton.disabled = false;
-      connectButton.style.display = "unset";
+      disconnectButton.style.display = "block";
+      
       const walletInfo = document.getElementById("walletInfo");
       const walletAddress = document.getElementById("walletAddress");
-      if (walletInfo) walletInfo.style.display = "unset";
+      if (walletInfo) walletInfo.style.display = "block";
       if (walletAddress) walletAddress.textContent = formatAddress(account);
     } else {
       // When disconnected, show connect button and hide wallet info
-
       connectButton.textContent = "Connect Wallet";
-      connectButton.disabled = false;
-      connectButton.style.display = "unset";
+      connectButton.disabled = false;      
+      
       const walletInfo = document.getElementById("walletInfo");
       if (walletInfo) walletInfo.style.display = "none";
     }
@@ -526,8 +545,8 @@ class UUSDApp {
         connectButton.textContent = "Connecting...";
         connectButton.disabled = true;
 
-        // Force wallet selection since user explicitly clicked connect
-        await this._walletService.connect(true);
+        // ✅ CORREÇÃO: Usar o método connect do AppKit
+        await this._walletService.connect();
         // Manually update UI after successful connection
         // Don't rely on event handlers as they may not fire immediately
         if (this._walletService.isConnected()) {
@@ -545,6 +564,22 @@ class UUSDApp {
       this._notificationManager.showError("exchange", message);
     } finally {
       this._isConnecting = false;
+    }
+  }
+
+  /**
+   * ✅ CORREÇÃO: Adicionar método disconnectWallet para o HTML
+   */
+  async disconnectWallet() {
+    try {
+      this._walletService.disconnect();
+      // Update UI immediately
+      this._updateWalletUI(null);
+      void this._inventoryBarComponent.handleWalletConnectionChange(null);
+    } catch (error: unknown) {
+      console.error("Error disconnecting wallet:", error);
+      const message = error instanceof Error ? error.message : "Unknown error occurred";
+      this._notificationManager.showError("exchange", message);
     }
   }
 
@@ -572,6 +607,30 @@ class UUSDApp {
   }
 }
 
-// Initialize app and expose to window
-const app = new UUSDApp();
-(window as unknown as Record<string, unknown>).app = app;
+// ✅ CORREÇÃO: Inicializar app e garantir que window.app está definido
+let app: UUSDApp;
+
+// Função para inicializar a aplicação
+function initializeApp() {
+  app = new UUSDApp();
+  
+  // Garantir que window.app está definido
+  if (!window.app) {
+    console.warn('window.app not defined after initialization, setting manually');
+    (window as any).app = {
+      connectWallet: () => app.connectWallet(),
+      disconnectWallet: () => app.disconnectWallet(),
+      handleExchange: (event: Event) => app.handleExchange(event),
+      demoTransactionUX: (buttonId?: string) => app.demoTransactionUX(buttonId),
+      getTransactionStatus: () => app.getTransactionStatus(),
+      exchange: app._simplifiedExchangeComponent,
+    };
+  }
+}
+
+// Inicializar quando o DOM estiver pronto
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+  initializeApp();
+}
