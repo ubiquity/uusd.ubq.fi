@@ -103,7 +103,7 @@ class UUSDApp {
 
     this._setupServiceEventHandlers();
 
-    // ✅ CORREÇÃO: Expor métodos corretamente para o window
+    
     this._exposeToWindow();
 
     void this._init().catch((error) => {
@@ -111,11 +111,7 @@ class UUSDApp {
     });
   }
 
-  /**
-   * ✅ CORREÇÃO: Expor métodos para o window object de forma segura
-   */
   private _exposeToWindow(): void {
-    // Criar um objeto com os métodos que precisam ser acessados globalmente
     const exposedMethods = {
       connectWallet: () => this.connectWallet(),
       disconnectWallet: () => this.disconnectWallet(),
@@ -124,8 +120,7 @@ class UUSDApp {
       getTransactionStatus: () => this.getTransactionStatus(),
       exchange: this._simplifiedExchangeComponent,
     };
-
-    // Atribuir ao window.app
+   
     (window as any).app = exposedMethods;
   }
 
@@ -544,8 +539,7 @@ class UUSDApp {
         this._isConnecting = true;
         connectButton.textContent = "Connecting...";
         connectButton.disabled = true;
-
-        // ✅ CORREÇÃO: Usar o método connect do AppKit
+        
         await this._walletService.connect();
         // Manually update UI after successful connection
         // Don't rely on event handlers as they may not fire immediately
@@ -567,9 +561,6 @@ class UUSDApp {
     }
   }
 
-  /**
-   * ✅ CORREÇÃO: Adicionar método disconnectWallet para o HTML
-   */
   async disconnectWallet() {
     try {
       this._walletService.disconnect();
@@ -607,14 +598,11 @@ class UUSDApp {
   }
 }
 
-// ✅ CORREÇÃO: Inicializar app e garantir que window.app está definido
 let app: UUSDApp;
 
-// Função para inicializar a aplicação
 function initializeApp() {
   app = new UUSDApp();
-  
-  // Garantir que window.app está definido
+    
   if (!window.app) {
     console.warn('window.app not defined after initialization, setting manually');
     (window as any).app = {
@@ -628,7 +616,6 @@ function initializeApp() {
   }
 }
 
-// Inicializar quando o DOM estiver pronto
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializeApp);
 } else {

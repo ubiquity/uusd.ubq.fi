@@ -493,14 +493,7 @@ export class PriceHistoryService {
     
     // Clear localStorage cache entries related to price history
     try {
-      const keysToRemove: string[] = [];
-      
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('price_')) {
-          keysToRemove.push(key);
-        }
-      }
+      const keysToRemove: string[] = Object.keys(localStorage).filter(key => key.startsWith('price_'));
       
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);
@@ -524,7 +517,7 @@ export class PriceHistoryService {
 
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith("price_")) {
+        if (key && (key.startsWith("price_block_") || key.startsWith("price_hour_"))) {
           try {
             const stored = localStorage.getItem(key);
             if (stored) {

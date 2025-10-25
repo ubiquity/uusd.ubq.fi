@@ -513,7 +513,7 @@ export class TransactionService {
   /**
    * Enhance error messages for better user experience
    */
-  private _enhanceErrorMessage(error: Error, operation: string): Error {
+  private _enhanceErrorMessage(error: Error): Error {
     const errorMessage = error.message.toLowerCase();
 
     // User rejection - keep user-friendly message

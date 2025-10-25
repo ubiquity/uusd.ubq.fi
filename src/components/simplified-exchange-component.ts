@@ -44,8 +44,8 @@ export class SimplifiedExchangeComponent {
     useUbqDiscount: false,
     forceSwapOnly: false,
     acceptFractionalRedemption: false,
-    redemptionsDisabled: false,
-    mintingDisabled: true,
+    redemptionsDisabled: false, // Track protocol redemption status separately
+    mintingDisabled: true, // Default to true until we verify minting is allowed
     protocolSettings: null as ProtocolSettings | null,
     routeResult: null as OptimalRouteResult | null,
     isCalculating: false,
@@ -66,8 +66,17 @@ export class SimplifiedExchangeComponent {
 
   private async _init() {
     await this._loadProtocolSettings();
+    // Check redemption status on init
     await this._checkRedemptionStatus();
+
+    // Get minting status from centralized refresh service
     this._updateFromCentralizedData();
+
+    console.log("[INIT] Initial state after status checks:", {
+      mintingDisabled: this._state.mintingDisabled,
+      redemptionsDisabled: this._state.redemptionsDisabled,
+      direction: this._state.direction,
+    });
 
     console.log("[SIMPLIFIED EXCHANGE] Initialized with addresses:", {
       diamond: ADDRESSES.DIAMOND,
@@ -82,17 +91,20 @@ export class SimplifiedExchangeComponent {
     this._setupWalletEventListeners();
     this._setupBalanceSubscription();
 
+    // Wait for initial balance load if wallet is connected
     if (this._isWalletConnected()) {
       await this._services.inventoryBar.waitForInitialLoad();
     }
 
     this._render();
 
+    // Auto-populate on initial load if wallet is connected
     if (this._isWalletConnected()) {
+      // Balances are guaranteed to be loaded now
       this._autoPopulateMaxBalance();
     }
 
-    // Hide UBQ option if minting disabled on init
+    // If we're starting on deposit mode, immediately hide UBQ option if minting disabled
     if (this._state.direction === "deposit" && this._state.mintingDisabled) {
       this._hideUbqDiscountOption();
     }
@@ -297,7 +309,7 @@ export class SimplifiedExchangeComponent {
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
     if (amountInput) amountInput.value = "";
 
-    // Reset options based on direction
+    // IMPORTANT: Never reset redemptionsDisabled - it's a protocol state, not a UI state!
     if (direction === "deposit") {
       this._state.forceSwapOnly = false;
     } else {
