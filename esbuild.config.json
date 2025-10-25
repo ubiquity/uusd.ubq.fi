@@ -1,0 +1,13 @@
+{
+    "entryPoints": [
+        "src/app.ts"
+    ],
+    "bundle": true,
+    "outfile": "public/app.js",
+    "format": "esm",
+    "platform": "browser",
+    "sourcemap": true,
+    "logOverride": {
+        "empty-glob": "silent"
+    }
+}
