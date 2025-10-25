@@ -5,341 +5,235 @@ import { createWalletClient, createPublicClient, custom, http, type Address, typ
 import { mainnet as viemMainnet } from "viem/chains";
 import { validateWalletConnection } from "../utils/validation-utils.ts";
 import { RPC_URL } from "../../tools/config.ts";
+import { getProjectId } from '../utils/project-id.ts';
 
 
-const WALLET_EVENTS = {
+
+const projectId = getProjectId();
+const networks = [mainnet]
+
+// Create adapter
+const wagmiAdapter = new WagmiAdapter({
+  networks,
+  projectId
+})
+
+// Instantiate AppKit
+const modal = createAppKit({
+  adapters: [wagmiAdapter],
+  networks,
+  projectId,
+  themeMode: 'light',
+  features: {
+    analytics: true,
+  },
+  metadata: {
+    name: 'Ubiquity Dollar',
+    description: 'Ubiquity Dollar Protocol',
+    url: 'https://ubiquitydollar.com',
+    icons: ['https://avatars.githubusercontent.com/u/179229932?s=200&v=4']
+  }
+})
+
+export const WALLET_EVENTS = {
   CONNECT: "wallet:connect",
   DISCONNECT: "wallet:disconnect",
   ACCOUNT_CHANGED: "wallet:account-changed",
   CONNECTION_ERROR: "wallet:connection-error",
 } as const;
 
-const UI_ELEMENTS = {
-  CONNECT_BUTTON: 'connectWallet',
-  WALLET_INFO: 'walletInfo',
-  WALLET_ADDRESS: 'walletAddress',
-  EXCHANGE_FORM: 'exchangeForm',
-  DIRECTION_TOGGLE: '.direction-toggle',
-  CONNECTION_STATUS: 'connectionStatus'
-} as const;
+export type WalletEvent = (typeof WALLET_EVENTS)[keyof typeof WALLET_EVENTS];
 
-const CONFIG = {
-  STORAGE_KEY: "uusd_wallet_address",
-  DEFAULT_PROJECT_ID: process.env.REOWN_PROJECT_ID,
-  CONNECTION_TIMEOUT: 3000,
-  ADDRESS_DISPLAY_LENGTH: { start: 6, end: 4 }
-} as const;
-
-
-class EnvironmentUtils {
-  static getProjectId(): string {
-    const envSources = [
-      // Bun
-      () => typeof Bun !== 'undefined' && Bun.env?.REOWN_PROJECT_ID,
-      // Deno
-      () => typeof Deno !== 'undefined' && Deno.env?.get('REOWN_PROJECT_ID'),
-      // Node.js
-      () => typeof process !== 'undefined' && process.env?.REOWN_PROJECT_ID
-    ];
-
-    for (const source of envSources) {
-      const projectId = source();
-      if (projectId) return projectId;
-    }
-
-    return CONFIG.DEFAULT_PROJECT_ID;
-  }
-}
-
-
-class UIManager {
-  private elements: Map<string, HTMLElement | null> = new Map();
-
-  constructor() {
-    this.initializeElements();
-  }
-
-  private initializeElements(): void {
-    Object.values(UI_ELEMENTS).forEach(key => {
-      this.elements.set(key, document.getElementById(key) || document.querySelector(key));
-    });
-  }
-
-  getElement(key: string): HTMLElement | null {
-    return this.elements.get(key) || null;
-  }
-
-  updateConnectButton(state: 'connect' | 'disconnect' | 'loading', isConnected: boolean = false): void {
-    const button = this.getElement(UI_ELEMENTS.CONNECT_BUTTON);
-    if (!button) return;
-
-    const states = {
-      connect: { text: 'Connect Wallet', loading: false },
-      disconnect: { text: 'Disconnect', loading: false },
-      loading: { text: 'Connecting...', loading: true }
-    };
-
-    const { text, loading } = states[state];
-    button.textContent = text;
-    button.classList.toggle('loading', loading);
-  }
-
-  updateWalletInfo(address: Address | null): void {
-    const walletInfo = this.getElement(UI_ELEMENTS.WALLET_INFO);
-    const walletAddress = this.getElement(UI_ELEMENTS.WALLET_ADDRESS);
-
-    if (walletInfo) {
-      walletInfo.style.display = address ? 'block' : 'none';
-    }
-
-    if (walletAddress && address) {
-      walletAddress.textContent = this.formatAddress(address);
-    }
-  }
-
-  toggleMainContent(show: boolean): void {
-    const exchangeForm = this.getElement(UI_ELEMENTS.EXCHANGE_FORM);
-    const directionToggle = this.getElement(UI_ELEMENTS.DIRECTION_TOGGLE);
-
-    [exchangeForm, directionToggle].forEach(element => {
-      if (element) {
-        element.style.display = show ? 'block' : 'none';
-      }
-    });
-
-    if (directionToggle) {
-      (directionToggle as HTMLElement).style.display = show ? 'flex' : 'none';
-    }
-  }
-
-  showConnectionStatus(message: string, type: 'info' | 'error' = 'info'): void {
-    const statusElement = this.getElement(UI_ELEMENTS.CONNECTION_STATUS);
-    if (!statusElement) return;
-
-    statusElement.textContent = message;
-    statusElement.style.display = 'block';
-    statusElement.className = type === 'error' ? 'error' : 'info-text';
-  }
-
-  hideConnectionStatus(): void {
-    const statusElement = this.getElement(UI_ELEMENTS.CONNECTION_STATUS);
-    if (statusElement) {
-      statusElement.style.display = 'none';
-    }
-  }
-
-  private formatAddress(address: Address): string {
-    const { start, end } = CONFIG.ADDRESS_DISPLAY_LENGTH;
-    return `${address.slice(0, start)}...${address.slice(-end)}`;
-  }
-}
-
-
-class StorageManager {
-  static getStoredAddress(): string | null {
-    return localStorage.getItem(CONFIG.STORAGE_KEY);
-  }
-
-  static storeAddress(address: Address): void {
-    localStorage.setItem(CONFIG.STORAGE_KEY, address);
-  }
-
-  static removeAddress(): void {
-    localStorage.removeItem(CONFIG.STORAGE_KEY);
-  }
-}
-
-
-type WalletEvent = typeof WALLET_EVENTS[keyof typeof WALLET_EVENTS];
-type WalletEventListener = (address?: Address | null) => void;
-
-class EventManager {
-  private listeners: Map<WalletEvent, WalletEventListener[]> = new Map();
-
-  addEventListener(event: WalletEvent, listener: WalletEventListener): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
-    this.listeners.get(event)!.push(listener);
-  }
-
-  removeEventListener(event: WalletEvent, listener: WalletEventListener): void {
-    const eventListeners = this.listeners.get(event);
-    if (!eventListeners) return;
-
-    const index = eventListeners.indexOf(listener);
-    if (index > -1) {
-      eventListeners.splice(index, 1);
-    }
-  }
-
-  emit(event: WalletEvent, address?: Address | null): void {
-    const eventListeners = this.listeners.get(event);
-    if (!eventListeners) return;
-
-    eventListeners.forEach(listener => {
-      try {
-        listener(address);
-      } catch (error) {
-        console.error(`Error in ${event} listener:`, error);
-      }
-    });
-  }
-
-  clear(): void {
-    this.listeners.clear();
-  }
-}
-
+type WalletEventListener<T extends WalletEvent> = T extends typeof WALLET_EVENTS.CONNECT | typeof WALLET_EVENTS.ACCOUNT_CHANGED
+  ? (address?: Address | null) => void
+  : T extends typeof WALLET_EVENTS.DISCONNECT | typeof WALLET_EVENTS.CONNECTION_ERROR
+    ? () => void
+    : never;
 
 export class WalletService {
   private _walletClient: WalletClient | null = null;
   private _publicClient: PublicClient;
   private _account: Address | null = null;
+  private _eventListeners: Map<WalletEvent, Array<(address?: Address | null) => void>> = new Map();
+  private static readonly _storageKey = "uusd_wallet_address";
   private _isConnecting: boolean = false;
 
-  private _uiManager: UIManager;
-  private _eventManager: EventManager;
-  private _appKitModal: ReturnType<typeof createAppKit>;
+  private _appKitModal = modal;
 
   constructor() {
-    this._uiManager = new UIManager();
-    this._eventManager = new EventManager();
-    this._publicClient = this.createPublicClient();
-    this._appKitModal = this.initializeAppKit();
-
-    this.initialize();
-  }
-
-  private initialize(): void {
-    this.setupAppKitListeners();
-    this.setupUIEventListeners();
-  }
-
-  private createPublicClient(): PublicClient {
-    return createPublicClient({
+    this._publicClient = createPublicClient({
       chain: viemMainnet,
       transport: http(RPC_URL),
     });
+
+    this._setupAppKitListeners();
+    this._initializeUI();
   }
 
-  private initializeAppKit() {
-    const projectId = EnvironmentUtils.getProjectId();
-    const networks = [mainnet];
-
-    const wagmiAdapter = new WagmiAdapter({ networks, projectId });
-
-    return createAppKit({
-      adapters: [wagmiAdapter],
-      networks,
-      projectId,
-      themeMode: 'light',
-      features: { analytics: true },
-      metadata: {
-        name: 'Ubiquity Dollar',
-        description: 'Ubiquity Dollar',
-        url: 'https://uusd.ubq.fi',
-        icons: ['https://avatars.githubusercontent.com/u/76412717?s=200&v=4']
-      }
-    });
+  private _initializeUI(): void {    
+    this._setupUIEventListeners();
   }
 
-  private setupUIEventListeners(): void {
-    const connectButton = this._uiManager.getElement(UI_ELEMENTS.CONNECT_BUTTON);
+  private _setupUIEventListeners(): void {    
+    const connectButton = document.getElementById('connectWallet');
     if (connectButton) {
       connectButton.addEventListener('click', () => this.handleConnectClick());
     }
   }
 
-  private setupAppKitListeners(): void {
+  private _setupAppKitListeners(): void {    
     this._appKitModal.subscribeAccount((state) => {
       console.log('🔗 AppKit Account State:', state);
-
+      
       if (state.isConnected && state.address) {
-        this.handleAppKitConnect(state.address as Address);
+        this._handleAppKitConnect(state.address as Address);
       } else if (!state.isConnected) {
-        this.handleAppKitDisconnect();
+        this._handleAppKitDisconnect();
       }
     });
-
+    
     this._appKitModal.subscribeState((state) => {
       if (state.open && this._isConnecting) {
-        this._uiManager.showConnectionStatus('Opening wallet connection...', 'info');
+        this._showConnectionStatus('Opening wallet connection...', 'info');
       }
     });
   }
 
   private async handleConnectClick(): Promise<void> {
     if (this._isConnecting) return;
-
-    if (this._account) {
+    
+    if (this._account) {      
       this.disconnect();
     } else {
-      await this.connect();
+      
+      try {
+        await this.connect();
+      } catch (error) {
+        console.error("Connection failed:", error);
+        this._isConnecting = false;
+        this._updateWalletUI(null);
+      }
     }
   }
 
-  private handleAppKitConnect(address: Address): void {
+  private _handleAppKitConnect(address: Address): void {
     console.log('✅ AppKit connected:', address);
-
+    
     this._account = address;
     this._isConnecting = false;
 
-    this.initializeWalletClient();
-    StorageManager.storeAddress(address);
-
-    this._eventManager.emit(WALLET_EVENTS.CONNECT, address);
-    this._eventManager.emit(WALLET_EVENTS.ACCOUNT_CHANGED, address);
-
-    this.updateUI();
-  }
-
-  private handleAppKitDisconnect(): void {
-    console.log('🔌 AppKit disconnected');
-
-    this._walletClient = null;
-    this._account = null;
-    this._isConnecting = false;
-
-    StorageManager.removeAddress();
-
-    this._eventManager.emit(WALLET_EVENTS.DISCONNECT);
-    this._eventManager.emit(WALLET_EVENTS.ACCOUNT_CHANGED, null);
-
-    this.updateUI();
-  }
-
-  private initializeWalletClient(): void {
     if (window.ethereum) {
       this._walletClient = createWalletClient({
         chain: viemMainnet,
         transport: custom(window.ethereum),
       });
     }
+
+    localStorage.setItem(WalletService._storageKey, address);
+
+    this._emit(WALLET_EVENTS.CONNECT, address);
+    this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, address);
+
+    this._updateWalletUI(address);
+    this._hideConnectionStatus();
   }
 
-  private updateUI(): void {
-    const isConnected = this._account !== null;
+  private _handleAppKitDisconnect(): void {
+    console.log('🔌 AppKit disconnected');
+    
+    this._walletClient = null;
+    this._account = null;
+    this._isConnecting = false;
 
-    this._uiManager.updateWalletInfo(this._account);
-    this._uiManager.updateConnectButton(
-      isConnected ? 'disconnect' : 'connect',
-      isConnected
-    );
-    this._uiManager.toggleMainContent(isConnected);
+    localStorage.removeItem(WalletService._storageKey);
 
-    if (!isConnected) {
-      this._uiManager.hideConnectionStatus();
+    this._emit(WALLET_EVENTS.DISCONNECT);
+    this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, null);
+
+    this._updateWalletUI(null);
+    this._hideConnectionStatus();
+  }
+
+  private _updateWalletUI(address: Address | null): void {
+    const walletInfo = document.getElementById('walletInfo');
+    const walletAddress = document.getElementById('walletAddress');
+    const connectButton = document.getElementById('connectWallet');
+    const exchangeForm = document.getElementById('exchangeForm');
+    const directionToggle = document.querySelector('.direction-toggle');
+
+    
+    if (walletInfo) {
+        if (address && walletAddress) {
+            walletInfo.style.display = 'block';
+            walletAddress.textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
+        } else {
+            walletInfo.style.display = 'none';
+        }
+    }
+
+    
+    if (connectButton) {
+      connectButton.textContent = address ? 'Disconnect' : 'Connect Wallet';
+      connectButton.classList.remove('loading');
+      connectButton.disabled = false;      
+    }
+
+    if (exchangeForm) {
+      exchangeForm.style.display = address ? 'block' : 'none';
+    }
+
+    if (directionToggle) {
+      (directionToggle as HTMLElement).style.display = address ? 'flex' : 'none';
     }
   }
 
-  // ========== PUBLIC API ==========
-  addEventListener(event: WalletEvent, listener: WalletEventListener): void {
-    this._eventManager.addEventListener(event, listener);
+  private _showConnectionStatus(message: string, type: 'info' | 'error' = 'info'): void {
+    const statusElement = document.getElementById('connectionStatus');
+    if (statusElement) {
+      statusElement.textContent = message;
+      statusElement.style.display = 'block';
+      statusElement.className = type === 'error' ? 'error' : 'info-text';
+    }
   }
 
-  removeEventListener(event: WalletEvent, listener: WalletEventListener): void {
-    this._eventManager.removeEventListener(event, listener);
+  private _hideConnectionStatus(): void {
+    const statusElement = document.getElementById('connectionStatus');
+    if (statusElement) {
+      statusElement.style.display = 'none';
+    }
+  }
+
+  addEventListener<T extends WalletEvent>(event: T, listener: WalletEventListener<T>): void {
+    if (!this._eventListeners.has(event)) {
+      this._eventListeners.set(event, []);
+    }
+    const listeners = this._eventListeners.get(event);
+    if (listeners) {
+      listeners.push(listener);
+    }
+  }
+
+  removeEventListener<T extends WalletEvent>(event: T, listener: WalletEventListener<T>): void {
+    const listeners = this._eventListeners.get(event);
+    if (listeners) {
+      const index = listeners.indexOf(listener);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  private _emit(event: WalletEvent, address?: Address | null): void {
+    const listeners = this._eventListeners.get(event);
+    if (listeners) {
+      listeners.forEach((listener) => {
+        try {
+          listener(address);
+        } catch (error) {
+          console.error(`Error in ${event} listener:`, error);
+        }
+      });
+    }
   }
 
   async connect(): Promise<Address> {
@@ -348,51 +242,60 @@ export class WalletService {
     }
 
     this._isConnecting = true;
-    this._uiManager.showConnectionStatus('Opening wallet connection...', 'info');
-    this._uiManager.updateConnectButton('loading');
+    this._showConnectionStatus('Opening wallet connection...', 'info');
+    
+    const connectButton = document.getElementById('connectWallet');
+    if (connectButton) {
+      connectButton.textContent = 'Connecting...';
+      connectButton.classList.add('loading');      
+    }
 
     try {
       console.log('🔗 Opening AppKit modal...');
-
+      
+      // Open AppKit modal
       await this._appKitModal.open();
-      await new Promise(resolve => setTimeout(resolve, CONFIG.CONNECTION_TIMEOUT));
-
+            
+      
       if (!this._account) {
         throw new Error("Connection failed or was cancelled");
       }
 
       return this._account;
     } catch (error) {
-      this.handleConnectionError(error);
+      console.error("❌ Connection failed:", error);
+      this._isConnecting = false;
+
+      if (connectButton) {
+        connectButton.disabled = false;
+        connectButton.classList.remove('loading');
+      }
+
+      this._updateWalletUI(null);
+      
+      const errorMessage = error instanceof Error ? error.message : "Connection failed";
+      this._showConnectionStatus(errorMessage, 'error');
+      this._emit(WALLET_EVENTS.CONNECTION_ERROR);
+      
       throw error;
     }
   }
 
-  private handleConnectionError(error: unknown): void {
-    console.error("❌ Connection failed:", error);
-    this._isConnecting = false;
-
-    this._uiManager.updateConnectButton('connect');
-    this._uiManager.updateWalletInfo(null);
-
-    const errorMessage = error instanceof Error ? error.message : "Connection failed";
-    this._uiManager.showConnectionStatus(errorMessage, 'error');
-    this._eventManager.emit(WALLET_EVENTS.CONNECTION_ERROR);
-  }
-
   disconnect(): void {
     this._isConnecting = false;
-    this._uiManager.updateConnectButton('disconnect');
 
+    const connectButton = document.getElementById('connectWallet');
+    if (connectButton) {
+      connectButton.textContent = 'Disconnecting...';      
+    }
     this._appKitModal.disconnect();
-
     setTimeout(() => {
-      this.updateUI();
+      this._updateWalletUI(null);
     }, 500);
   }
 
   destroy(): void {
-    this._eventManager.clear();
+    this._eventListeners.clear();
   }
 
   getAccount(): Address | null {
@@ -426,19 +329,21 @@ export class WalletService {
   }
 
   async checkStoredConnection(): Promise<Address | null> {
-    const storedAddress = StorageManager.getStoredAddress();
-    if (!storedAddress) return null;
+    const storedAddress = localStorage.getItem(WalletService._storageKey);
+    if (!storedAddress) {
+      return null;
+    }
 
     console.log("📱 Found stored wallet address:", storedAddress);
-
+    
     this._account = storedAddress as Address;
-    this.updateUI();
-
+    this._updateWalletUI(this._account);
+    
     return this._account;
   }
 
   getStoredAddress(): string | null {
-    return StorageManager.getStoredAddress();
+    return localStorage.getItem(WalletService._storageKey);
   }
 
   openModal(): void {
@@ -448,17 +353,20 @@ export class WalletService {
   switchNetwork(chainId: number): void {
     this._appKitModal.switchNetwork(chainId);
   }
-
   getAppKit() {
     return this._appKitModal;
   }
+
 
   async signMessage(message: string): Promise<string> {
     const client = this.getWalletClient();
     const account = this.getAccount();
     if (!account) throw new Error("No account connected");
-
-    return await client.signMessage({ account, message });
+    
+    return await client.signMessage({
+      account,
+      message,
+    });
   }
 
   async sendTransaction(transaction: any): Promise<string> {
@@ -466,7 +374,11 @@ export class WalletService {
     const account = this.getAccount();
     if (!account) throw new Error("No account connected");
 
-    const hash = await client.sendTransaction({ account, ...transaction });
+    const hash = await client.sendTransaction({
+      account,
+      ...transaction,
+    });
+
     return hash;
   }
 
@@ -482,9 +394,8 @@ let walletService: WalletService;
 
 export function initializeWalletService(): WalletService {
   walletService = new WalletService();
+  
   walletService.checkStoredConnection().catch(console.error);
+  
   return walletService;
 }
-
-export { WALLET_EVENTS };
-export type { WalletEvent, WalletEventListener };
