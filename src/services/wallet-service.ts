@@ -6,6 +6,8 @@ import { mainnet as viemMainnet } from "viem/chains";
 import { validateWalletConnection } from "../utils/validation-utils.ts";
 import { RPC_URL } from "../../tools/config.ts";
 import { getProjectId } from '../utils/project-id.ts';
+import type { Hash, TransactionRequest } from 'viem';
+
 
 
 
@@ -369,7 +371,7 @@ export class WalletService {
     });
   }
 
-  async sendTransaction(transaction: any): Promise<string> {
+  async sendTransaction(transaction: TransactionRequest): Promise<Hash> {
     const client = this.getWalletClient();
     const account = this.getAccount();
     if (!account) throw new Error("No account connected");
