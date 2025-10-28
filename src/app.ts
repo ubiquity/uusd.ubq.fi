@@ -604,7 +604,7 @@ function initializeApp() {
   app = new UUSDApp();
     
   if (!window.app) {
-    console.warn('window.app not defined after initialization, setting manually');
+    console.warn("window.app not defined after initialization, setting manually");
     (window as any).app = {
       connectWallet: () => app.connectWallet(),
       disconnectWallet: () => app.disconnectWallet(),
