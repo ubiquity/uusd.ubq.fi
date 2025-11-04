@@ -21,7 +21,6 @@ const modal = createAppKit({
   adapters: [wagmiAdapter],
   networks,
   projectId,
-  themeMode: 'light',
   features: {
     analytics: true,
   },
@@ -45,8 +44,8 @@ export type WalletEvent = (typeof WALLET_EVENTS)[keyof typeof WALLET_EVENTS];
 type WalletEventListener<T extends WalletEvent> = T extends typeof WALLET_EVENTS.CONNECT | typeof WALLET_EVENTS.ACCOUNT_CHANGED
   ? (address?: Address | null) => void
   : T extends typeof WALLET_EVENTS.DISCONNECT | typeof WALLET_EVENTS.CONNECTION_ERROR
-    ? () => void
-    : never;
+  ? () => void
+  : never;
 
 export class WalletService {
   private _walletClient: WalletClient | null = null;
@@ -55,6 +54,8 @@ export class WalletService {
   private _eventListeners: Map<WalletEvent, Array<(address?: Address | null) => void>> = new Map();
   private static readonly _storageKey = "uusd_wallet_address";
   private _isConnecting: boolean = false;
+  private _connectionStartTime: number = 0;
+  private static readonly _minLoadingTime = 800; // Minimum time to show spinner (ms)
 
   private _appKitModal = modal;
 
@@ -68,53 +69,59 @@ export class WalletService {
     this._initializeUI();
   }
 
-  private _initializeUI(): void {    
+  private _initializeUI(): void {
     this._setupUIEventListeners();
+    this._hideConnectionStatus();
   }
 
-  private _setupUIEventListeners(): void {    
+  private _setupUIEventListeners(): void {
     const connectButton = document.getElementById('connectWallet');
     if (connectButton) {
       connectButton.addEventListener('click', () => this.handleConnectClick());
     }
   }
 
-  private _setupAppKitListeners(): void {    
-    this._appKitModal.subscribeAccount((state) => {      
-      
+  private _setupAppKitListeners(): void {
+    this._appKitModal.subscribeAccount((state) => {
+
       if (state.isConnected && state.address) {
         this._handleAppKitConnect(state.address as Address);
       } else if (!state.isConnected) {
         this._handleAppKitDisconnect();
       }
     });
-    
+
     this._appKitModal.subscribeState((state) => {
-      if (state.open && this._isConnecting) {
-        this._showConnectionStatus('Opening wallet connection...', 'info');
-      }
+
     });
   }
 
   private async handleConnectClick(): Promise<void> {
     if (this._isConnecting) return;
-    
-    if (this._account) {      
+
+    if (this._account) {
       this.disconnect();
     } else {
-      
       try {
         await this.connect();
-      } catch (error) {        
+      } catch (error) {
         this._isConnecting = false;
         this._updateWalletUI(null);
       }
     }
   }
 
-  private _handleAppKitConnect(address: Address): void {        
+  private async _handleAppKitConnect(address: Address): Promise<void> {
+    const elapsedTime = Date.now() - this._connectionStartTime;
+    const remainingTime = Math.max(0, WalletService._minLoadingTime - elapsedTime);
+
+    if (remainingTime > 0) {
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
+    }
+
     this._account = address;
     this._isConnecting = false;
+    this._connectionStartTime = 0;
 
     if (window.ethereum) {
       this._walletClient = createWalletClient({
@@ -132,10 +139,20 @@ export class WalletService {
     this._hideConnectionStatus();
   }
 
-  private _handleAppKitDisconnect(): void {        
+  private async _handleAppKitDisconnect(): Promise<void> {
+    if (this._isConnecting) {
+      const elapsedTime = Date.now() - this._connectionStartTime;
+      const remainingTime = Math.max(0, WalletService._minLoadingTime - elapsedTime);
+
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+    }
+
     this._walletClient = null;
     this._account = null;
     this._isConnecting = false;
+    this._connectionStartTime = 0;
 
     localStorage.removeItem(WalletService._storageKey);
 
@@ -146,6 +163,7 @@ export class WalletService {
     this._hideConnectionStatus();
   }
 
+
   private _updateWalletUI(address: Address | null): void {
     const walletInfo = document.getElementById('walletInfo');
     const walletAddress = document.getElementById('walletAddress');
@@ -153,21 +171,23 @@ export class WalletService {
     const exchangeForm = document.getElementById('exchangeForm');
     const directionToggle = document.querySelector('.direction-toggle');
 
-    
     if (walletInfo) {
-        if (address && walletAddress) {
-            walletInfo.style.display = 'block';
-            walletAddress.textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
-        } else {
-            walletInfo.style.display = 'none';
-        }
+      if (address && walletAddress) {
+        walletInfo.style.display = 'block';
+        walletAddress.textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
+      } else {
+        walletInfo.style.display = 'none';
+      }
     }
 
-    
     if (connectButton) {
-      connectButton.textContent = address ? 'Disconnect' : 'Connect Wallet';
-      connectButton.classList.remove('loading');
-      connectButton.disabled = false;      
+      if (this._isConnecting) {
+        connectButton.disabled = true;
+      } else {
+        connectButton.textContent = address ? 'Disconnect' : 'Connect Wallet';
+        connectButton.classList.remove('loading');
+        connectButton.disabled = false;
+      }
     }
 
     if (exchangeForm) {
@@ -179,20 +199,44 @@ export class WalletService {
     }
   }
 
+
   private _showConnectionStatus(message: string, type: 'info' | 'error' = 'info'): void {
     const statusElement = document.getElementById('connectionStatus');
-    if (statusElement) {
-      statusElement.textContent = message;
-      statusElement.style.display = 'block';
-      statusElement.className = type === 'error' ? 'error' : 'info-text';
+    if (!statusElement) return;
+
+    if (type === 'info') {
+      statusElement.innerHTML = `
+        <span class="loading-spinner" style="
+          display: inline-block;
+          width: 14px;
+          height: 14px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          flex-shrink: 0;
+        "></span>
+        <span class="status-text">${message}</span>
+      `;
+      statusElement.className = 'info-text';
+    } else {
+      statusElement.innerHTML = `<span class="status-text">${message}</span>`;
+      statusElement.className = 'error';
     }
+
+    statusElement.style.display = 'flex';
   }
+
 
   private _hideConnectionStatus(): void {
     const statusElement = document.getElementById('connectionStatus');
-    if (statusElement) {
-      statusElement.style.display = 'none';
-    }
+    if (!statusElement) return;
+
+
+    statusElement.style.display = 'none';
+
+    statusElement.className = '';
+    statusElement.innerHTML = '';
   }
 
   addEventListener<T extends WalletEvent>(event: T, listener: WalletEventListener<T>): void {
@@ -228,52 +272,59 @@ export class WalletService {
     }
   }
 
+
   async connect(): Promise<Address> {
     if (this._isConnecting) {
       throw new Error("Connection already in progress");
     }
 
     this._isConnecting = true;
+    this._connectionStartTime = Date.now();
+
+    this._updateWalletUI(null);
+
     this._showConnectionStatus('Opening wallet connection...', 'info');
-    
-    const connectButton = document.getElementById('connectWallet');
-    if (connectButton) {
-      connectButton.textContent = 'Connecting...';            
-    }
 
-    try {                  
+    try {
       await this._appKitModal.open();
-                
-      return this._account;
-    } catch (error) {      
-      this._isConnecting = false;
+      return this._account!;
+    } catch (error) {
 
-      if (connectButton) {
-        connectButton.disabled = false;
-        connectButton.classList.remove('loading');
+      const elapsedTime = Date.now() - this._connectionStartTime;
+      const remainingTime = Math.max(0, WalletService._minLoadingTime - elapsedTime);
+
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
       }
 
+      this._isConnecting = false;
+      this._connectionStartTime = 0;
       this._updateWalletUI(null);
-      
+
       const errorMessage = error instanceof Error ? error.message : "Connection failed";
+
       this._showConnectionStatus(errorMessage, 'error');
+      setTimeout(() => {
+        this._hideConnectionStatus();
+      }, 3000);
+
       this._emit(WALLET_EVENTS.CONNECTION_ERROR);
-      
+
       throw error;
     }
   }
 
   disconnect(): void {
+
     this._isConnecting = false;
 
     const connectButton = document.getElementById('connectWallet');
     if (connectButton) {
-      connectButton.textContent = 'Disconnecting...';      
+      connectButton.disabled = true;
+      this._showConnectionStatus('bye! disconnecting...', 'info');
     }
+
     this._appKitModal.disconnect();
-    setTimeout(() => {
-      this._updateWalletUI(null);
-    }, 500);
   }
 
   destroy(): void {
@@ -315,10 +366,9 @@ export class WalletService {
     if (!storedAddress) {
       return null;
     }
-        
     this._account = storedAddress as Address;
     this._updateWalletUI(this._account);
-    
+
     return this._account;
   }
 
@@ -333,16 +383,16 @@ export class WalletService {
   switchNetwork(chainId: number): void {
     this._appKitModal.switchNetwork(chainId);
   }
+
   getAppKit() {
     return this._appKitModal;
   }
-
 
   async signMessage(message: string): Promise<string> {
     const client = this.getWalletClient();
     const account = this.getAccount();
     if (!account) throw new Error("No account connected");
-    
+
     return await client.signMessage({
       account,
       message,
@@ -374,8 +424,8 @@ let walletService: WalletService;
 
 export function initializeWalletService(): WalletService {
   walletService = new WalletService();
-  
+
   walletService.checkStoredConnection().catch(console.error);
-  
+
   return walletService;
 }
