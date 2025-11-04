@@ -8,19 +8,15 @@ import { RPC_URL } from "../../tools/config.ts";
 import { getProjectId } from '../utils/project-id.ts';
 import type { Hash, TransactionRequest } from 'viem';
 
-
-
-
 const projectId = getProjectId();
 const networks = [mainnet]
 
-// Create adapter
+
 const wagmiAdapter = new WagmiAdapter({
   networks,
   projectId
 })
 
-// Instantiate AppKit
 const modal = createAppKit({
   adapters: [wagmiAdapter],
   networks,
@@ -84,8 +80,7 @@ export class WalletService {
   }
 
   private _setupAppKitListeners(): void {    
-    this._appKitModal.subscribeAccount((state) => {
-      console.log('🔗 AppKit Account State:', state);
+    this._appKitModal.subscribeAccount((state) => {      
       
       if (state.isConnected && state.address) {
         this._handleAppKitConnect(state.address as Address);
@@ -110,17 +105,14 @@ export class WalletService {
       
       try {
         await this.connect();
-      } catch (error) {
-        console.error("Connection failed:", error);
+      } catch (error) {        
         this._isConnecting = false;
         this._updateWalletUI(null);
       }
     }
   }
 
-  private _handleAppKitConnect(address: Address): void {
-    console.log('✅ AppKit connected:', address);
-    
+  private _handleAppKitConnect(address: Address): void {        
     this._account = address;
     this._isConnecting = false;
 
@@ -140,9 +132,7 @@ export class WalletService {
     this._hideConnectionStatus();
   }
 
-  private _handleAppKitDisconnect(): void {
-    console.log('🔌 AppKit disconnected');
-    
+  private _handleAppKitDisconnect(): void {        
     this._walletClient = null;
     this._account = null;
     this._isConnecting = false;
@@ -248,24 +238,14 @@ export class WalletService {
     
     const connectButton = document.getElementById('connectWallet');
     if (connectButton) {
-      connectButton.textContent = 'Connecting...';
-      connectButton.classList.add('loading');      
+      connectButton.textContent = 'Connecting...';            
     }
 
-    try {
-      console.log('🔗 Opening AppKit modal...');
-      
-      // Open AppKit modal
+    try {                  
       await this._appKitModal.open();
-            
-      
-      if (!this._account) {
-        throw new Error("Connection failed or was cancelled");
-      }
-
+                
       return this._account;
-    } catch (error) {
-      console.error("❌ Connection failed:", error);
+    } catch (error) {      
       this._isConnecting = false;
 
       if (connectButton) {
@@ -335,9 +315,7 @@ export class WalletService {
     if (!storedAddress) {
       return null;
     }
-
-    console.log("📱 Found stored wallet address:", storedAddress);
-    
+        
     this._account = storedAddress as Address;
     this._updateWalletUI(this._account);
     
