@@ -1,6 +1,7 @@
 import { serveDir } from "jsr:@std/http/file-server";
 
-const root = Deno.env.get("STATIC_DIR") ?? "static";
+// Default to built assets in public/ so deploys still work if STATIC_DIR is unset.
+const root = Deno.env.get("STATIC_DIR") ?? "public";
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
