@@ -61,7 +61,15 @@ async function handler(req: Request): Promise<Response> {
   }
 
   // Serve static files from the "public" directory first
-  if (path === "/" || path.startsWith("/public/") || path === "/app.js" || path === "/favicon.svg" || path.startsWith("/styles/")) {
+  if (
+    path === "/" ||
+    path.startsWith("/public/") ||
+    path === "/app.js" ||
+    path === "/favicon.png" ||
+    path === "/favicon.ico" ||
+    path === "/styles/" ||
+    path === "/favicon.svg"
+  ) {
     const response = await serveDir(req, {
       fsRoot: "public",
       urlRoot: "",
