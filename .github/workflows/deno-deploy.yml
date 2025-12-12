@@ -10,9 +10,8 @@ jobs:
     with:
       project: uusd-ubq-fi
       entrypoint: serve.ts
-      bun_version: 1.2.x
-      deno_version: 2.x
-      install_command: bun install --backend=npm --registry=https://registry.npmjs.org
+      bun_version: 1.3.4
+      install_command: bun install
       build_command: bun run build
       build_env: |
         SUPABASE_URL=$SUPABASE_URL
