@@ -4,11 +4,12 @@ import { mainnet, arbitrum, polygon, optimism } from '@reown/appkit/networks';
 import type { AppKit } from '@reown/appkit';
 
 // Get project ID from environment
-const projectId = import.meta.env?.REOWN_PROJECT_ID || 
-                  (typeof process !== 'undefined' ? process.env.REOWN_PROJECT_ID : undefined);
+const projectId = globalThis.REOWN_PROJECT_ID;
+
+console.log("Project ID ", projectId)
 
 if (!projectId) {
-  console.warn('VITE_REOWN_PROJECT_ID not set - AppKit will not work');
+  console.warn('REOWN_PROJECT_ID not set - AppKit will not work');
 }
 
 // Define supported networks
@@ -27,7 +28,7 @@ export function initializeAppKit(): AppKit {
   if (appKit) return appKit;
 
   if (!projectId) {
-    throw new Error('Cannot initialize AppKit: VITE_REOWN_PROJECT_ID not set');
+    throw new Error('Cannot initialize AppKit: REOWN_PROJECT_ID not set');
   }
 
   appKit = createAppKit({

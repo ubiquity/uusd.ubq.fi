@@ -2,14 +2,16 @@ import { type Address } from "viem";
 import { WalletService, WALLET_EVENTS } from "./wallet-service.ts";
 import { initializeAppKit, wagmiConfig } from "../config/appkit-config.ts";
 import type { AppKit } from '@reown/appkit';
+import { getAccount, watchAccount, getWalletClient } from '@wagmi/core';
 
 /**
  * Enhanced Wallet Service with AppKit Integration
- * Extends existing WalletService to work with Reown AppKit
+ * Extends your existing WalletService to work with Reown AppKit
  */
 export class AppKitWalletService extends WalletService {
   private appKit: AppKit | null = null;
   private unsubscribeAppKit: (() => void) | null = null;
+  private unwatchAccount: (() => void) | null = null;
 
   constructor() {
     super();
@@ -17,25 +19,49 @@ export class AppKitWalletService extends WalletService {
   }
 
   /**
-   * Initialize AppKit and setup event listeners
+   * Initialize AppKit
    */
   private initializeAppKit(): void {
     try {
       this.appKit = initializeAppKit();
       this.setupAppKitEventListeners();
+      this.setupWagmiWatcher();
     } catch (error) {
       console.error('Failed to initialize AppKit:', error);
     }
   }
 
   /**
-   * Setup AppKit event listeners to sync with existing WalletService
+   * Setup Wagmi account watcher for immediate state updates
+   */
+  private setupWagmiWatcher(): void {
+    // Watch for account changes using Wagmi directly
+    this.unwatchAccount = watchAccount(wagmiConfig, {
+      onChange: (account) => {
+        console.log('Wagmi account changed:', account);
+        
+        if (account.isConnected && account.address) {
+          // Immediately sync connection
+          console.log("Detected connection event")
+          this._syncFromAppKit(account.address as Address);
+        } else if (!account.isConnected && this.isConnected()) {
+          // Immediately sync disconnection
+          console.log("Detected disconnection event")
+          this._syncDisconnect();
+        }
+      }
+    });
+  }
+
+  /**
+   * Setup AppKit event listeners
    */
   private setupAppKitEventListeners(): void {
     if (!this.appKit) return;
 
     // Subscribe to AppKit state changes
     this.unsubscribeAppKit = this.appKit.subscribeState((state) => {
+      
       const address = state.address as Address | undefined;
       const isConnected = state.isConnected;
 
@@ -52,6 +78,9 @@ export class AppKitWalletService extends WalletService {
    * Sync wallet connection from AppKit to internal state
    */
   private _syncFromAppKit(address: Address): void {
+    console.log('Syncing connection to WalletService:', address);
+    
+    // Update internal account state
     this._account = address;
     
     // Store connection for auto-reconnect
@@ -61,13 +90,15 @@ export class AppKitWalletService extends WalletService {
     }
 
     // Emit connect event
-    this.emit(WALLET_EVENTS.CONNECT, address);
+    this._emit(WALLET_EVENTS.CONNECT, address);
   }
 
   /**
    * Sync disconnect from AppKit
    */
   private _syncDisconnect(): void {
+    console.log('Syncing disconnection to WalletService');
+    
     this._account = null;
     
     // Clear stored connection
@@ -77,7 +108,7 @@ export class AppKitWalletService extends WalletService {
     }
 
     // Emit disconnect event
-    this.emit(WALLET_EVENTS.DISCONNECT);
+    this._emit(WALLET_EVENTS.DISCONNECT);
   }
 
   /**
@@ -85,31 +116,53 @@ export class AppKitWalletService extends WalletService {
    */
   override async connect(forceWalletSelection = false): Promise<Address> {
     if (!this.appKit) {
-      // Fallback to original connect if AppKit not available
+      console.warn('AppKit not initialized, falling back to original connect');
       return super.connect(forceWalletSelection);
     }
 
     try {
+      // Check if already connected via Wagmi
+      const currentAccount = getAccount(wagmiConfig);
+      if (currentAccount.isConnected && currentAccount.address && !forceWalletSelection) {
+        console.log('Already connected via Wagmi:', currentAccount.address);
+        const address = currentAccount.address as Address;
+        this._syncFromAppKit(address);
+        return address;
+      }
+
+      console.log('Opening AppKit modal...');
+      
       // Open AppKit modal
       await this.appKit.open();
+      
+      this._walletClient = await getWalletClient(wagmiConfig);
 
-      // Wait for connection
+      // Wait for connection with periodic checks
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Connection timeout'));
-        }, 30000); // 30 second timeout
+          reject(new Error('Connection timeout - wallet connection took too long'));
+        }, 60000); // 60 second timeout
 
-        const checkConnection = () => {
-          const account = this.getAccount();
-          if (account) {
+        // Check every 200ms for connection
+        const checkInterval = setInterval(() => {
+          const account = getAccount(wagmiConfig);
+          
+          if (account.isConnected && account.address) {
             clearTimeout(timeout);
-            resolve(account);
-          } else {
-            setTimeout(checkConnection, 100);
+            clearInterval(checkInterval);
+            
+            const address = account.address as Address;
+            console.log('✅ Connection detected:', address);
+            
+            // Sync to internal state
+            this._syncFromAppKit(address);
+            
+            // Close modal
+            this.appKit?.close();
+            
+            resolve(address);
           }
-        };
-
-        checkConnection();
+        }, 200);
       });
     } catch (error) {
       console.error('AppKit connection failed:', error);
@@ -121,12 +174,33 @@ export class AppKitWalletService extends WalletService {
    * Override disconnect to use AppKit
    */
   override disconnect(): void {
+    console.log('Disconnecting via AppKit...');
+    
     if (this.appKit) {
       this.appKit.disconnect();
     }
     
     // Also call parent disconnect for cleanup
     super.disconnect();
+  }
+
+  /**
+   * Check for stored wallet connection
+   */
+  override async checkStoredConnection(): Promise<Address | null> {
+    console.log('Checking for stored connection...');
+    
+    // First check Wagmi state
+    const account = getAccount(wagmiConfig);
+    if (account.isConnected && account.address) {
+      const address = account.address as Address;
+      console.log('Found connected account via Wagmi:', address);
+      this._syncFromAppKit(address);
+      return address;
+    }
+
+    // Fall back to parent implementation
+    return super.checkStoredConnection();
   }
 
   /**
@@ -146,12 +220,25 @@ export class AppKitWalletService extends WalletService {
   }
 
   /**
+   * Check if wallet is connected
+   */
+  isConnected(): boolean {
+    const account = getAccount(wagmiConfig);
+    return account.isConnected && account.address !== undefined
+  }
+
+  /**
    * Cleanup on destroy
    */
   destroy(): void {
     if (this.unsubscribeAppKit) {
       this.unsubscribeAppKit();
       this.unsubscribeAppKit = null;
+    }
+    
+    if (this.unwatchAccount) {
+      this.unwatchAccount();
+      this.unwatchAccount = null;
     }
   }
 }
