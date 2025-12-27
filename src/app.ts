@@ -36,7 +36,7 @@ declare global {
  */
 class UUSDApp {
   // Services
-  private _walletService: AppKitWalletService;
+  private _walletService: AppKitWalletService | WalletService;
   private _contractService: ContractService;
   private _priceService: PriceService;
   private _curvePriceService: CurvePriceService;
@@ -55,6 +55,9 @@ class UUSDApp {
   constructor() {
     // Initialize services with dependency injection
     this._walletService = new AppKitWalletService();
+    if (!this._walletService.isConfigured()) {
+      this._walletService = new WalletService();
+    }
     this._contractService = new ContractService(this._walletService);
     this._priceService = new PriceService(this._contractService, this._walletService);
     this._curvePriceService = new CurvePriceService(this._walletService);
@@ -104,7 +107,6 @@ class UUSDApp {
       handleExchange: (event: Event) => this.handleExchange(event),
       demoTransactionUX: (buttonId?: string) => this.demoTransactionUX(buttonId),
       getTransactionStatus: () => this.getTransactionStatus(),
-      openAppKitModal: () => this._walletService.openAppKitModal(),
     };
 
     void this._init().catch((error) => {
@@ -512,51 +514,61 @@ class UUSDApp {
     try {
       // Check if wallet is already connected
       if (this._walletService.isConnected()) {
-        console.log("Opening AppKit modal for connected wallet...");
-        this._walletService.openAppKitModal();
-        return;
+        // DISCONNECT
+        this._walletService.disconnect();
+
+        if (!this._walletService.isConnected()) {
+          this._updateWalletUI(null);
+          // Also manually update inventory bar since event may not fire
+          void this._inventoryBarComponent.handleWalletConnectionChange(null);
+
+          // Update the connect button text content
+          console.log("Updating button text");
+          connectButton.textContent = this._walletService.getButtonDisplay();
+          connectButton.disabled = false;
+        }
       } else {
         // Set connecting state
+        console.log("Connecting to Wallet....");
         this._isConnecting = true;
         connectButton.textContent = "Connecting...";
         connectButton.disabled = true;
 
         try {
-          // Connect using AppKit modal (automatically shows nice UI!)
+          // Connect using the wallet service
           const address = await this._walletService.connect(true);
-          
-          console.log('✅ Wallet connected:', address);
-          
+
+          console.log("✅ Wallet connected:", address);
+
           // Update UI immediately
           this._updateWalletUI(address);
           void this._inventoryBarComponent.handleWalletConnectionChange(address);
-          
+
+          // get button display
+          const buttonDisplay = this._walletService.getButtonDisplay();
+
           // Reset button state
-          connectButton.textContent = "Disconnect";
+          connectButton.textContent = buttonDisplay;
           connectButton.disabled = false;
-          
         } catch (error: unknown) {
-          console.error('Connection error:', error);
-          
+          console.error("Connection error:", error);
+
           // Reset button state on error
           connectButton.textContent = originalText;
           connectButton.disabled = false;
-          
+
           const message = error instanceof Error ? error.message : "Connection failed";
-          
-          // Only show error if it's not a user cancellation
-          if (!message.includes('User rejected') && !message.includes('User cancelled')) {
-            this._notificationManager.showError("exchange", message);
-          }
+
+          this._notificationManager.showError("exchange", message);
         }
       }
     } catch (error: unknown) {
       // Reset button state on error
       connectButton.textContent = originalText;
       connectButton.disabled = false;
-      
+
       const message = error instanceof Error ? error.message : "Unknown error occurred";
-      console.error('Wallet connection error:', message);
+      console.error("Wallet connection error:", message);
     } finally {
       this._isConnecting = false;
     }

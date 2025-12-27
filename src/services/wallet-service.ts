@@ -195,10 +195,28 @@ export class WalletService {
   }
 
   /**
+   * Check if wallet service is configured and ready for use
+   */
+  isConfigured(): boolean {
+    return window.ethereum !== undefined;
+  }
+
+  /**
    * Get the current chain from wallet client
    */
   getChain() {
     return this._walletClient?.chain || mainnet;
+  }
+
+  /**
+   * Get Connect button text content
+   */
+  getButtonDisplay(): string {
+    if (this.isConnected()) {
+      return "Disconnect";
+    }
+
+    return "Connect";
   }
 
   /**
