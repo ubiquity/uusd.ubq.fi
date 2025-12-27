@@ -3,6 +3,8 @@ import { serveDir, serveFile } from "jsr:@std/http/file-server";
 // Default to built assets in public/ so deploys still work if STATIC_DIR is unset.
 const root = Deno.env.get("STATIC_DIR") ?? "public";
 
+globalThis.REOWN_PROJECT_ID = Deno.env.get("REOWN_PROJECT_ID")
+
 Deno.serve(async (req) => {
   const isHead = req.method === "HEAD";
   const request = isHead ? new Request(req.url, { method: "GET", headers: req.headers }) : req;
