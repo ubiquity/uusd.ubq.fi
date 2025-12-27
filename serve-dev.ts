@@ -1,14 +1,18 @@
 import { generateDevtoolsJson } from "./src/utils/generate-devtools-json.ts";
 import { serveDir } from "https://deno.land/std@0.224.0/http/file_server.ts";
 
+const REOWN_PROJECT_ID = Deno.env.get("REOWN_PROJECT_ID")
+
 // Store connected clients for hot reload
 const clients = new Set<ReadableStreamDefaultController>();
 
 // Hot reload script to inject into HTML
+// Add REOWN_PROJECT_ID to globalThis
 const hotReloadScript = `
 <script>
 (function() {
   const eventSource = new EventSource('/hot-reload');
+  globalThis.REOWN_PROJECT_ID="${REOWN_PROJECT_ID}";
   eventSource.onmessage = function(event) {
     if (event.data === 'reload') {
       console.log('🔄 Hot reloading...');

@@ -1,6 +1,7 @@
 import { type Address, formatUnits } from "viem";
 
 // Import services
+import { AppKitWalletService } from "./services/appkit-wallet-service.ts";
 import { WalletService, WALLET_EVENTS } from "./services/wallet-service.ts";
 import { ContractService } from "./services/contract-service.ts";
 import { PriceService } from "./services/price-service.ts";
@@ -35,7 +36,7 @@ declare global {
  */
 class UUSDApp {
   // Services
-  private _walletService: WalletService;
+  private _walletService: AppKitWalletService | WalletService;
   private _contractService: ContractService;
   private _priceService: PriceService;
   private _curvePriceService: CurvePriceService;
@@ -53,7 +54,10 @@ class UUSDApp {
 
   constructor() {
     // Initialize services with dependency injection
-    this._walletService = new WalletService();
+    this._walletService = new AppKitWalletService();
+    if (!this._walletService.isConfigured()) {
+      this._walletService = new WalletService();
+    }
     this._contractService = new ContractService(this._walletService);
     this._priceService = new PriceService(this._contractService, this._walletService);
     this._curvePriceService = new CurvePriceService(this._walletService);
@@ -496,6 +500,7 @@ class UUSDApp {
   }
 
   // Public methods called from HTML
+  // Now automatically using AppKit modal!
   async connectWallet() {
     const connectButton = document.getElementById("connectWallet") as HTMLButtonElement;
     const originalText = connectButton.textContent;
@@ -509,40 +514,61 @@ class UUSDApp {
     try {
       // Check if wallet is already connected
       if (this._walletService.isConnected()) {
-        // Set disconnecting state
-        connectButton.textContent = "Disconnecting...";
-        connectButton.disabled = true;
-
-        // Disconnect wallet (this will clear localStorage)
+        // DISCONNECT
         this._walletService.disconnect();
-        // Manually update UI after disconnection
-        // Don't rely on event handlers as they may not fire immediately
-        this._updateWalletUI(null);
-        // Also manually update inventory bar since event may not fire
-        void this._inventoryBarComponent.handleWalletConnectionChange(null);
+
+        if (!this._walletService.isConnected()) {
+          this._updateWalletUI(null);
+          // Also manually update inventory bar since event may not fire
+          void this._inventoryBarComponent.handleWalletConnectionChange(null);
+
+          // Update the connect button text content
+          console.log("Updating button text");
+          connectButton.textContent = this._walletService.getButtonDisplay();
+          connectButton.disabled = false;
+        }
       } else {
         // Set connecting state
+        console.log("Connecting to Wallet....");
         this._isConnecting = true;
         connectButton.textContent = "Connecting...";
         connectButton.disabled = true;
 
-        // Force wallet selection since user explicitly clicked connect
-        await this._walletService.connect(true);
-        // Manually update UI after successful connection
-        // Don't rely on event handlers as they may not fire immediately
-        if (this._walletService.isConnected()) {
-          const account = this._walletService.getAccount();
-          this._updateWalletUI(account);
-          // Also manually update inventory bar since event may not fire
-          void this._inventoryBarComponent.handleWalletConnectionChange(account);
+        try {
+          // Connect using the wallet service
+          const address = await this._walletService.connect(true);
+
+          console.log("✅ Wallet connected:", address);
+
+          // Update UI immediately
+          this._updateWalletUI(address);
+          void this._inventoryBarComponent.handleWalletConnectionChange(address);
+
+          // get button display
+          const buttonDisplay = this._walletService.getButtonDisplay();
+
+          // Reset button state
+          connectButton.textContent = buttonDisplay;
+          connectButton.disabled = false;
+        } catch (error: unknown) {
+          console.error("Connection error:", error);
+
+          // Reset button state on error
+          connectButton.textContent = originalText;
+          connectButton.disabled = false;
+
+          const message = error instanceof Error ? error.message : "Connection failed";
+
+          this._notificationManager.showError("exchange", message);
         }
       }
     } catch (error: unknown) {
       // Reset button state on error
       connectButton.textContent = originalText;
       connectButton.disabled = false;
+
       const message = error instanceof Error ? error.message : "Unknown error occurred";
-      this._notificationManager.showError("exchange", message);
+      console.error("Wallet connection error:", message);
     } finally {
       this._isConnecting = false;
     }
