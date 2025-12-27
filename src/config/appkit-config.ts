@@ -4,7 +4,7 @@ import { mainnet, arbitrum, polygon, optimism } from "@reown/appkit/networks";
 import type { AppKit } from "@reown/appkit";
 
 // Get project ID from environment
-export const projectId = globalThis.REOWN_PROJECT_ID;
+export const projectId = process.env.REOWN_PROJECT_ID;
 
 if (!projectId) {
   console.warn("REOWN_PROJECT_ID not set - AppKit will not work");

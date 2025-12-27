@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun run build:watch & bun run serve:dev",
-    "build": "bun run esbuild src/app.ts --bundle --outfile=public/app.js --minify --format=esm --platform=browser --sourcemap",
-    "build:watch": "bun run esbuild src/app.ts --bundle --outfile=public/app.js --format=esm --platform=browser --sourcemap=inline --watch=forever",
+    "build": "bun run esbuild.config.ts",
+    "build:watch": "bun run esbuild.config.ts --watch --dev",
     "serve": "deno run --allow-all serve.ts",
     "serve:dev": "deno run --allow-all serve-dev.ts",
     "serve:bun": "bun run serve.ts",
@@ -43,6 +43,7 @@
     "@ubiquity-dao/permit2-rpc-client": "^0.1.2",
     "@walletconnect/ethereum-provider": "^2.23.1",
     "commander": "^14.0.0",
+    "dotenv": "^17.2.3",
     "ox": "^0.11.1",
     "porto": "^0.2.37",
     "react": "^19.2.3",

@@ -63,6 +63,7 @@
         "npm:@ubiquity-dao/permit2-rpc-client@~0.1.2",
         "npm:@walletconnect/ethereum-provider@^2.23.1",
         "npm:commander@14",
+        "npm:dotenv@^17.2.3",
         "npm:esbuild@0.19",
         "npm:eslint-config-prettier@^10.1.8",
         "npm:eslint-plugin-prettier@^5.5.4",
