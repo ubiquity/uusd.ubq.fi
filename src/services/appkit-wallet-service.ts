@@ -66,6 +66,15 @@ export class AppKitWalletService extends WalletService {
     // Update internal account state
     this._account = address;
 
+    // Update the wallet client
+    this._updateWalletClient()
+      .then(() => {
+        console.log("Wallet client updated");
+      })
+      .catch((err) => {
+        console.error(`Error getting wallet client: ${err}`);
+      });
+
     // Store connection for auto-reconnect
     if (typeof window !== "undefined") {
       localStorage.setItem("wallet_connected", "true");
@@ -140,15 +149,6 @@ export class AppKitWalletService extends WalletService {
             // Sync to internal state
             this._syncFromAppKit(address);
 
-            // update wallet client
-            this._updateWalletClient()
-              .then(() => {
-                console.log("Wallet client updated");
-              })
-              .catch((err) => {
-                reject(new Error(`Error getting wallet client: ${err}`));
-              });
-
             // Close modal
             this._appKit
               ?.close()
@@ -179,7 +179,7 @@ export class AppKitWalletService extends WalletService {
   /**
    * Directly disconnect from appkit and wallet service
    */
-  directDiconnect(): void {
+  directDisconnect(): void {
     if (this._appKit) {
       this._appKit
         .disconnect()
