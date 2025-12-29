@@ -143,7 +143,6 @@ export class PriceThresholdService {
     return value >= MIN_VALID_THRESHOLD && value <= MAX_VALID_THRESHOLD;
   }
 
-
   /**
    * Clear the cache
    */

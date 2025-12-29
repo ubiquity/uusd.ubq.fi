@@ -22,4 +22,5 @@ Deno.serve(async (req) => {
   }
 
   return response;
+
 });
