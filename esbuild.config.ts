@@ -17,17 +17,17 @@ const buildOptions = {
   format: 'esm',
   platform: 'browser',
   target: ['es2020'],
-  
+
   // Define environment variables for the bundle
   define: {
-    'process.env.REOWN_PROJECT_ID': JSON.stringify(process.env.REOWN_PROJECT_ID),
+    'process.env.REOWN_PROJECT_ID': JSON.stringify(process.env.REOWN_PROJECT_ID ?? ''),
     'process.env.NODE_ENV': JSON.stringify(isDev ? 'development' : 'production'),
   },
-  
+
   // Development vs Production settings
   sourcemap: isDev ? 'inline' : true,
   minify: !isDev,
-  
+
   // Tree shaking
   treeShaking: true,
 };
@@ -35,7 +35,7 @@ const buildOptions = {
 // Build function
 async function build() {
   console.log(`Building in ${isDev ? 'development' : 'production'} mode...`);
-  
+
   try {
     if (isWatch) {
       // Watch mode for development
@@ -47,7 +47,7 @@ async function build() {
       // One-time build for production
       const result = await esbuild.build(buildOptions);
       console.log('Build completed successfully!\n');
-      
+
       // Show build stats if available
       if (result.metafile) {
         const text = await esbuild.analyzeMetafile(result.metafile);

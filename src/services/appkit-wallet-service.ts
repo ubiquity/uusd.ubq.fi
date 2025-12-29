@@ -127,8 +127,6 @@ export class AppKitWalletService extends WalletService {
       // Open AppKit modal
       await this._appKit.open();
 
-      // this._walletClient = await getWalletClient(wagmiConfig);
-
       // Wait for connection with periodic checks
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -231,7 +229,7 @@ export class AppKitWalletService extends WalletService {
    */
   getButtonDisplay(): string {
     if (this.isConnected()) {
-      let account = this.getAccount();
+      const account = this.getAccount();
       if (account) {
         return `${account.slice(0, 6)}…${account.slice(-4)}`;
       }

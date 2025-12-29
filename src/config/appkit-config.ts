@@ -4,7 +4,7 @@ import { mainnet, arbitrum, polygon, optimism } from "@reown/appkit/networks";
 import type { AppKit } from "@reown/appkit";
 
 // Get project ID from environment
-export const projectId = process.env.REOWN_PROJECT_ID;
+export const projectId = process.env.REOWN_PROJECT_ID || undefined;
 
 if (!projectId) {
   console.warn("REOWN_PROJECT_ID not set - AppKit will not work");
@@ -37,7 +37,7 @@ export function initializeAppKit(): AppKit {
       name: "UUSD DeFi",
       description: "Ubiquity Dollar Stablecoin Platform",
       url: "https://uusd.ubq.fi",
-      icons: ["https://uusd.ubq.fi/icon.png"],
+      icons: ["https://uusd.ubq.fi/icon-192x192.png"],
     },
     features: {
       analytics: true,

@@ -500,7 +500,7 @@ class UUSDApp {
   }
 
   // Public methods called from HTML
-  // Now automatically using AppKit modal!
+  // Uses AppKit modal when AppKit is configured/enabled (falls back to non-AppKit flow otherwise)
   async connectWallet() {
     const connectButton = document.getElementById("connectWallet") as HTMLButtonElement;
     const originalText = connectButton.textContent;
@@ -568,7 +568,7 @@ class UUSDApp {
       connectButton.disabled = false;
 
       const message = error instanceof Error ? error.message : "Unknown error occurred";
-      console.error("Wallet connection error:", message);
+      this._notificationManager.showError("exchange", message);
     } finally {
       this._isConnecting = false;
     }

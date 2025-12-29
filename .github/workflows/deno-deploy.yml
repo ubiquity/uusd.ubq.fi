@@ -16,6 +16,7 @@ jobs:
       build_env: |
         SUPABASE_URL=$SUPABASE_URL
         SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+        REOWN_PROJECT_ID=$REOWN_PROJECT_ID
         FRONTEND_URL=https://uusd.ubq.fi
       runtime_env: |
         STATIC_DIR=public
@@ -26,4 +27,5 @@ jobs:
         DENO_DEPLOY_TOKEN
         SUPABASE_URL
         SUPABASE_ANON_KEY
+        REOWN_PROJECT_ID
     secrets: inherit
