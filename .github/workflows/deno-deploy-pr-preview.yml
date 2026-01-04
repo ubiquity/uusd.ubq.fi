@@ -1,0 +1,32 @@
+name: Deno Deploy (PR preview)
+
+on:
+  workflow_run:
+    workflows: ["Deno Deploy (PR build)"]
+    types: [completed]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: write
+    uses: ubiquity/deno-deploy-workflow/.github/workflows/deno-deploy-reusable.yml@main
+    with:
+      project: uusd-ubq-fi
+      entrypoint: serve.ts
+      include: |
+        public/**
+      artifact_name: deno-deploy-artifact
+      artifact_run_id: ${{ github.event.workflow_run.id }}
+      artifact_path: .deploy-artifact
+      runtime_env: |
+        STATIC_DIR=public
+      runtime_env_fork: |
+        STATIC_DIR=public
+      debug_fetch_fail: true
+      required_env: |
+        DENO_DEPLOY_TOKEN
+    secrets: inherit
