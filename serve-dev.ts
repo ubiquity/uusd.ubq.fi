@@ -65,10 +65,9 @@ async function handler(req: Request): Promise<Response> {
     path === "/" ||
     path.startsWith("/public/") ||
     path === "/app.js" ||
+    path === "/favicon-32.png" ||
     path === "/favicon.png" ||
-    path === "/favicon.ico" ||
-    path.startsWith("/styles/") ||
-    path === "/favicon.svg"
+    path.startsWith("/styles/")
   ) {
     const response = await serveDir(req, {
       fsRoot: "public",
