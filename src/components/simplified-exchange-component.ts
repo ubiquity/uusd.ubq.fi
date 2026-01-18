@@ -15,7 +15,7 @@ import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
-import { areAdressesEqual } from "../utils/format-utils.ts";
+import { areAddressesEqual } from "../utils/format-utils.ts";
 import type { CowSwapService } from "../services/cowswap-service.ts";
 
 interface SimplifiedExchangeServices {
@@ -154,7 +154,7 @@ export class SimplifiedExchangeComponent {
 
     if (refreshData?.tokenBalances) {
       refreshData.tokenBalances.forEach((balance) => {
-        if ([...selectEl.options].some((opt) => areAdressesEqual(opt.value as Address, balance.address))) {
+        if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, balance.address))) {
           return; // Token already exists
         }
         const option = document.createElement("option");
@@ -166,7 +166,7 @@ export class SimplifiedExchangeComponent {
       });
       // Remove unused tokens
       [...selectEl.options].forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAdressesEqual(balance.address, opt.value as Address))) {
+        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
           selectEl.removeChild(opt);
         }
       });
@@ -463,7 +463,7 @@ export class SimplifiedExchangeComponent {
       let routeResult: OptimalRouteResult;
 
       if (this._state.direction === "deposit") {
-        if (!areAdressesEqual(selectedToken.address, LUSD_COLLATERAL.address)) {
+        if (!areAddressesEqual(selectedToken.address, LUSD_COLLATERAL.address)) {
           routeResult = await this._services.cowSwapService.getDepositRoute(selectedToken, inputAmount);
         } else {
           // For deposits, check if UBQ discount is available and user wants it
@@ -471,7 +471,7 @@ export class SimplifiedExchangeComponent {
           routeResult = await this._optimalRouteService.getOptimalDepositRoute(inputAmount, shouldForceCollateralOnly);
         }
       } else {
-        if (!areAdressesEqual(selectedToken.address, LUSD_COLLATERAL.address)) {
+        if (!areAddressesEqual(selectedToken.address, LUSD_COLLATERAL.address)) {
           routeResult = await this._services.cowSwapService.getWithdrawRoute(selectedToken, inputAmount);
         } else {
           // For withdrawals, ALWAYS use forceSwapOnly when redemptions are disabled
@@ -676,7 +676,7 @@ export class SimplifiedExchangeComponent {
         const shouldShowUbqOption =
           this._state.protocolSettings.isFractional &&
           !this._state.mintingDisabled &&
-          areAdressesEqual(this._getSelectedToken().address, LUSD_COLLATERAL.address);
+          areAddressesEqual(this._getSelectedToken().address, LUSD_COLLATERAL.address);
 
         console.log("[UBQ DISCOUNT] Visibility check:", {
           isFractional: this._state.protocolSettings.isFractional,
