@@ -116,7 +116,7 @@ export class InventoryBarComponent {
 
         if (existingIndex >= 0) {
           // ONLY update if we have valid data - NO FALLBACKS
-          if (newBalance.balance !== undefined && newBalance.usdValue !== undefined && newBalance.usdValue > 0) {
+          if (newBalance.balance !== undefined && newBalance.usdValue !== undefined) {
             updatedBalances[existingIndex] = newBalance;
           } else {
             console.error(`INVALID DATA for ${newBalance.symbol} - not updating. Balance: ${newBalance.balance}, USD: ${newBalance.usdValue}`);

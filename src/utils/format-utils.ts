@@ -117,3 +117,7 @@ export function formatRedeemButtonText(amount: bigint, allowance: bigint, hasPen
 export function formatLoadingButtonText(action: string): string {
   return `${action}...<span class="loading"></span>`;
 }
+
+export function areAdressesEqual(addr1: Address, addr2: Address): boolean {
+  return addr1.toLowerCase() === addr2.toLowerCase();
+}

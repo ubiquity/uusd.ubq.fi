@@ -78,6 +78,10 @@ export class PriceService {
     this._priceThresholdService = new PriceThresholdService();
   }
 
+  getPriceThresholdService(): PriceThresholdService {
+    return this._priceThresholdService;
+  }
+
   /**
    * Initialize service by loading collateral options
    */

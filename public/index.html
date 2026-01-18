@@ -41,9 +41,8 @@
         <!-- Simplified Exchange Form -->
         <div id="exchangeForm" class="exchange-form" style="display: none;">
             <form onsubmit="window.app.handleExchange(event)">
-                <div class="form-group">
-                    <label id="amountLabel" for="exchangeAmount">LUSD</label>
-                    <input type="number" id="exchangeAmount" step="any" placeholder="Enter LUSD amount" required>
+                <div id="input" class="form-group">
+                    <input type="number" id="exchangeAmount" step="any" placeholder="Enter amount" required>
                 </div>
 
                 <!-- Optional: UBQ Discount (only shown when protocol allows) -->
@@ -79,9 +78,10 @@
                     <!-- <div class="output-row">
                         <span class="route-type" id="routeIndicator"></span>
                     </div> -->
-                    <div class="output-row main-output">
+                    <div id="output" class="output-row main-output">
                         <span class="output-label">You will receive:</span>
                         <span class="output-value" id="expectedOutput">-</span>
+                        <span class="output-value" id="ubqOutput"></span>
                     </div>
 
                     <button type="button" class="action-button" id="exchangeButton" disabled>
