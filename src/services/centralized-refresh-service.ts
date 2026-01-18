@@ -294,6 +294,9 @@ export class CentralizedRefreshService {
           id: 1,
         }),
       });
+      if (!response.ok) {
+        throw new Error(`Alchemy API error: ${response.status} ${response.statusText}`);
+      }
       const data: AlchemyTokenBalance = await response.json();
       const tokenAddresses = data.result.tokenBalances.map((token) => token.contractAddress);
       const tokenMetadata = await Promise.all(tokenAddresses.map((addr) => this._fetchTokenMetadata(publicClient, addr)));
