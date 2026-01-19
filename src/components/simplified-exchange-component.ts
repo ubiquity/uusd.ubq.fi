@@ -376,7 +376,7 @@ export class SimplifiedExchangeComponent {
 
     this._debounceTimer = setTimeout(() => {
       void this._calculateRoute();
-    }, 150);
+    }, 1000);
   }
 
   private _getSelectedToken() {
