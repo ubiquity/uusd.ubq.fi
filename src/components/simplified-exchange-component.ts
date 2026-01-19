@@ -17,6 +17,7 @@ import type { CentralizedRefreshService, RefreshData } from "../services/central
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
 import type { CowSwapService } from "../services/cowswap-service.ts";
+import tokenList from "../constants/token-list.json" assert { type: "json" };
 
 interface SimplifiedExchangeServices {
   walletService: WalletService;
@@ -131,6 +132,14 @@ export class SimplifiedExchangeComponent {
     const selectEl = document.createElement("select") as HTMLSelectElement;
     selectEl.id = "tokenSelect";
     selectEl.addEventListener("change", (e) => this._handleTokenSelect(e));
+    const yourTokenGroup = document.createElement("optgroup");
+    yourTokenGroup.label = "Your Tokens";
+    yourTokenGroup.id = "yourTokenGroup";
+    selectEl.appendChild(yourTokenGroup);
+    const otherTokensGroup = document.createElement("optgroup");
+    otherTokensGroup.label = "Other Tokens";
+    otherTokensGroup.id = "otherTokenGroup";
+    selectEl.appendChild(otherTokensGroup);
 
     const labelSpan = document.createElement("span");
     labelSpan.textContent = "UUSD";
@@ -151,34 +160,48 @@ export class SimplifiedExchangeComponent {
     if (!selectEl) {
       return;
     }
+    const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
+    const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
 
     if (refreshData?.tokenBalances) {
+      yourTokenGroup.style.display = "";
+      otherTokenGroup.style.display = "";
       refreshData.tokenBalances.forEach((balance) => {
-        if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, balance.address))) {
+        if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
         }
+        otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
+
         const option = document.createElement("option");
         option.value = balance.address;
         option.setAttribute("data-decimals", balance.decimals.toString());
         option.setAttribute("data-symbol", balance.symbol);
         option.text = balance.symbol.substring(0, 10);
-        selectEl.appendChild(option);
+        yourTokenGroup.appendChild(option);
       });
-      // Remove unused tokens
-      [...selectEl.options].forEach((opt) => {
+      // Remove old your tokens
+      yourTokenGroup.querySelectorAll("option").forEach((opt) => {
         if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
-          selectEl.removeChild(opt);
+          opt.remove();
         }
       });
     } else {
-      selectEl.innerHTML = ""; // Clear existing options
-      const option = document.createElement("option");
-      option.value = INVENTORY_TOKENS.LUSD.address;
-      option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-      option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-      option.text = INVENTORY_TOKENS.LUSD.symbol;
-      selectEl.appendChild(option);
+      yourTokenGroup.style.display = "none";
+      otherTokenGroup.style.display = "none";
+      yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
     }
+
+    tokenList.forEach((token) => {
+      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
+        return; // Token already exists
+      }
+      const option = document.createElement("option");
+      option.value = token.address;
+      option.setAttribute("data-decimals", token.decimals.toString());
+      option.setAttribute("data-symbol", token.symbol);
+      option.text = token.symbol.substring(0, 10);
+      otherTokenGroup.appendChild(option);
+    });
   }
 
   /**
