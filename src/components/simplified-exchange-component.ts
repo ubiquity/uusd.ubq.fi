@@ -385,6 +385,9 @@ export class SimplifiedExchangeComponent {
       throw new Error("Token select element not found");
     }
     const selectedOption = selectEl.selectedOptions[0];
+    if (!selectedOption) {
+      throw new Error("No token selected");
+    }
     const address = selectedOption.value as Address;
     const decimalsAttr = selectedOption.getAttribute("data-decimals");
     const symbolAttr = selectedOption.getAttribute("data-symbol");
