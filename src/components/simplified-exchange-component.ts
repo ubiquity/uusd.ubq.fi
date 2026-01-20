@@ -179,7 +179,7 @@ export class SimplifiedExchangeComponent {
         option.text = balance.symbol.substring(0, 10);
         yourTokenGroup.appendChild(option);
       });
-      // Remove old your tokens
+      // Remove old user's tokens
       yourTokenGroup.querySelectorAll("option").forEach((opt) => {
         if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
           opt.remove();
