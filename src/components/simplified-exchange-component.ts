@@ -1,4 +1,4 @@
-import { parseEther, formatEther, type Address } from "viem";
+import { parseEther, formatEther, type Address, parseUnits, formatUnits } from "viem";
 import type { WalletService } from "../services/wallet-service.ts";
 import type { ContractService, ProtocolSettings } from "../services/contract-service.ts";
 import type { PriceService } from "../services/price-service.ts";
@@ -13,7 +13,11 @@ import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
 import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
-import type { RefreshData } from "../services/centralized-refresh-service.ts";
+import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
+import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
+import { areAddressesEqual } from "../utils/format-utils.ts";
+import type { CowSwapService } from "../services/cowswap-service.ts";
+import tokenList from "../constants/token-list.json" with { type: "json" };
 
 interface SimplifiedExchangeServices {
   walletService: WalletService;
@@ -24,6 +28,8 @@ interface SimplifiedExchangeServices {
   swapService: SwapService;
   notificationManager: NotificationManager;
   inventoryBar: InventoryBarComponent;
+  centralizedRefreshService: CentralizedRefreshService;
+  cowSwapService: CowSwapService;
 }
 
 /**
@@ -60,6 +66,7 @@ export class SimplifiedExchangeComponent {
   }
 
   private async _init() {
+    this._initTokenSelectAndLabel();
     await this._loadProtocolSettings();
 
     // Check redemption status on init
@@ -103,20 +110,105 @@ export class SimplifiedExchangeComponent {
     // Protocol settings and redemption status are now handled by centralized refresh service
   }
 
+  private _initTokenSelectAndLabel(removeExisting: boolean = false) {
+    if (removeExisting) {
+      const existingSelect = document.getElementById("tokenSelect");
+      const existingLabel = document.getElementById("tokenLabel");
+      if (existingSelect) {
+        existingSelect.remove();
+      }
+      if (existingLabel) {
+        existingLabel.remove();
+      }
+    }
+    const inputDiv = document.getElementById("input");
+    const outputDiv = document.getElementById("output");
+    const ubqOutputEl = document.getElementById("ubqOutput");
+    if (!inputDiv || !outputDiv || !ubqOutputEl) {
+      console.error("Input or output div not found!");
+      return;
+    }
+
+    const selectEl = document.createElement("select") as HTMLSelectElement;
+    selectEl.id = "tokenSelect";
+    selectEl.addEventListener("change", (e) => this._handleTokenSelect(e));
+    const yourTokenGroup = document.createElement("optgroup");
+    yourTokenGroup.label = "Your Tokens";
+    yourTokenGroup.id = "yourTokenGroup";
+    selectEl.appendChild(yourTokenGroup);
+    const otherTokensGroup = document.createElement("optgroup");
+    otherTokensGroup.label = "Other Tokens";
+    otherTokensGroup.id = "otherTokenGroup";
+    selectEl.appendChild(otherTokensGroup);
+
+    const labelSpan = document.createElement("span");
+    labelSpan.textContent = "UUSD";
+    labelSpan.id = "tokenLabel";
+
+    if (this._state.direction === "deposit") {
+      inputDiv.insertBefore(selectEl, inputDiv.firstChild);
+      outputDiv.insertBefore(labelSpan, ubqOutputEl);
+    } else if (this._state.direction === "withdraw") {
+      outputDiv.insertBefore(selectEl, ubqOutputEl);
+      inputDiv.insertBefore(labelSpan, inputDiv.firstChild);
+    }
+  }
+
+  private _renderTokenOptions() {
+    const refreshData = this._services.centralizedRefreshService.getLastData();
+    const selectEl = document.querySelector("#tokenSelect") as HTMLSelectElement;
+    if (!selectEl) {
+      return;
+    }
+    const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
+    const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
+
+    if (refreshData?.tokenBalances) {
+      yourTokenGroup.style.display = "";
+      otherTokenGroup.style.display = "";
+      refreshData.tokenBalances.forEach((balance) => {
+        if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
+          return; // Token already exists
+        }
+        otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
+
+        const option = document.createElement("option");
+        option.value = balance.address;
+        option.setAttribute("data-decimals", balance.decimals.toString());
+        option.setAttribute("data-symbol", balance.symbol);
+        option.text = balance.symbol.substring(0, 10);
+        yourTokenGroup.appendChild(option);
+      });
+      // Remove old user's tokens
+      yourTokenGroup.querySelectorAll("option").forEach((opt) => {
+        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
+          opt.remove();
+        }
+      });
+    } else {
+      yourTokenGroup.style.display = "none";
+      otherTokenGroup.style.display = "none";
+      yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
+    }
+
+    tokenList.forEach((token) => {
+      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
+        return; // Token already exists
+      }
+      const option = document.createElement("option");
+      option.value = token.address;
+      option.setAttribute("data-decimals", token.decimals.toString());
+      option.setAttribute("data-symbol", token.symbol);
+      option.text = token.symbol.substring(0, 10);
+      otherTokenGroup.appendChild(option);
+    });
+  }
+
   /**
    * Update state from centralized refresh data
    */
   private _updateFromCentralizedData() {
-    // Get the centralized refresh service instance through app
-    const app = (
-      window as { app?: { centralizedRefreshService?: { getLastData: () => RefreshData | null; subscribe: (callback: (data: RefreshData) => void) => void } } }
-    ).app;
-    if (!app?.centralizedRefreshService) {
-      console.warn("[SIMPLIFIED EXCHANGE] Centralized refresh service not available");
-      return;
-    }
-
-    const refreshData = app.centralizedRefreshService.getLastData();
+    const refreshData = this._services.centralizedRefreshService.getLastData();
     if (refreshData) {
       // Update minting disabled state from centralized data
       this._state.mintingDisabled = !refreshData.isMintingAllowed;
@@ -135,7 +227,7 @@ export class SimplifiedExchangeComponent {
     }
 
     // Subscribe to updates
-    app.centralizedRefreshService.subscribe((data: RefreshData) => {
+    this._services.centralizedRefreshService.subscribe((data: RefreshData) => {
       const didHaveMintingDisabled = this._state.mintingDisabled;
       this._state.mintingDisabled = !data.isMintingAllowed;
 
@@ -175,19 +267,20 @@ export class SimplifiedExchangeComponent {
       this._state.routeResult = null;
 
       // Wait for balances to load before rendering
-      await this._services.inventoryBar.waitForInitialLoad();
+      await this._services.centralizedRefreshService.forceRefresh();
 
       this._render();
       this._autoPopulateMaxBalance();
     });
 
-    this._services.walletService.addEventListener(WALLET_EVENTS.DISCONNECT, () => {
+    this._services.walletService.addEventListener(WALLET_EVENTS.DISCONNECT, async () => {
       // Clear all state on disconnect
       this._state.amount = "";
       this._state.routeResult = null;
       this._state.direction = "deposit"; // Reset to default
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (amountInput) amountInput.value = "";
+      await this._services.centralizedRefreshService.forceRefresh();
       this._render();
     });
 
@@ -198,11 +291,7 @@ export class SimplifiedExchangeComponent {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (amountInput) amountInput.value = "";
 
-      // If connected, wait for balance load
-      if (account) {
-        await this._services.inventoryBar.waitForInitialLoad();
-      }
-
+      await this._services.centralizedRefreshService.forceRefresh();
       // Force a fresh render that will auto-select the correct direction
       this._render();
 
@@ -310,7 +399,33 @@ export class SimplifiedExchangeComponent {
 
     this._debounceTimer = setTimeout(() => {
       void this._calculateRoute();
-    }, 150);
+    }, 1000);
+  }
+
+  private _getSelectedToken() {
+    const selectEl = document.getElementById("tokenSelect") as HTMLSelectElement;
+    if (!selectEl) {
+      throw new Error("Token select element not found");
+    }
+    const selectedOption = selectEl.selectedOptions[0];
+    if (!selectedOption) {
+      throw new Error("No token selected");
+    }
+    const address = selectedOption.value as Address;
+    const decimalsAttr = selectedOption.getAttribute("data-decimals");
+    const symbolAttr = selectedOption.getAttribute("data-symbol");
+    const decimals = decimalsAttr ? parseInt(decimalsAttr, 10) : 18;
+    const symbol = symbolAttr || "UNKNOWN";
+    return {
+      address,
+      symbol,
+      decimals,
+    };
+  }
+
+  private _handleTokenSelect(_event: Event) {
+    void this._render();
+    void this._calculateRoute();
   }
 
   /**
@@ -345,6 +460,8 @@ export class SimplifiedExchangeComponent {
       }
     }
 
+    this._initTokenSelectAndLabel(true);
+
     // Re-render UI
     this._render();
 
@@ -366,18 +483,28 @@ export class SimplifiedExchangeComponent {
     this._state.isCalculating = true;
 
     try {
-      const inputAmount = parseEther(amount);
+      const selectedToken = this._getSelectedToken();
+      const inputToken = this._state.direction === "deposit" ? selectedToken : INVENTORY_TOKENS.UUSD;
+      const inputAmount = parseUnits(amount, inputToken.decimals);
       let routeResult: OptimalRouteResult;
 
       if (this._state.direction === "deposit") {
-        // For deposits, check if UBQ discount is available and user wants it
-        const shouldForceCollateralOnly = !this._state.useUbqDiscount;
-        routeResult = await this._optimalRouteService.getOptimalDepositRoute(inputAmount, shouldForceCollateralOnly);
+        if (!areAddressesEqual(selectedToken.address, LUSD_COLLATERAL.address)) {
+          routeResult = await this._services.cowSwapService.getDepositRoute(selectedToken, inputAmount);
+        } else {
+          // For deposits, check if UBQ discount is available and user wants it
+          const shouldForceCollateralOnly = !this._state.useUbqDiscount;
+          routeResult = await this._optimalRouteService.getOptimalDepositRoute(inputAmount, shouldForceCollateralOnly);
+        }
       } else {
-        // For withdrawals, ALWAYS use forceSwapOnly when redemptions are disabled
-        const shouldForceSwap = this._state.redemptionsDisabled || this._state.forceSwapOnly;
+        if (!areAddressesEqual(selectedToken.address, LUSD_COLLATERAL.address)) {
+          routeResult = await this._services.cowSwapService.getWithdrawRoute(selectedToken, inputAmount);
+        } else {
+          // For withdrawals, ALWAYS use forceSwapOnly when redemptions are disabled
+          const shouldForceSwap = this._state.redemptionsDisabled || this._state.forceSwapOnly;
 
-        routeResult = await this._optimalRouteService.getOptimalWithdrawRoute(inputAmount, shouldForceSwap);
+          routeResult = await this._optimalRouteService.getOptimalWithdrawRoute(inputAmount, shouldForceSwap);
+        }
       }
 
       this._state.routeResult = routeResult;
@@ -419,19 +546,8 @@ export class SimplifiedExchangeComponent {
     const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
     const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
 
-    // Hide entire exchange interface when wallet is not connected
-    if (!isConnected) {
-      if (exchangeContainer) {
-        exchangeContainer.style.display = "none";
-      }
-      // Clear any visible output
-      const outputSection = document.getElementById("exchangeOutput");
-      if (outputSection) outputSection.style.display = "none";
-      return;
-    }
-
     // Check if balances are still loading
-    const isBalancesLoading = !this._services.inventoryBar.isInitialLoadComplete();
+    const isBalancesLoading = isConnected && !this._services.inventoryBar.isInitialLoadComplete();
 
     // Show exchange interface when connected
     if (exchangeContainer) {
@@ -463,19 +579,6 @@ export class SimplifiedExchangeComponent {
         depositButton.textContent = "Buy UUSD";
         withdrawButton.textContent = "Sell UUSD";
 
-        const hasLUSD = hasAvailableBalance(this._services.inventoryBar, "LUSD");
-        const hasUUSD = hasAvailableBalance(this._services.inventoryBar, "UUSD");
-
-        depositButton.style.display = hasLUSD ? "block" : "none";
-        withdrawButton.style.display = hasUUSD ? "block" : "none";
-
-        // Auto-select the visible direction if only one is available
-        if (hasLUSD && !hasUUSD) {
-          this._state.direction = "deposit";
-        } else if (hasUUSD && !hasLUSD) {
-          this._state.direction = "withdraw";
-        }
-
         depositButton.classList.toggle("active", this._state.direction === "deposit");
         withdrawButton.classList.toggle("active", this._state.direction === "withdraw");
       }
@@ -495,11 +598,12 @@ export class SimplifiedExchangeComponent {
         amountInput.placeholder = "Loading balances...";
       } else {
         amountInput.disabled = false;
-        amountInput.placeholder = this._state.direction === "deposit" ? "Enter LUSD amount" : "Enter UUSD amount";
+        amountInput.placeholder = "Enter amount";
       }
     }
 
     // Show/hide options based on protocol state and direction
+    this._renderTokenOptions();
     this._renderOptions();
     this._renderOutput();
   }
@@ -595,7 +699,10 @@ export class SimplifiedExchangeComponent {
       // For deposits: Show UBQ discount option only if protocol is fractional AND minting is allowed
       if (ubqOptionDiv) {
         // Only show UBQ option if fractional AND minting is allowed
-        const shouldShowUbqOption = this._state.protocolSettings.isFractional && !this._state.mintingDisabled;
+        const shouldShowUbqOption =
+          this._state.protocolSettings.isFractional &&
+          !this._state.mintingDisabled &&
+          areAddressesEqual(this._getSelectedToken().address, LUSD_COLLATERAL.address);
 
         console.log("[UBQ DISCOUNT] Visibility check:", {
           isFractional: this._state.protocolSettings.isFractional,
@@ -730,13 +837,17 @@ export class SimplifiedExchangeComponent {
     // Update expected output
     const expectedOutputEl = document.getElementById("expectedOutput");
     if (expectedOutputEl) {
-      const outputToken = this._state.direction === "deposit" ? "UUSD" : "LUSD";
-      let outputText = `${formatEther(this._state.routeResult.expectedOutput)} ${outputToken}`;
+      let outputText = formatUnits(this._state.routeResult.expectedOutput, this._state.routeResult.outputToken.decimals);
 
       // Add UBQ if it's part of the transaction
-      if (this._state.routeResult.isUbqOperation && this._state.routeResult.ubqAmount) {
-        if (this._state.direction === "withdraw") {
-          outputText += ` + ${formatEther(this._state.routeResult.ubqAmount)} UBQ`;
+      const ubqOutputEl = document.getElementById("ubqOutput");
+      if (this._state.direction === "withdraw" && this._state.routeResult.isUbqOperation && this._state.routeResult.ubqAmount) {
+        if (ubqOutputEl) {
+          ubqOutputEl.textContent = ` + ${formatEther(this._state.routeResult.ubqAmount)} UBQ`;
+        }
+      } else {
+        if (ubqOutputEl) {
+          ubqOutputEl.textContent = "";
         }
       }
 
@@ -819,6 +930,14 @@ export class SimplifiedExchangeComponent {
         const allowance = await this._services.contractService.getAllowance(tokenAddress, account, poolAddress);
         hasNeedsApproval = allowance < this._state.routeResult.inputAmount;
         approvalToken = fromToken;
+      } else if (this._state.routeResult.routeType === "cowswap") {
+        const fromToken = this._state.direction === "deposit" ? this._getSelectedToken().address : INVENTORY_TOKENS.UUSD.address;
+        const allowance = await this._services.cowSwapService.getCowSwapSdk().getCowProtocolAllowance({
+          tokenAddress: fromToken,
+          owner: account,
+        });
+        hasNeedsApproval = allowance < this._state.routeResult.inputAmount;
+        approvalToken = this._state.direction === "deposit" ? this._state.routeResult.inputToken.symbol : INVENTORY_TOKENS.UUSD.symbol;
       }
     } catch (error) {
       console.error("Error checking approvals:", error);
@@ -882,6 +1001,10 @@ export class SimplifiedExchangeComponent {
             minAmountOut: (result.expectedOutput * (BASIS_POINTS_DIVISOR - DEFAULT_SLIPPAGE_BPS)) / BASIS_POINTS_DIVISOR,
             slippageTolerance: DEFAULT_SLIPPAGE_PERCENT,
           });
+          break;
+
+        case "cowswap":
+          await this._services.cowSwapService.executeTransaction(result);
           break;
       }
 

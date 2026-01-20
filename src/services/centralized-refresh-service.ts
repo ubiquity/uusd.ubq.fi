@@ -1,12 +1,10 @@
 import type { Address, PublicClient } from "viem";
-import { formatUnits } from "viem";
+import { erc20Abi, formatUnits, getContract } from "viem";
 import type { WalletService } from "./wallet-service.ts";
 import type { ContractService } from "./contract-service.ts";
 import type { PriceService } from "./price-service.ts";
-import { batchFetchTokenBalances, type TokenBalanceBatchResult } from "../utils/batch-request-utils.ts";
-import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
 import type { TokenBalance } from "../types/inventory.types.ts";
-import { ADDRESSES, DIAMOND_ABI } from "../contracts/constants.ts";
+import { ADDRESSES, ALCHEMY_URL, DIAMOND_ABI } from "../contracts/constants.ts";
 
 /**
  * Centralized data that gets refreshed every 15 seconds
@@ -49,6 +47,18 @@ export interface RefreshServiceDependencies {
   walletService: WalletService;
   contractService: ContractService;
   priceService: PriceService;
+}
+
+interface AlchemyTokenBalance {
+  jsonrpc: string;
+  id: number;
+  result: {
+    address: Address;
+    tokenBalances: {
+      contractAddress: Address;
+      tokenBalance: string;
+    }[];
+  };
 }
 
 /**
@@ -164,8 +174,8 @@ export class CentralizedRefreshService {
       // BATCH 2: Token balances (only if wallet connected)
       const tokenBalancesData = account ? await this._fetchTokenBalances(publicClient, account) : null;
 
-      // BATCH 3: External data (storage reads only - use price service for Curve data)
-      const externalData = await this._fetchExternalData(publicClient);
+      // BATCH 3: Price thresholds (storage reads only - use price service for Curve data)
+      const priceThresholds = await this._services.priceService.getPriceThresholdService().getPriceThresholds();
 
       // Get current UUSD price from price service - no fallbacks
       const uusdPrice = await this._services.priceService.getCurrentUUSDPrice();
@@ -178,8 +188,8 @@ export class CentralizedRefreshService {
           : tokenBalancesData;
 
       // Calculate minting/redeeming status based on TWAP vs thresholds
-      const isMintingAllowed = diamondMulticallData.twapPrice >= externalData.mintThreshold;
-      const isRedeemingAllowed = diamondMulticallData.twapPrice <= externalData.redeemThreshold;
+      const isMintingAllowed = diamondMulticallData.twapPrice >= priceThresholds.mintThreshold;
+      const isRedeemingAllowed = diamondMulticallData.twapPrice <= priceThresholds.redeemThreshold;
 
       // Compile all data
       const refreshData: RefreshData = {
@@ -189,13 +199,14 @@ export class CentralizedRefreshService {
         tokenBalances: tokenBalancesWithUSD,
         collateralRatio: diamondMulticallData.collateralRatio,
         allCollaterals: diamondMulticallData.allCollaterals,
-        mintThreshold: externalData.mintThreshold,
-        redeemThreshold: externalData.redeemThreshold,
+        mintThreshold: priceThresholds.mintThreshold,
+        redeemThreshold: priceThresholds.redeemThreshold,
         curveExchangeRate: 0n, // Not needed since we use price service
         isMintingAllowed,
         isRedeemingAllowed,
         twapPrice: diamondMulticallData.twapPrice,
       };
+      console.log("🔄 Centralized refresh completed:", refreshData);
 
       // Cache and notify
       this._lastData = refreshData;
@@ -272,26 +283,54 @@ export class CentralizedRefreshService {
    * BATCH 2: Fetch token balances for connected wallet
    */
   private async _fetchTokenBalances(publicClient: PublicClient, account: Address): Promise<TokenBalance[]> {
-    // Prepare tokens for batch request
-    const tokens = Object.values(INVENTORY_TOKENS).map((token) => ({
-      address: token.address,
-      symbol: token.symbol,
-    }));
+    try {
+      const response = await fetch(ALCHEMY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "alchemy_getTokenBalances",
+          params: [account, "erc20"],
+          id: 1,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`Alchemy API error: ${response.status} ${response.statusText}`);
+      }
+      const data: AlchemyTokenBalance = await response.json();
+      const tokenAddresses = data.result.tokenBalances.map((token) => token.contractAddress);
+      const tokenMetadata = await Promise.all(tokenAddresses.map((addr) => this._fetchTokenMetadata(publicClient, addr)));
+      const balances = data.result.tokenBalances
+        .map((token) => {
+          const metadata = tokenMetadata.find((meta) => meta.address === token.contractAddress);
+          if (!metadata) {
+            return null; // Skip unknown tokens
+          }
+          return {
+            symbol: metadata.symbol,
+            address: token.contractAddress,
+            balance: BigInt(token.tokenBalance),
+            decimals: metadata.decimals,
+            usdValue: 0, // Will be calculated after we have all price data
+          } as TokenBalance;
+        })
+        .filter((balance) => balance !== null);
+      return balances;
+    } catch (error) {
+      console.error("Failed to fetch token balances from Alchemy:", error);
+      return [];
+    }
+  }
 
-    // Execute batch request for all token balances
-    const batchResults = await batchFetchTokenBalances(publicClient, tokens, account);
-
-    // Convert to TokenBalance format (USD values will be calculated from cached price data)
-    return batchResults.map((result: TokenBalanceBatchResult): TokenBalance => {
-      const tokenMetadata = INVENTORY_TOKENS[result.symbol];
-      return {
-        symbol: result.symbol,
-        address: result.tokenAddress,
-        balance: result.balance,
-        decimals: tokenMetadata.decimals,
-        usdValue: 0, // Will be calculated after we have all price data
-      };
+  private async _fetchTokenMetadata(publicClient: PublicClient, tokenAddress: Address): Promise<{ address: Address; symbol: string; decimals: number }> {
+    const tokenContract = getContract({
+      address: tokenAddress,
+      abi: erc20Abi,
+      client: publicClient,
     });
+
+    const [symbol, decimals] = await Promise.all([tokenContract.read.symbol(), tokenContract.read.decimals()]);
+    return { address: tokenAddress, symbol, decimals };
   }
 
   /**
@@ -372,7 +411,7 @@ export class CentralizedRefreshService {
       } else if (balance.symbol === "LUSD") {
         priceInUsd = lusdPriceFloat;
       } else {
-        throw new Error(`Unknown token symbol: ${balance.symbol}`);
+        return { ...balance, usdValue: 0 }; // Unknown token - USD value cannot be calculated
       }
 
       const tokenAmount = parseFloat(formatUnits(balance.balance, balance.decimals));

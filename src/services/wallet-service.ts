@@ -43,7 +43,7 @@ export class WalletService {
   constructor() {
     this._publicClient = createPublicClient({
       chain: mainnet,
-      transport: http(RPC_URL),
+      transport: http(RPC_URL, { batch: true }),
     });
 
     // Set up MetaMask event listeners for automatic account switching
@@ -107,7 +107,7 @@ export class WalletService {
             method: "wallet_requestPermissions",
             params: [{ eth_accounts: {} }],
           }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timeout")), 10000)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timeout")), 60000)),
         ]);
       }
 
@@ -118,11 +118,17 @@ export class WalletService {
 
       const addresses = await Promise.race([
         this._walletClient.requestAddresses(),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Address request timeout")), 10000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Address request timeout")), 60000)),
       ]);
       const [address] = addresses;
 
       this._account = address;
+
+      this._walletClient = createWalletClient({
+        account: address,
+        chain: mainnet,
+        transport: custom(window.ethereum),
+      });
 
       // Store the connected wallet address in localStorage
       localStorage.setItem(WalletService._storageKey, address);
@@ -248,6 +254,7 @@ export class WalletService {
       if (isAddressMatch) {
         // Account is still available, create wallet client and connect
         this._walletClient = createWalletClient({
+          account: storedAddress as Address,
           chain: mainnet,
           transport: custom(window.ethereum),
         });
@@ -284,6 +291,12 @@ export class WalletService {
             this._account = storedAddress as Address;
             console.log("🔄 Auto-reconnected via fallback method:", storedAddress);
 
+            this._walletClient = createWalletClient({
+              account: storedAddress as Address,
+              chain: mainnet,
+              transport: custom(window.ethereum),
+            });
+
             this._emit(WALLET_EVENTS.CONNECT, this._account);
             this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, this._account);
             return this._account;
@@ -312,6 +325,12 @@ export class WalletService {
             if (ethAccountsPermission) {
               console.log("✅ Found permission for stored address, attempting connection...");
               this._account = storedAddress as Address;
+
+              this._walletClient = createWalletClient({
+                account: storedAddress as Address,
+                chain: mainnet,
+                transport: custom(window.ethereum),
+              });
 
               this._emit(WALLET_EVENTS.CONNECT, this._account);
               this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, this._account);
@@ -434,6 +453,7 @@ export class WalletService {
         // Create new wallet client for the new account
         if (window.ethereum) {
           this._walletClient = createWalletClient({
+            account: newAccount,
             chain: mainnet,
             transport: custom(window.ethereum),
           });

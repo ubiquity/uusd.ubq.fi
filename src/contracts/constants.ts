@@ -1,6 +1,8 @@
 import type { Address } from "viem";
 import type { ContractAddresses } from "../types/contracts.ts";
 
+export const ALCHEMY_URL = "https://eth-mainnet.g.alchemy.com/v2/S4Z2I1XZKHTuqI_yaZCX3";
+
 // Contract addresses
 export const ADDRESSES: ContractAddresses = {
   DIAMOND: "0xED3084c98148e2528DaDCB53C56352e549C488fA" as Address,
