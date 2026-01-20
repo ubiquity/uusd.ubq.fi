@@ -17,7 +17,7 @@ import type { CentralizedRefreshService, RefreshData } from "../services/central
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
 import type { CowSwapService } from "../services/cowswap-service.ts";
-import tokenList from "../constants/token-list.json" assert { type: "json" };
+import tokenList from "../constants/token-list.json" with { type: "json" };
 
 interface SimplifiedExchangeServices {
   walletService: WalletService;
