@@ -2,6 +2,9 @@ import { writeFileSync } from "fs";
 
 async function generateTokenList() {
   const response = await fetch("https://tokens.uniswap.org/");
+  if (!response.ok) {
+    throw new Error(`Failed to fetch token list: ${response.status} ${response.statusText}`);
+  }
   const data = await response.json();
 
   const tokens = data.tokens.filter((token: any) => token.chainId === 1);
