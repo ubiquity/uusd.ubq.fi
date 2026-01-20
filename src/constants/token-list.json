@@ -1050,12 +1050,6 @@
     "decimals": 18
   },
   {
-    "address": "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0",
-    "symbol": "LUSD",
-    "name": "Liquity USD",
-    "decimals": 18
-  },
-  {
     "address": "0x0F5D2fB29fb7d3CFeE444a200298f468908cC942",
     "symbol": "MANA",
     "name": "Decentraland",

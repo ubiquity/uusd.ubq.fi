@@ -9,29 +9,23 @@ async function generateTokenList() {
 
   const tokens = data.tokens.filter((token: any) => token.chainId === 1);
 
-  const tokenList = tokens.map((token: any) => ({
-    address: token.address,
-    symbol: token.symbol,
-    name: token.name,
-    decimals: token.decimals,
-  }));
+  const lusdToken = {
+    symbol: "LUSD",
+    address: "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0",
+    decimals: 18,
+    name: "LUSD",
+  };
 
-  writeFileSync(
-    "src/constants/token-list.json",
-    JSON.stringify(
-      [
-        {
-          symbol: "LUSD",
-          address: "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0",
-          decimals: 18,
-          name: "LUSD",
-        },
-        ...tokenList,
-      ],
-      null,
-      2
-    )
-  );
+  const tokenList = tokens
+    .map((token: any) => ({
+      address: token.address,
+      symbol: token.symbol,
+      name: token.name,
+      decimals: token.decimals,
+    }))
+    .filter((token: any) => token.address.toLowerCase() !== lusdToken.address.toLowerCase());
+
+  writeFileSync("src/constants/token-list.json", JSON.stringify([lusdToken, ...tokenList], null, 2));
   console.log("Token list generated with", tokenList.length, "tokens.");
 }
 
