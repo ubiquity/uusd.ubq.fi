@@ -46,19 +46,11 @@ jobs:
           set -euo pipefail
           rm -rf .deploy-artifact
           mkdir -p .deploy-artifact
+          cp -a serve.ts .deploy-artifact/serve.ts
+          cp -a public .deploy-artifact/public
 
-          rsync -a --delete \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude 'node_modules' \
-            --exclude 'dist' \
-            --exclude 'build' \
-            --exclude 'coverage' \
-            --exclude '.turbo' \
-            --exclude '.next' \
-            --exclude '.vercel' \
-            --exclude '.deploy-artifact' \
-            ./ .deploy-artifact/
+          if [[ -f deno.json ]]; then cp -a deno.json .deploy-artifact/deno.json; fi
+          if [[ -f deno.lock ]]; then cp -a deno.lock .deploy-artifact/deno.lock; fi
 
       - name: Upload deploy artifact
         uses: actions/upload-artifact@v4
