@@ -87,21 +87,35 @@ export class AppKitWalletService extends WalletService {
     await appKit.open();
 
     return await new Promise<Address>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Wallet connection timed out")), 60_000);
+      let settled = false;
+      let interval: ReturnType<typeof setInterval> | null = null;
 
-      const interval = setInterval(() => {
+      const closeModal = () => void appKit.close().catch(() => {});
+      const cleanup = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if (interval) clearInterval(interval);
+      };
+
+      const timeout = setTimeout(() => {
+        cleanup();
+        closeModal();
+        reject(new Error("Wallet connection timed out"));
+      }, 60_000);
+
+      interval = setInterval(() => {
         const account = getAccount(wagmiConfig);
         if (!account.isConnected || !account.address) return;
 
-        clearTimeout(timeout);
-        clearInterval(interval);
+        cleanup();
 
         const addr = account.address as Address;
         void this._syncConnected(addr)
           .then(() => resolve(addr))
           .catch(reject)
           .finally(() => {
-            void appKit.close().catch(() => {});
+            closeModal();
           });
       }, 200);
     });
