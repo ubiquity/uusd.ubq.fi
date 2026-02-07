@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun run build:watch & bun run serve:dev",
-    "build": "bun run esbuild src/app.ts --bundle --outfile=public/app.js --minify --format=esm --platform=browser --sourcemap",
-    "build:watch": "bun run esbuild src/app.ts --bundle --outfile=public/app.js --format=esm --platform=browser --sourcemap=inline --watch=forever",
+    "build": "bun run esbuild.config.ts",
+    "build:watch": "bun run esbuild.config.ts --watch --dev",
     "serve": "deno run --allow-all serve.ts",
     "serve:dev": "deno run --allow-all serve-dev.ts",
     "serve:bun": "bun run serve.ts",
@@ -34,9 +34,17 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@coinbase/wallet-sdk": "^4.3.7",
+    "@gemini-wallet/core": "^0.3.2",
+    "@metamask/sdk": "^0.34.0",
+    "@reown/appkit": "^1.8.15",
+    "@reown/appkit-adapter-wagmi": "^1.8.15",
     "@ubiquity-dao/permit2-rpc-client": "^0.1.2",
+    "@walletconnect/ethereum-provider": "^2.23.4",
     "commander": "^14.0.0",
     "dotenv": "^16.5.0",
-    "viem": "^2.31.2"
+    "porto": "^0.2.37",
+    "viem": "^2.37.0",
+    "wagmi": "^3.1.3"
   }
 }

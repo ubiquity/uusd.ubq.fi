@@ -3,6 +3,24 @@ import { mainnet } from "viem/chains";
 import { validateWalletConnection } from "../utils/validation-utils.ts";
 import { RPC_URL } from "../../tools/config.ts";
 
+type InjectedEthereumProvider = {
+  request: (...args: unknown[]) => Promise<unknown>;
+  on: (event: string, callback: (...args: unknown[]) => void) => void;
+  removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
+};
+
+function getInjectedEthereumProvider(): InjectedEthereumProvider | null {
+  const ethereum = (window as unknown as { ethereum?: unknown }).ethereum;
+  if (!ethereum || typeof ethereum !== "object") return null;
+  const request = (ethereum as { request?: unknown }).request;
+  const on = (ethereum as { on?: unknown }).on;
+  const removeListener = (ethereum as { removeListener?: unknown }).removeListener;
+  if (typeof request !== "function") return null;
+  if (typeof on !== "function") return null;
+  if (typeof removeListener !== "function") return null;
+  return ethereum as InjectedEthereumProvider;
+}
+
 /**
  * Wallet events that can be emitted
  */
@@ -27,9 +45,9 @@ type WalletEventListener<T extends WalletEvent> = T extends typeof WALLET_EVENTS
  * Service responsible for wallet connection and management
  */
 export class WalletService {
-  private _walletClient: WalletClient | null = null;
+  protected _walletClient: WalletClient | null = null;
   private _publicClient: PublicClient;
-  private _account: Address | null = null;
+  protected _account: Address | null = null;
   private _eventListeners: Map<WalletEvent, Array<(address?: Address | null) => void>> = new Map();
   private static readonly _storageKey = "uusd_wallet_address";
 
@@ -79,7 +97,7 @@ export class WalletService {
   /**
    * Emit an event to all listeners
    */
-  private _emit(event: WalletEvent, address?: Address | null): void {
+  protected _emit(event: WalletEvent, address?: Address | null): void {
     const listeners = this._eventListeners.get(event);
     if (listeners) {
       listeners.forEach((listener) => {
@@ -96,14 +114,15 @@ export class WalletService {
    * Connect to user's wallet
    */
   async connect(forceSelection: boolean = false): Promise<Address> {
-    if (!window.ethereum) {
+    const ethereum = getInjectedEthereumProvider();
+    if (!ethereum) {
       throw new Error("Please install a wallet extension");
     }
 
     try {
       if (forceSelection) {
         await Promise.race([
-          window.ethereum.request({
+          ethereum.request({
             method: "wallet_requestPermissions",
             params: [{ eth_accounts: {} }],
           }),
@@ -113,7 +132,7 @@ export class WalletService {
 
       this._walletClient = createWalletClient({
         chain: mainnet,
-        transport: custom(window.ethereum),
+        transport: custom(ethereum),
       });
 
       const addresses = await Promise.race([
@@ -215,7 +234,8 @@ export class WalletService {
    * Check for stored wallet connection and attempt auto-reconnection
    */
   async checkStoredConnection(): Promise<Address | null> {
-    if (!window.ethereum) {
+    const ethereum = getInjectedEthereumProvider();
+    if (!ethereum) {
       console.log("🚫 No ethereum provider found");
       return null;
     }
@@ -231,7 +251,7 @@ export class WalletService {
     try {
       // Check if the stored address is still available without requiring permission
       // Using eth_accounts returns already-connected accounts without triggering permission prompt
-      const availableAccounts = (await window.ethereum.request({
+      const availableAccounts = (await ethereum.request({
         method: "eth_accounts",
       })) as string[];
 
@@ -249,7 +269,7 @@ export class WalletService {
         // Account is still available, create wallet client and connect
         this._walletClient = createWalletClient({
           chain: mainnet,
-          transport: custom(window.ethereum),
+          transport: custom(ethereum),
         });
 
         this._account = storedAddress as Address;
@@ -269,7 +289,7 @@ export class WalletService {
         try {
           this._walletClient = createWalletClient({
             chain: mainnet,
-            transport: custom(window.ethereum),
+            transport: custom(ethereum),
           });
 
           // Try to get addresses without triggering permission prompt
@@ -297,7 +317,7 @@ export class WalletService {
 
           // Try one more approach: check wallet permissions
           try {
-            const permissions = (await window.ethereum.request({
+            const permissions = (await ethereum.request({
               method: "wallet_getPermissions",
             })) as Array<{ caveats: Array<{ value: string[] }> }>;
 
@@ -343,7 +363,8 @@ export class WalletService {
    */
   private _setupMetaMaskListeners(): void {
     // Only set up listeners if MetaMask is available
-    if (!window.ethereum) {
+    const ethereum = getInjectedEthereumProvider();
+    if (!ethereum) {
       return;
     }
 
@@ -376,28 +397,29 @@ export class WalletService {
     };
 
     // Attach the handlers
-    window.ethereum.on("accountsChanged", this._metaMaskHandlers.accountsChanged);
-    window.ethereum.on("chainChanged", this._metaMaskHandlers.chainChanged);
-    window.ethereum.on("disconnect", this._metaMaskHandlers.disconnect);
+    ethereum.on("accountsChanged", this._metaMaskHandlers.accountsChanged);
+    ethereum.on("chainChanged", this._metaMaskHandlers.chainChanged);
+    ethereum.on("disconnect", this._metaMaskHandlers.disconnect);
   }
 
   /**
    * Clean up MetaMask event listeners
    */
   private _cleanupMetaMaskListeners(): void {
-    if (!window.ethereum) {
+    const ethereum = getInjectedEthereumProvider();
+    if (!ethereum) {
       return;
     }
 
     // Remove all stored event handlers
     if (this._metaMaskHandlers.accountsChanged) {
-      window.ethereum.removeListener("accountsChanged", this._metaMaskHandlers.accountsChanged);
+      ethereum.removeListener("accountsChanged", this._metaMaskHandlers.accountsChanged);
     }
     if (this._metaMaskHandlers.chainChanged) {
-      window.ethereum.removeListener("chainChanged", this._metaMaskHandlers.chainChanged);
+      ethereum.removeListener("chainChanged", this._metaMaskHandlers.chainChanged);
     }
     if (this._metaMaskHandlers.disconnect) {
-      window.ethereum.removeListener("disconnect", this._metaMaskHandlers.disconnect);
+      ethereum.removeListener("disconnect", this._metaMaskHandlers.disconnect);
     }
 
     // Clear the handlers object
@@ -432,10 +454,11 @@ export class WalletService {
         localStorage.setItem(WalletService._storageKey, newAccount);
 
         // Create new wallet client for the new account
-        if (window.ethereum) {
+        const ethereum = getInjectedEthereumProvider();
+        if (ethereum) {
           this._walletClient = createWalletClient({
             chain: mainnet,
-            transport: custom(window.ethereum),
+            transport: custom(ethereum),
           });
         }
 

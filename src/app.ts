@@ -1,7 +1,9 @@
 import { type Address, formatUnits } from "viem";
 
 // Import services
-import { WalletService, WALLET_EVENTS } from "./services/wallet-service.ts";
+import type { WalletService } from "./services/wallet-service.ts";
+import { WALLET_EVENTS } from "./services/wallet-service.ts";
+import { AppKitWalletService } from "./services/appkit-wallet-service.ts";
 import { ContractService } from "./services/contract-service.ts";
 import { PriceService } from "./services/price-service.ts";
 import { CurvePriceService } from "./services/curve-price-service.ts";
@@ -18,16 +20,6 @@ import { InventoryBarComponent } from "./components/inventory-bar-component.ts";
 // Import utilities
 import { formatAddress } from "./utils/format-utils.ts";
 import { TransactionButtonUtils } from "./utils/transaction-button-utils.ts";
-
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      on: (event: string, callback: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
-    };
-  }
-}
 
 /**
  * Main Application Class - Lightweight Coordinator
@@ -53,7 +45,7 @@ class UUSDApp {
 
   constructor() {
     // Initialize services with dependency injection
-    this._walletService = new WalletService();
+    this._walletService = new AppKitWalletService();
     this._contractService = new ContractService(this._walletService);
     this._priceService = new PriceService(this._contractService, this._walletService);
     this._curvePriceService = new CurvePriceService(this._walletService);
