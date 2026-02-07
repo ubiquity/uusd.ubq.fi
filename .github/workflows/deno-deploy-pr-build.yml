@@ -44,17 +44,17 @@ jobs:
       - name: Prepare deploy artifact
         run: |
           set -euo pipefail
-          rm -rf .deploy-artifact
-          mkdir -p .deploy-artifact
-          cp -a serve.ts .deploy-artifact/serve.ts
-          cp -a public .deploy-artifact/public
+          rm -rf deploy-artifact
+          mkdir -p deploy-artifact
+          cp -a serve.ts deploy-artifact/serve.ts
+          cp -a public deploy-artifact/public
 
-          if [[ -f deno.json ]]; then cp -a deno.json .deploy-artifact/deno.json; fi
-          if [[ -f deno.lock ]]; then cp -a deno.lock .deploy-artifact/deno.lock; fi
+          if [[ -f deno.json ]]; then cp -a deno.json deploy-artifact/deno.json; fi
+          if [[ -f deno.lock ]]; then cp -a deno.lock deploy-artifact/deno.lock; fi
 
       - name: Upload deploy artifact
         uses: actions/upload-artifact@v4
         with:
           name: deno-deploy-artifact
-          path: .deploy-artifact
+          path: deploy-artifact
           if-no-files-found: error
