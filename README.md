@@ -19,6 +19,7 @@ UUSD is a decentralized stablecoin backed by multiple collateral types and gover
 - [Bun](https://bun.sh) runtime (v1.2.2+)
 - Web3 wallet (MetaMask recommended)
 - Ethereum mainnet access
+- [Reown Project ID](https://cloud.reown.com/) (for WalletConnect via AppKit)
 
 ### Installation
 
@@ -29,6 +30,12 @@ cd uusd.ubq.fi
 
 # Install dependencies
 bun install
+```
+
+### Environment variables
+
+```bash
+cp .env.example .env
 ```
 
 ### Development
