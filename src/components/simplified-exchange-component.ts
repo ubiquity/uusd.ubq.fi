@@ -424,6 +424,11 @@ export class SimplifiedExchangeComponent {
   }
 
   private _handleTokenSelect(_event: Event) {
+    if (this._state.direction === "deposit") {
+      const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+      amountInput.value = "";
+      this._state.amount = "";
+    }
     void this._render();
     void this._calculateRoute();
   }
@@ -1109,7 +1114,8 @@ export class SimplifiedExchangeComponent {
     if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
 
     try {
-      const tokenSymbol = this._state.direction === "deposit" ? "LUSD" : "UUSD";
+      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+      const tokenSymbol = selectedToken.symbol;
       if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
         const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
         amountInput.value = maxBalance;
@@ -1119,8 +1125,8 @@ export class SimplifiedExchangeComponent {
         // If balances not loaded yet, retry
         this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
       }
-    } catch {
-      // Silent fail
+    } catch (error) {
+      console.error("Error auto-populating max balance:", error);
     }
   }
 
