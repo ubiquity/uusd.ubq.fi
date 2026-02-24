@@ -187,7 +187,6 @@ export class SimplifiedExchangeComponent {
       });
     } else {
       yourTokenGroup.style.display = "none";
-      otherTokenGroup.style.display = "none";
       yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
     }
 
