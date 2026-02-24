@@ -299,7 +299,9 @@ export class CentralizedRefreshService {
       }
       const data: AlchemyTokenBalance = await response.json();
       const tokenAddresses = data.result.tokenBalances.map((token) => token.contractAddress);
-      const tokenMetadata = await Promise.all(tokenAddresses.map((addr) => this._fetchTokenMetadata(publicClient, addr)));
+      const tokenMetadata = (await Promise.allSettled(tokenAddresses.map((addr) => this._fetchTokenMetadata(publicClient, addr))))
+        .filter((meta) => meta.status === "fulfilled")
+        .map((meta) => meta.value);
       const balances = data.result.tokenBalances
         .map((token) => {
           const metadata = tokenMetadata.find((meta) => meta.address === token.contractAddress);
