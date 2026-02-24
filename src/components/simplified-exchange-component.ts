@@ -276,7 +276,6 @@ export class SimplifiedExchangeComponent {
       // Clear all state on disconnect
       this._state.amount = "";
       this._state.routeResult = null;
-      this._state.direction = "deposit"; // Reset to default
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (amountInput) amountInput.value = "";
       await this._services.centralizedRefreshService.forceRefresh();
