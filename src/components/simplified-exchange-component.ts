@@ -427,6 +427,7 @@ export class SimplifiedExchangeComponent {
       amountInput.value = "";
       this._state.amount = "";
     }
+    this._services.notificationManager.clearNotifications("exchange");
     void this._render();
     void this._calculateRoute();
   }
@@ -464,6 +465,7 @@ export class SimplifiedExchangeComponent {
     }
 
     this._initTokenSelectAndLabel(true);
+    this._services.notificationManager.clearNotifications("exchange");
 
     // Re-render UI
     this._render();
@@ -962,6 +964,7 @@ export class SimplifiedExchangeComponent {
    */
   async executeTransaction(): Promise<void> {
     this._transactionStateService.startTransaction("exchangeButton");
+    this._services.notificationManager.clearNotifications("exchange");
 
     if (!this._services.walletService.isConnected()) {
       this._transactionStateService.errorTransaction("exchangeButton", "Wallet not connected", "❌ Connect Wallet");
@@ -1027,7 +1030,7 @@ export class SimplifiedExchangeComponent {
 
     this._services.notificationManager.showSuccess(
       "exchange",
-      `Successfully ${direction.toLowerCase()} ${this._state.amount} ${this._state.direction === "deposit" ? "LUSD" : "UUSD"}!`
+      `Successfully ${direction.toLowerCase()} ${this._state.amount} ${this._state.direction === "deposit" ? this._getSelectedToken().symbol : INVENTORY_TOKENS.UUSD.symbol}!`
     );
 
     // Clear form
