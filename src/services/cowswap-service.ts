@@ -414,7 +414,7 @@ export class CowSwapService {
         const message = error instanceof Error ? error.message : String(error);
 
         // Re-throw definitive order rejections immediately
-        if (message.includes("cancelled") || message.includes("expired")) {
+        if (message.includes("cancelled") || message.includes("expired") || message.includes("invalidated")) {
           throw error;
         }
 

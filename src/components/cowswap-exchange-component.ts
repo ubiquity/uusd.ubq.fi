@@ -51,6 +51,7 @@ export class CowSwapExchangeComponent {
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private _pollTimer: ReturnType<typeof setTimeout> | null = null;
   private _quoteNonce = 0;
+  private _flowNonce = 0;
 
   private _state: CowSwapExchangeState = {
     direction: "deposit",
@@ -267,6 +268,8 @@ export class CowSwapExchangeComponent {
       return;
     }
 
+    const nonce = ++this._flowNonce;
+
     this._transactionStateService.startTransaction("cowswapExecuteButton");
 
     try {
@@ -278,6 +281,7 @@ export class CowSwapExchangeComponent {
       const sellAmount = BigInt(this._state.quote.quote.sellAmount) + BigInt(this._state.quote.quote.feeAmount);
 
       const approvalHash = await this._cowSwapService.ensureAllowance(sellToken, sellAmount);
+      if (nonce !== this._flowNonce) return;
       if (approvalHash) {
         this._updateStepNotice("Token approved. Signing order...");
       }
@@ -287,6 +291,7 @@ export class CowSwapExchangeComponent {
       this._renderOutput();
 
       const orderUid = await this._cowSwapService.submitOrder(this._state.quote);
+      if (nonce !== this._flowNonce) return;
       this._state.orderUid = orderUid;
 
       // Step 3: Poll for order completion
@@ -297,6 +302,7 @@ export class CowSwapExchangeComponent {
       this._renderOutput();
 
       const finalStatus = await this._cowSwapService.waitForOrderCompletion(orderUid);
+      if (nonce !== this._flowNonce) return;
       this._state.orderStatus = finalStatus;
 
       // Step 4: Success
@@ -338,6 +344,14 @@ export class CowSwapExchangeComponent {
    * Reset component state
    */
   private _resetState() {
+    this._flowNonce++;
+    this._quoteNonce++;
+
+    if (this._debounceTimer) {
+      clearTimeout(this._debounceTimer);
+      this._debounceTimer = null;
+    }
+
     if (this._pollTimer) {
       clearTimeout(this._pollTimer);
       this._pollTimer = null;
