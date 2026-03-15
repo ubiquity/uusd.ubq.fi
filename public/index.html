@@ -100,7 +100,7 @@
 
                 <!-- Notification Areas -->
                 <div class="notification-container" data-type="exchange">
-                    <div class="error" id="exchangeError" style="display:none"></div>
+                    <div class="error" id="exchangeError" role="alert" style="display:none"></div>
                     <div class="success" id="exchangeSuccess" style="display:none"></div>
                 </div>
             </form>
@@ -128,9 +128,9 @@
             <div id="cowswapOutput" class="output-section" style="display: none;">
                 <div id="cowswapQuoteDisplay" style="display: none;"></div>
 
-                <div id="cowswapStepNotice" class="cowswap-step-notice" style="display: none;"></div>
+                <div id="cowswapStepNotice" class="cowswap-step-notice" aria-live="polite" role="status" style="display: none;"></div>
 
-                <div id="cowswapError" class="error" style="display: none;"></div>
+                <div id="cowswapError" class="error" role="alert" style="display: none;"></div>
 
                 <a id="cowswapExplorerLink" class="cowswap-explorer-link" href="#" target="_blank" rel="noopener noreferrer" style="display: none;">
                     View on CowSwap Explorer
@@ -143,7 +143,7 @@
 
             <!-- CowSwap Notification Areas -->
             <div class="notification-container" data-type="cowswap">
-                <div class="error" id="cowswapNotifError" style="display:none"></div>
+                <div class="error" id="cowswapNotifError" role="alert" style="display:none"></div>
                 <div class="success" id="cowswapNotifSuccess" style="display:none"></div>
             </div>
         </div>

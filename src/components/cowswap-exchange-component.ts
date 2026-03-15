@@ -50,6 +50,7 @@ export class CowSwapExchangeComponent {
   private _transactionStateService: TransactionStateService;
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private _pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private _quoteNonce = 0;
 
   private _state: CowSwapExchangeState = {
     direction: "deposit",
@@ -85,6 +86,10 @@ export class CowSwapExchangeComponent {
     if (container) {
       container.style.display = visible ? "block" : "none";
     }
+    // Render when becoming visible so the panel is fully populated before display
+    if (visible) {
+      this._render();
+    }
   }
 
   /**
@@ -106,7 +111,8 @@ export class CowSwapExchangeComponent {
       this._state.selectedToken = COMMON_TOKENS.find((t) => t.symbol === "USDC") || null;
     }
 
-    this._render();
+    // Don't call _render() here — setVisible(true) will render when the panel becomes visible,
+    // preventing the raw shell from flashing before the container is shown.
   }
 
   /**
@@ -199,6 +205,9 @@ export class CowSwapExchangeComponent {
       return;
     }
 
+    // Increment nonce so stale responses from older requests are ignored
+    const currentNonce = ++this._quoteNonce;
+
     try {
       this._state.flowStep = "quoting";
       this._renderOutput();
@@ -221,11 +230,17 @@ export class CowSwapExchangeComponent {
 
       const quote = await this._cowSwapService.getCachedQuote(sellToken, buyToken, sellAmount, "sell");
 
+      // Discard result if a newer quote request has been issued
+      if (currentNonce !== this._quoteNonce) return;
+
       this._state.quote = quote;
       this._state.flowStep = "idle";
       this._state.errorMessage = null;
       this._renderOutput();
     } catch (error: unknown) {
+      // Discard error if a newer quote request has been issued
+      if (currentNonce !== this._quoteNonce) return;
+
       const message = error instanceof Error ? error.message : "Failed to get quote";
       this._state.errorMessage = message;
       this._state.flowStep = "error";
@@ -363,6 +378,10 @@ export class CowSwapExchangeComponent {
   private _renderTokenSelect() {
     const tokenSelect = document.getElementById("cowswapTokenSelect") as HTMLSelectElement;
     if (!tokenSelect) return;
+
+    // Disable dropdown when an order is in-flight
+    const isLocked = ["approving", "signing", "submitted", "filling"].includes(this._state.flowStep);
+    tokenSelect.disabled = isLocked;
 
     // Filter out UUSD for deposits and LUSD for both (handled by existing flow)
     const availableTokens = COMMON_TOKENS.filter((t) => {
@@ -585,6 +604,13 @@ export class CowSwapExchangeComponent {
   /**
    * Get the CowSwap service instance (for external use)
    */
+  /**
+   * Check if an order is currently in-flight (locked state)
+   */
+  isOrderInProgress(): boolean {
+    return ["approving", "signing", "submitted", "filling"].includes(this._state.flowStep);
+  }
+
   getCowSwapService(): CowSwapService {
     return this._cowSwapService;
   }

@@ -236,6 +236,9 @@ class UUSDApp {
     };
 
     depositButton.addEventListener("click", () => {
+      // Prevent toggling while an order is in-flight
+      if (this._cowSwapExchangeComponent.isOrderInProgress()) return;
+
       if (isCowswapActive && depositButton.classList.contains("active")) {
         hideCowSwap();
       } else {
@@ -244,6 +247,9 @@ class UUSDApp {
     });
 
     withdrawButton.addEventListener("click", () => {
+      // Prevent toggling while an order is in-flight
+      if (this._cowSwapExchangeComponent.isOrderInProgress()) return;
+
       if (isCowswapActive && withdrawButton.classList.contains("active")) {
         hideCowSwap();
       } else {
@@ -257,13 +263,13 @@ class UUSDApp {
 
     if (stdDepositButton) {
       stdDepositButton.addEventListener("click", () => {
-        if (isCowswapActive) hideCowSwap();
+        if (isCowswapActive && !this._cowSwapExchangeComponent.isOrderInProgress()) hideCowSwap();
       });
     }
 
     if (stdWithdrawButton) {
       stdWithdrawButton.addEventListener("click", () => {
-        if (isCowswapActive) hideCowSwap();
+        if (isCowswapActive && !this._cowSwapExchangeComponent.isOrderInProgress()) hideCowSwap();
       });
     }
   }
@@ -496,6 +502,19 @@ class UUSDApp {
     this._walletService.addEventListener(WALLET_EVENTS.DISCONNECT, () => {
       this._updateWalletUI(null);
       this._simplifiedExchangeComponent.updateWalletConnection(false);
+
+      // Restore standard exchange UI if CowSwap panel was active
+      this._cowSwapExchangeComponent.setVisible(false);
+      const exchangeForm = document.getElementById("exchangeForm") as HTMLElement;
+      const directionToggle = document.querySelector(".direction-toggle") as HTMLElement;
+      if (exchangeForm) exchangeForm.style.display = "block";
+      if (directionToggle) directionToggle.style.opacity = "1";
+      // Deactivate CowSwap toggle buttons
+      const cowDepBtn = document.getElementById("cowswapDepositButton");
+      const cowWithBtn = document.getElementById("cowswapWithdrawButton");
+      if (cowDepBtn) cowDepBtn.classList.remove("active");
+      if (cowWithBtn) cowWithBtn.classList.remove("active");
+
       void this._inventoryBarComponent.handleWalletConnectionChange(null).catch((error) => {
         console.error("Error updating inventory bar after wallet disconnect:", error);
       });

@@ -98,7 +98,14 @@ export interface TokenInfo {
 }
 
 /**
- * Well-known ERC-20 tokens on Ethereum mainnet
+ * Curated list of well-known ERC-20 tokens on Ethereum mainnet.
+ *
+ * This is intentionally a curated set of high-liquidity, widely-recognized tokens
+ * rather than an arbitrary allowlist. CowSwap itself supports any ERC-20 pair, but
+ * we restrict the UI to tokens with reliable on-chain liquidity to protect users
+ * from failed swaps or extreme slippage on illiquid pairs.
+ *
+ * To add a token: append a new entry with its checksum address, symbol, name, and decimals.
  */
 export const COMMON_TOKENS: TokenInfo[] = [
   { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as Address, symbol: "USDC", name: "USD Coin", decimals: 6 },
@@ -107,6 +114,12 @@ export const COMMON_TOKENS: TokenInfo[] = [
   { address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as Address, symbol: "WETH", name: "Wrapped Ether", decimals: 18 },
   { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599" as Address, symbol: "WBTC", name: "Wrapped Bitcoin", decimals: 8 },
   { address: "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0" as Address, symbol: "LUSD", name: "Liquity USD", decimals: 18 },
+  { address: "0x853d955aCEf822Db058eb8505911ED77F175b99e" as Address, symbol: "FRAX", name: "Frax", decimals: 18 },
+  { address: "0x4Fabb145d64652a948d72533023f6E7A623C7C53" as Address, symbol: "BUSD", name: "Binance USD", decimals: 18 },
+  { address: "0x57Ab1ec28D129707052df4dF418D58a2D46d5f51" as Address, symbol: "sUSD", name: "Synth sUSD", decimals: 18 },
+  { address: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0" as Address, symbol: "wstETH", name: "Wrapped stETH", decimals: 18 },
+  { address: "0xBe9895146f7AF43049ca1c1AE358B0541Ea49704" as Address, symbol: "cbETH", name: "Coinbase Wrapped Staked ETH", decimals: 18 },
+  { address: "0xae78736Cd615f374D3085123A210448E74Fc6393" as Address, symbol: "rETH", name: "Rocket Pool ETH", decimals: 18 },
   { address: ADDRESSES.DOLLAR, symbol: "UUSD", name: "Ubiquity Dollar", decimals: 18 },
 ];
 
@@ -242,6 +255,11 @@ export class CowSwapService {
 
     // Approve unlimited to save gas on future swaps
     const hash = await this._contractService.approveToken(tokenAddress, COWSWAP_GPV2_VAULT_RELAYER, maxUint256);
+
+    // Wait for the approval transaction to be mined before proceeding
+    const publicClient = this._walletService.getPublicClient();
+    await publicClient.waitForTransactionReceipt({ hash: hash as Hash });
+
     return hash as Hash;
   }
 
@@ -329,22 +347,36 @@ export class CowSwapService {
   }
 
   /**
-   * Get the status of a CowSwap order
+   * Get the status of a CowSwap order with per-request timeout
    * @param orderUid - Order UID from submitOrder()
+   * @param requestTimeoutMs - Per-request timeout (default: 15 seconds)
    * @returns Order status
    */
-  async getOrderStatus(orderUid: string): Promise<CowSwapOrderStatus> {
-    const response = await fetch(`${COWSWAP_API_BASE}/api/v1/orders/${orderUid}`);
+  async getOrderStatus(orderUid: string, requestTimeoutMs: number = 15000): Promise<CowSwapOrderStatus> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
 
-    if (!response.ok) {
-      throw new Error(`Failed to get order status: ${response.statusText}`);
+    try {
+      const response = await fetch(`${COWSWAP_API_BASE}/api/v1/orders/${orderUid}`, {
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get order status: ${response.statusText}`);
+      }
+
+      return (await response.json()) as CowSwapOrderStatus;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    return (await response.json()) as CowSwapOrderStatus;
   }
 
   /**
-   * Poll for order completion with timeout
+   * Poll for order completion with timeout and retry logic.
+   * Transient errors (network failures, 5xx responses) are retried rather than
+   * immediately killing the order. Only definitive terminal statuses
+   * (cancelled, expired, invalidated) cause an immediate failure.
+   *
    * @param orderUid - Order UID to watch
    * @param timeoutMs - Maximum time to wait (default: 5 minutes)
    * @param pollIntervalMs - Interval between status checks (default: 5 seconds)
@@ -352,16 +384,39 @@ export class CowSwapService {
    */
   async waitForOrderCompletion(orderUid: string, timeoutMs: number = 300000, pollIntervalMs: number = 5000): Promise<CowSwapOrderStatus> {
     const startTime = Date.now();
+    const maxConsecutiveErrors = 5;
+    let consecutiveErrors = 0;
 
     while (Date.now() - startTime < timeoutMs) {
-      const status = await this.getOrderStatus(orderUid);
+      try {
+        const status = await this.getOrderStatus(orderUid);
 
-      if (status.status === "fulfilled") {
-        return status;
-      }
+        // Reset error counter on successful poll
+        consecutiveErrors = 0;
 
-      if (status.status === "cancelled" || status.status === "expired" || status.invalidated) {
-        throw new Error(`CowSwap order ${status.status}: ${orderUid}`);
+        if (status.status === "fulfilled") {
+          return status;
+        }
+
+        // Only fail on definitive terminal statuses
+        if (status.status === "cancelled" || status.status === "expired" || status.invalidated) {
+          throw new Error(`CowSwap order ${status.status}: ${orderUid}`);
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        // Re-throw definitive order rejections immediately
+        if (message.includes("cancelled") || message.includes("expired")) {
+          throw error;
+        }
+
+        // For transient/transport errors, retry up to the limit
+        consecutiveErrors++;
+        console.warn(`CowSwap poll error (${consecutiveErrors}/${maxConsecutiveErrors}):`, message);
+
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          throw new Error(`CowSwap order polling failed after ${maxConsecutiveErrors} consecutive errors: ${message}`);
+        }
       }
 
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
