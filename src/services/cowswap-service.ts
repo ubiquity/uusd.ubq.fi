@@ -253,6 +253,14 @@ export class CowSwapService {
       return null; // Already approved
     }
 
+    // Strict ERC-20 tokens (USDT, BUSD) reject approve(X) when current allowance != 0.
+    // Reset to zero first to avoid reverts from leftover allowances.
+    if (allowance > 0n) {
+      const resetHash = await this._contractService.approveToken(tokenAddress, COWSWAP_GPV2_VAULT_RELAYER, 0n);
+      const publicClient = this._walletService.getPublicClient();
+      await publicClient.waitForTransactionReceipt({ hash: resetHash as Hash });
+    }
+
     // Approve unlimited to save gas on future swaps
     const hash = await this._contractService.approveToken(tokenAddress, COWSWAP_GPV2_VAULT_RELAYER, maxUint256);
 

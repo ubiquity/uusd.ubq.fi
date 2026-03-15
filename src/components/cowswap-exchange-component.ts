@@ -124,14 +124,18 @@ export class CowSwapExchangeComponent {
     });
   }
 
+  private _attachRetries = 0;
+  private static readonly MAX_ATTACH_RETRIES = 50;
+
   private _attachListeners() {
     const tokenSelect = document.getElementById("cowswapTokenSelect") as HTMLSelectElement;
     const amountInput = document.getElementById("cowswapAmount") as HTMLInputElement;
     const executeButton = document.getElementById("cowswapExecuteButton") as HTMLButtonElement;
 
     if (!tokenSelect || !amountInput || !executeButton) {
-      // DOM not ready yet, retry
-      requestAnimationFrame(() => this._attachListeners());
+      if (++this._attachRetries < CowSwapExchangeComponent.MAX_ATTACH_RETRIES) {
+        requestAnimationFrame(() => this._attachListeners());
+      }
       return;
     }
 
