@@ -41,6 +41,12 @@
             <button id="withdrawButton" class="direction-button">Sell UUSD</button>
         </div>
 
+        <!-- CowSwap Toggle (deposit/withdraw anything) -->
+        <div class="cowswap-toggle" style="display: none;">
+            <button id="cowswapDepositButton" class="cowswap-toggle-button">Deposit Anything</button>
+            <button id="cowswapWithdrawButton" class="cowswap-toggle-button">Withdraw Anything</button>
+        </div>
+
         <!-- Simplified Exchange Form -->
         <div id="exchangeForm" class="exchange-form" style="display: none;">
             <form onsubmit="window.app.handleExchange(event)">
@@ -98,6 +104,48 @@
                     <div class="success" id="exchangeSuccess" style="display:none"></div>
                 </div>
             </form>
+        </div>
+
+        <!-- CowSwap Exchange (deposit/withdraw anything) -->
+        <div id="cowswapExchangeContainer" class="exchange-form" style="display: none;">
+            <div class="cowswap-header">
+                <span id="cowswapTitle" class="cowswap-title">Deposit Anything via CowSwap</span>
+            </div>
+
+            <div class="form-group">
+                <label id="cowswapSelectLabel" for="cowswapTokenSelect">Select Token</label>
+                <select id="cowswapTokenSelect">
+                    <option value="">Select token</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label id="cowswapTokenLabel" for="cowswapAmount">Token</label>
+                <input type="number" id="cowswapAmount" step="any" placeholder="Select a token first">
+            </div>
+
+            <!-- CowSwap Output -->
+            <div id="cowswapOutput" class="output-section" style="display: none;">
+                <div id="cowswapQuoteDisplay" style="display: none;"></div>
+
+                <div id="cowswapStepNotice" class="cowswap-step-notice" style="display: none;"></div>
+
+                <div id="cowswapError" class="error" style="display: none;"></div>
+
+                <a id="cowswapExplorerLink" class="cowswap-explorer-link" href="#" target="_blank" rel="noopener noreferrer" style="display: none;">
+                    View on CowSwap Explorer
+                </a>
+
+                <button type="button" class="action-button" id="cowswapExecuteButton" disabled>
+                    Enter amount to continue
+                </button>
+            </div>
+
+            <!-- CowSwap Notification Areas -->
+            <div class="notification-container" data-type="cowswap">
+                <div class="error" id="cowswapNotifError" style="display:none"></div>
+                <div class="success" id="cowswapNotifSuccess" style="display:none"></div>
+            </div>
         </div>
 
     </div>

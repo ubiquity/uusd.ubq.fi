@@ -14,6 +14,7 @@ import { CentralizedRefreshService, type RefreshData } from "./services/centrali
 import { NotificationManager } from "./components/notification-manager.ts";
 import { SimplifiedExchangeComponent } from "./components/simplified-exchange-component.ts";
 import { InventoryBarComponent } from "./components/inventory-bar-component.ts";
+import { CowSwapExchangeComponent } from "./components/cowswap-exchange-component.ts";
 
 // Import utilities
 import { formatAddress } from "./utils/format-utils.ts";
@@ -47,6 +48,7 @@ class UUSDApp {
   private _notificationManager: NotificationManager;
   private _simplifiedExchangeComponent: SimplifiedExchangeComponent;
   private _inventoryBarComponent: InventoryBarComponent;
+  private _cowSwapExchangeComponent: CowSwapExchangeComponent;
 
   // State flags
   private _isConnecting = false;
@@ -93,12 +95,21 @@ class UUSDApp {
       inventoryBar: this._inventoryBarComponent,
     });
 
+    // Create CowSwap exchange component
+    this._cowSwapExchangeComponent = new CowSwapExchangeComponent({
+      walletService: this._walletService,
+      contractService: this._contractService,
+      notificationManager: this._notificationManager,
+      inventoryBar: this._inventoryBarComponent,
+    });
+
     this._setupServiceEventHandlers();
 
     // Expose to window for HTML onclick handlers and debugging
     (window as unknown as Record<string, unknown>).app = {
       ...this,
       exchange: this._simplifiedExchangeComponent,
+      cowswap: this._cowSwapExchangeComponent,
       connectWallet: () => this.connectWallet(),
       handleExchange: (event: Event) => this.handleExchange(event),
       demoTransactionUX: (buttonId?: string) => this.demoTransactionUX(buttonId),
@@ -161,6 +172,99 @@ class UUSDApp {
 
     if (exchangeForm) {
       exchangeForm.style.display = "block";
+    }
+
+    // Set up CowSwap toggle buttons
+    this._setupCowSwapToggle();
+  }
+
+  /**
+   * Set up CowSwap deposit/withdraw anything toggle buttons
+   */
+  private _setupCowSwapToggle(): void {
+    const cowswapToggle = document.querySelector(".cowswap-toggle") as HTMLElement;
+    const depositButton = document.getElementById("cowswapDepositButton") as HTMLButtonElement;
+    const withdrawButton = document.getElementById("cowswapWithdrawButton") as HTMLButtonElement;
+
+    if (!cowswapToggle || !depositButton || !withdrawButton) return;
+
+    // Show the toggle
+    cowswapToggle.style.display = "flex";
+
+    // Track if CowSwap mode is active
+    let isCowswapActive = false;
+
+    const showCowSwap = (direction: "deposit" | "withdraw") => {
+      isCowswapActive = true;
+
+      // Hide standard exchange
+      const exchangeForm = document.getElementById("exchangeForm") as HTMLElement;
+      const directionToggle = document.querySelector(".direction-toggle") as HTMLElement;
+      if (exchangeForm) exchangeForm.style.display = "none";
+      if (directionToggle) directionToggle.style.opacity = "0.4";
+
+      // Activate the clicked button
+      depositButton.classList.toggle("active", direction === "deposit");
+      withdrawButton.classList.toggle("active", direction === "withdraw");
+
+      // Show CowSwap exchange
+      this._cowSwapExchangeComponent.setDirection(direction);
+      this._cowSwapExchangeComponent.setVisible(true);
+
+      // Update title
+      const title = document.getElementById("cowswapTitle");
+      if (title) {
+        title.textContent = direction === "deposit" ? "Deposit Anything via CowSwap" : "Withdraw to Anything via CowSwap";
+      }
+    };
+
+    const hideCowSwap = () => {
+      isCowswapActive = false;
+
+      // Show standard exchange
+      const exchangeForm = document.getElementById("exchangeForm") as HTMLElement;
+      const directionToggle = document.querySelector(".direction-toggle") as HTMLElement;
+      if (exchangeForm) exchangeForm.style.display = "block";
+      if (directionToggle) directionToggle.style.opacity = "1";
+
+      // Deactivate buttons
+      depositButton.classList.remove("active");
+      withdrawButton.classList.remove("active");
+
+      // Hide CowSwap exchange
+      this._cowSwapExchangeComponent.setVisible(false);
+    };
+
+    depositButton.addEventListener("click", () => {
+      if (isCowswapActive && depositButton.classList.contains("active")) {
+        hideCowSwap();
+      } else {
+        showCowSwap("deposit");
+      }
+    });
+
+    withdrawButton.addEventListener("click", () => {
+      if (isCowswapActive && withdrawButton.classList.contains("active")) {
+        hideCowSwap();
+      } else {
+        showCowSwap("withdraw");
+      }
+    });
+
+    // When standard direction buttons are clicked, hide CowSwap
+    const stdDepositButton = document.getElementById("depositButton");
+    const stdWithdrawButton = document.getElementById("withdrawButton");
+
+    if (stdDepositButton) {
+      stdDepositButton.addEventListener("click", () => {
+        if (isCowswapActive) hideCowSwap();
+      });
+    }
+
+    if (stdWithdrawButton) {
+      stdWithdrawButton.addEventListener("click", () => {
+        if (isCowswapActive) hideCowSwap();
+      });
     }
   }
 

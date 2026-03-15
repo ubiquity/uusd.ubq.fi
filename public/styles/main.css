@@ -828,3 +828,120 @@ hr{border: 0.5px solid #ffffff40;margin-bottom: 10px;margin-left: 8px;margin: 20
 button#connectWallet {
     margin: 20px auto;
 }
+
+/* CowSwap Integration Styles */
+
+.cowswap-toggle {
+    display: flex;
+    margin-bottom: 12px;
+    gap: 8px;
+    justify-content: center;
+}
+
+.cowswap-toggle-button {
+    padding: 8px 16px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 13px;
+    font-weight: 400;
+    box-shadow: none;
+}
+
+.cowswap-toggle-button:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.8);
+    box-shadow: none;
+}
+
+.cowswap-toggle-button.active {
+    background: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+    border-color: rgba(255, 193, 7, 0.3) !important;
+    box-shadow: 0 0 12px rgba(255, 193, 7, 0.1);
+}
+
+/* CowSwap Exchange Form */
+.cowswap-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cowswap-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.cowswap-powered-by {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+#cowswapTokenSelect {
+    width: 100%;
+    padding: 10px 12px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+    cursor: pointer;
+}
+
+#cowswapTokenSelect option {
+    background: #1a1a2e;
+    color: #fff;
+}
+
+/* Step notice styling */
+.cowswap-step-notice {
+    background: rgba(255, 193, 7, 0.08);
+    border: 1px solid rgba(255, 193, 7, 0.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.5;
+    text-align: center;
+}
+
+/* Explorer link */
+.cowswap-explorer-link {
+    display: inline-block;
+    margin: 8px 0;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #66b3ff;
+    text-decoration: none;
+    border: 1px solid rgba(102, 179, 255, 0.3);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.cowswap-explorer-link:hover {
+    background: rgba(102, 179, 255, 0.1);
+    color: #99ccff;
+}
+
+/* CowSwap responsive */
+@media (max-width: 480px) {
+    .cowswap-toggle {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .cowswap-toggle-button {
+        width: 100%;
+        padding: 10px;
+    }
+}
