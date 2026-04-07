@@ -102,8 +102,7 @@ export class TransactionStateService {
     button.innerHTML = `${displayText}<span class="loading"></span>`;
     button.classList.add("transaction-pending");
 
-    // Don't disable the button - keep it clickable but change behavior
-    button.disabled = false;
+    this.disableAllInteractiveElements();
   }
 
   /**
@@ -192,6 +191,8 @@ export class TransactionStateService {
         }
       }, 2000);
     }
+
+    this.enableAllInteractiveElements();
   }
 
   /**
@@ -224,6 +225,8 @@ export class TransactionStateService {
         button.title = "";
       }
     }, 3000);
+
+    this.enableAllInteractiveElements();
   }
 
   /**
@@ -307,5 +310,23 @@ export class TransactionStateService {
         button.title = "";
       }
     }
+  }
+
+  disableAllInteractiveElements(): void {
+    document.getElementById("depositButton")?.setAttribute("disabled", "true");
+    document.getElementById("withdrawButton")?.setAttribute("disabled", "true");
+    document.getElementById("connectWallet")?.setAttribute("disabled", "true");
+    document.getElementById("exchangeButton")?.setAttribute("disabled", "true");
+    document.getElementById("tokenSelect")?.setAttribute("disabled", "true");
+    document.getElementById("exchangeAmount")?.setAttribute("disabled", "true");
+  }
+
+  enableAllInteractiveElements(): void {
+    document.getElementById("depositButton")?.removeAttribute("disabled");
+    document.getElementById("withdrawButton")?.removeAttribute("disabled");
+    document.getElementById("connectWallet")?.removeAttribute("disabled");
+    document.getElementById("exchangeButton")?.removeAttribute("disabled");
+    document.getElementById("tokenSelect")?.removeAttribute("disabled");
+    document.getElementById("exchangeAmount")?.removeAttribute("disabled");
   }
 }

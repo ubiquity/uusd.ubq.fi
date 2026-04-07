@@ -1,15 +1,17 @@
-import { formatEther, formatUnits, parseEther } from "viem";
+import { formatEther, formatUnits, parseEther, type Address } from "viem";
 import type { PriceService, MintPriceResult, RedeemPriceResult } from "./price-service.ts";
 import type { CurvePriceService } from "./curve-price-service.ts";
 import type { ContractService } from "./contract-service.ts";
 import type { WalletService } from "./wallet-service.ts";
 import { LUSD_COLLATERAL, ADDRESSES } from "../contracts/constants.ts";
 import { cacheService, CACHE_CONFIGS } from "./cache-service.ts";
+import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
+import type { postSwapOrderFromQuote } from "@cowprotocol/cow-sdk";
 
 /**
  * Route types for optimal execution
  */
-export type RouteType = "mint" | "redeem" | "swap";
+export type RouteType = "mint" | "redeem" | "swap" | "cowswap";
 
 /**
  * Direction of the exchange
@@ -22,7 +24,17 @@ export type ExchangeDirection = "deposit" | "withdraw";
 export interface OptimalRouteResult {
   routeType: RouteType;
   expectedOutput: bigint;
+  outputToken: {
+    address: Address;
+    symbol: string;
+    decimals: number;
+  };
   inputAmount: bigint;
+  inputToken: {
+    address: Address;
+    symbol: string;
+    decimals: number;
+  };
   direction: ExchangeDirection;
   marketPrice: bigint;
   pegPrice: bigint; // Always 1.000000 (6 decimals)
@@ -36,6 +48,7 @@ export interface OptimalRouteResult {
   // UBQ-related information for mixed operations
   ubqAmount?: bigint; // Amount of UBQ for mixed redemptions
   isUbqOperation?: boolean; // Whether this involves UBQ
+  executeCowSwapOrder?: () => ReturnType<typeof postSwapOrderFromQuote>; // Function to execute CowSwap order
 }
 
 /**
@@ -149,6 +162,16 @@ export class OptimalRouteService {
       return {
         routeType,
         expectedOutput,
+        outputToken: {
+          address: INVENTORY_TOKENS.UUSD.address,
+          symbol: INVENTORY_TOKENS.UUSD.symbol,
+          decimals: INVENTORY_TOKENS.UUSD.decimals,
+        },
+        inputToken: {
+          address: INVENTORY_TOKENS.LUSD.address,
+          symbol: INVENTORY_TOKENS.LUSD.symbol,
+          decimals: INVENTORY_TOKENS.LUSD.decimals,
+        },
         inputAmount: lusdAmount,
         direction: "deposit",
         marketPrice,
@@ -177,6 +200,16 @@ export class OptimalRouteService {
           routeType: "swap",
           expectedOutput: swapOutput,
           inputAmount: lusdAmount,
+          outputToken: {
+            address: INVENTORY_TOKENS.UUSD.address,
+            symbol: INVENTORY_TOKENS.UUSD.symbol,
+            decimals: INVENTORY_TOKENS.UUSD.decimals,
+          },
+          inputToken: {
+            address: INVENTORY_TOKENS.LUSD.address,
+            symbol: INVENTORY_TOKENS.LUSD.symbol,
+            decimals: INVENTORY_TOKENS.LUSD.decimals,
+          },
           direction: "deposit",
           marketPrice: this._pegPrice,
           pegPrice: this._pegPrice,
@@ -259,6 +292,16 @@ export class OptimalRouteService {
               routeType: "swap" as const,
               expectedOutput: swapOutputLUSD,
               inputAmount: uusdAmount,
+              outputToken: {
+                address: INVENTORY_TOKENS.LUSD.address,
+                symbol: INVENTORY_TOKENS.LUSD.symbol,
+                decimals: INVENTORY_TOKENS.LUSD.decimals,
+              },
+              inputToken: {
+                address: INVENTORY_TOKENS.UUSD.address,
+                symbol: INVENTORY_TOKENS.UUSD.symbol,
+                decimals: INVENTORY_TOKENS.UUSD.decimals,
+              },
               direction: "withdraw" as const,
               marketPrice: this._pegPrice, // Fallback price
               pegPrice: this._pegPrice,
@@ -325,6 +368,16 @@ export class OptimalRouteService {
         routeType,
         expectedOutput,
         inputAmount: uusdAmount,
+        outputToken: {
+          address: INVENTORY_TOKENS.LUSD.address,
+          symbol: INVENTORY_TOKENS.LUSD.symbol,
+          decimals: INVENTORY_TOKENS.LUSD.decimals,
+        },
+        inputToken: {
+          address: INVENTORY_TOKENS.UUSD.address,
+          symbol: INVENTORY_TOKENS.UUSD.symbol,
+          decimals: INVENTORY_TOKENS.UUSD.decimals,
+        },
         direction: "withdraw" as const,
         marketPrice,
         pegPrice: this._pegPrice,
@@ -349,6 +402,16 @@ export class OptimalRouteService {
           routeType: "swap",
           expectedOutput: swapOutput,
           inputAmount: uusdAmount,
+          inputToken: {
+            address: INVENTORY_TOKENS.UUSD.address,
+            symbol: INVENTORY_TOKENS.UUSD.symbol,
+            decimals: INVENTORY_TOKENS.UUSD.decimals,
+          },
+          outputToken: {
+            address: INVENTORY_TOKENS.LUSD.address,
+            symbol: INVENTORY_TOKENS.LUSD.symbol,
+            decimals: INVENTORY_TOKENS.LUSD.decimals,
+          },
           direction: "withdraw",
           marketPrice: this._pegPrice,
           pegPrice: this._pegPrice,

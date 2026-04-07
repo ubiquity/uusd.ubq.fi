@@ -18,6 +18,7 @@ import { InventoryBarComponent } from "./components/inventory-bar-component.ts";
 // Import utilities
 import { formatAddress } from "./utils/format-utils.ts";
 import { TransactionButtonUtils } from "./utils/transaction-button-utils.ts";
+import { CowSwapService } from "./services/cowswap-service.ts";
 
 declare global {
   interface Window {
@@ -42,6 +43,7 @@ class UUSDApp {
   private _swapService: SwapService;
   private _transactionService: TransactionService;
   private _centralizedRefreshService: CentralizedRefreshService;
+  private _cowSwapService: CowSwapService;
 
   // Components
   private _notificationManager: NotificationManager;
@@ -64,6 +66,7 @@ class UUSDApp {
       contractService: this._contractService,
       priceService: this._priceService,
     });
+    this._cowSwapService = new CowSwapService(this._walletService);
 
     // Initialize components
     this._notificationManager = new NotificationManager();
@@ -76,6 +79,7 @@ class UUSDApp {
       transactionService: this._transactionService,
       swapService: this._swapService,
       notificationManager: this._notificationManager,
+      cowSwapService: this._cowSwapService,
     };
 
     // Create inventory bar component first (needed by exchange component)
@@ -91,6 +95,7 @@ class UUSDApp {
     this._simplifiedExchangeComponent = new SimplifiedExchangeComponent({
       ...services,
       inventoryBar: this._inventoryBarComponent,
+      centralizedRefreshService: this._centralizedRefreshService,
     });
 
     this._setupServiceEventHandlers();
