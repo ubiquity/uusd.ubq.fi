@@ -206,7 +206,6 @@ export class CentralizedRefreshService {
         isRedeemingAllowed,
         twapPrice: diamondMulticallData.twapPrice,
       };
-      console.log("🔄 Centralized refresh completed:", refreshData);
 
       // Cache and notify
       this._lastData = refreshData;
