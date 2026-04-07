@@ -35,7 +35,7 @@ export interface TokenMetadata {
 /**
  * Supported tokens for inventory display
  */
-export const INVENTORY_TOKENS: Record<string, TokenMetadata> = {
+export const INVENTORY_TOKENS = {
   LUSD: {
     symbol: "LUSD",
     address: "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0" as Address,

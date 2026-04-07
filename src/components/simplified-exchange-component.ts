@@ -166,6 +166,18 @@ export class SimplifiedExchangeComponent {
     if (refreshData?.tokenBalances) {
       yourTokenGroup.style.display = "";
       otherTokenGroup.style.display = "";
+      if (
+        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
+        !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
+      ) {
+        // Ensure LUSD is always in the first position
+        const option = document.createElement("option");
+        option.value = INVENTORY_TOKENS.LUSD.address;
+        option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
+        option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
+        option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
+        yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
+      }
       refreshData.tokenBalances.forEach((balance) => {
         if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
@@ -190,6 +202,18 @@ export class SimplifiedExchangeComponent {
       yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
     }
 
+    if (
+      !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`) &&
+      !otherTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
+    ) {
+      // Ensure LUSD is always in the first position
+      const option = document.createElement("option");
+      option.value = INVENTORY_TOKENS.LUSD.address;
+      option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
+      option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
+      option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
+      otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
+    }
     tokenList.forEach((token) => {
       if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
         return; // Token already exists
@@ -200,6 +224,11 @@ export class SimplifiedExchangeComponent {
       option.setAttribute("data-symbol", token.symbol);
       option.text = token.symbol.substring(0, 10);
       otherTokenGroup.appendChild(option);
+    });
+    otherTokenGroup.querySelectorAll("option").forEach((opt) => {
+      if (yourTokenGroup.querySelector(`option[value="${opt.value}"i]`)) {
+        opt.remove();
+      }
     });
   }
 
