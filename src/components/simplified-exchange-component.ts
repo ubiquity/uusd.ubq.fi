@@ -169,7 +169,7 @@ export class SimplifiedExchangeComponent {
     if (refreshData?.tokenBalances) {
       // Filter out dust tokens (value < $1.00)
       const significantBalances = refreshData.tokenBalances.filter(
-        (balance) => !balance.usdValue || balance.usdValue >= MIN_USD_VALUE
+        (balance) => balance.usdValue == null || balance.usdValue >= MIN_USD_VALUE
       );
 
       yourTokenGroup.style.display = "";
@@ -454,14 +454,19 @@ export class SimplifiedExchangeComponent {
     try {
       const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
       const tokenSymbol = selectedToken.symbol;
+      const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
         const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
-        const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
         if (amountInput) {
           amountInput.value = maxBalance;
           this._state.amount = maxBalance;
           void this._calculateRoute();
         }
+      } else if (amountInput) {
+        // Clear stale input when Max resolves to no balance
+        amountInput.value = "";
+        this._state.amount = "";
+        void this._calculateRoute();
       }
     } catch (error) {
       console.error("Error setting max balance:", error);
