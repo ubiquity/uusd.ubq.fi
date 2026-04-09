@@ -163,11 +163,19 @@ export class SimplifiedExchangeComponent {
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
 
+    // Minimum USD value to display a token in the inventory list
+    const MIN_USD_VALUE = 1.0;
+
     if (refreshData?.tokenBalances) {
+      // Filter out dust tokens (value < $1.00)
+      const significantBalances = refreshData.tokenBalances.filter(
+        (balance) => !balance.usdValue || balance.usdValue >= MIN_USD_VALUE
+      );
+
       yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
+
       if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
+        significantBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
         !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
       ) {
         // Ensure LUSD is always in the first position
@@ -178,7 +186,7 @@ export class SimplifiedExchangeComponent {
         option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
         yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
       }
-      refreshData.tokenBalances.forEach((balance) => {
+      significantBalances.forEach((balance) => {
         if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
         }
@@ -193,10 +201,13 @@ export class SimplifiedExchangeComponent {
       });
       // Remove old user's tokens
       yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
+        if (!significantBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
           opt.remove();
         }
       });
+
+      // Hide preloaded list when user already has tokens loaded
+      otherTokenGroup.style.display = significantBalances.length > 0 ? "none" : "";
     } else {
       yourTokenGroup.style.display = "none";
       yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
@@ -353,6 +364,11 @@ export class SimplifiedExchangeComponent {
         amountInput.addEventListener("input", () => this._handleAmountChange());
       }
 
+      const maxButton = document.getElementById("maxButton") as HTMLButtonElement;
+      if (maxButton) {
+        maxButton.addEventListener("click", () => this._handleMaxButton());
+      }
+
       if (depositButton) {
         depositButton.addEventListener("click", () => this._switchDirection("deposit"));
       }
@@ -427,6 +443,29 @@ export class SimplifiedExchangeComponent {
     this._debounceTimer = setTimeout(() => {
       void this._calculateRoute();
     }, 1000);
+  }
+
+  /**
+   * Handle Max button click - set input to maximum available balance
+   */
+  private _handleMaxButton() {
+    if (!this._services.walletService.isConnected()) return;
+
+    try {
+      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+      const tokenSymbol = selectedToken.symbol;
+      if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
+        const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
+        const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+        if (amountInput) {
+          amountInput.value = maxBalance;
+          this._state.amount = maxBalance;
+          void this._calculateRoute();
+        }
+      }
+    } catch (error) {
+      console.error("Error setting max balance:", error);
+    }
   }
 
   private _getSelectedToken() {
