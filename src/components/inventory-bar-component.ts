@@ -7,7 +7,7 @@ import type { NotificationManager } from "./notification-manager.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
 import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
-import { batchFetchTokenBalances, type TokenBalanceBatchResult } from "../utils/batch-request-utils.ts";
+import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
 
 import icons from "./icons.ts";
 
@@ -268,7 +268,7 @@ export class InventoryBarComponent {
       const batchResults = await batchFetchTokenBalances(publicClient, tokens, account);
 
       // Process results and calculate USD values
-      const balancePromises = batchResults.map(async (result: TokenBalanceBatchResult): Promise<TokenBalance> => {
+      const balancePromises = batchResults.map(async (result): Promise<TokenBalance> => {
         const tokenMetadata = INVENTORY_TOKENS[result.symbol];
         if (!tokenMetadata) {
           throw new Error(`Token metadata not found for ${result.symbol}`);
