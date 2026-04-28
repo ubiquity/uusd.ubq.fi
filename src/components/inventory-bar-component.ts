@@ -269,7 +269,7 @@ export class InventoryBarComponent {
 
       // Process results and calculate USD values
       const balancePromises = batchResults.map(async (result: TokenBalanceBatchResult): Promise<TokenBalance> => {
-        const tokenMetadata = INVENTORY_TOKENS[result.symbol];
+        const tokenMetadata = Object.values(INVENTORY_TOKENS).find((token) => token.symbol === result.symbol);
         if (!tokenMetadata) {
           throw new Error(`Token metadata not found for ${result.symbol}`);
         }

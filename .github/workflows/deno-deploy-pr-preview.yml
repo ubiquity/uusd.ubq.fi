@@ -21,7 +21,7 @@ jobs:
         public/**
       artifact_name: deno-deploy-artifact
       artifact_run_id: ${{ github.event.workflow_run.id }}
-      artifact_path: .deploy-artifact
+      artifact_path: deploy-artifact
       runtime_env: |
         STATIC_DIR=public
       runtime_env_fork: |
