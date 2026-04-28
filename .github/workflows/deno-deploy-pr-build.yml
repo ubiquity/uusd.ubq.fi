@@ -25,3 +25,4 @@ jobs:
       include: |
         public/**
       artifact_name: deno-deploy-artifact
+      artifact_path: deploy-artifact
