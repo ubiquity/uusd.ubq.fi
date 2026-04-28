@@ -121,7 +121,7 @@
         "npm:@ubiquity-dao/permit2-rpc-client@~0.1.2",
         "npm:commander@14",
         "npm:dotenv@^16.5.0",
-        "npm:esbuild@0.19",
+        "npm:esbuild@0.25",
         "npm:eslint-config-prettier@^10.1.8",
         "npm:eslint-plugin-prettier@^5.5.4",
         "npm:eslint@^9.33.0",
