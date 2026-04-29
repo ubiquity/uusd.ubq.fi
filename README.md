@@ -16,7 +16,7 @@ UUSD is a decentralized stablecoin backed by multiple collateral types and gover
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) runtime (v1.2.2+)
+- [Deno](https://deno.com/) 2.x
 - Web3 wallet (MetaMask recommended)
 - Ethereum mainnet access
 
@@ -28,14 +28,14 @@ git clone <repository-url>
 cd uusd.ubq.fi
 
 # Install dependencies
-bun install
+deno install
 ```
 
 ### Development
 
 ```bash
 # Start development server with hot reload
-bun run dev
+deno task build:watch & deno task serve:dev
 
 # The app will be available at http://localhost:3000
 ```
@@ -44,29 +44,29 @@ bun run dev
 
 ```bash
 # Build optimized production bundle
-bun run build
+deno task build
 
 # Serve production build
-bun run serve
+deno task serve
 ```
 
 ## Development Scripts
 
 ```bash
 # Development with hot reload
-bun run dev
+deno task build:watch & deno task serve:dev
 
 # Production build
-bun run build
+deno task build
 
 # Watch mode for development
-bun run build:watch
+deno task build:watch
 
 # Start local server
-bun run serve
+deno task serve
 
 # Development server
-bun run serve:dev
+deno task serve:dev
 
 # Diamond contract utility
 bun run diamond

@@ -17,12 +17,7 @@ export const getRpcUrl = (): string => {
     return defaultRpcUrl;
   }
 
-  // In Node/Bun environment (CLI), use cloud endpoint
-  if (typeof process !== 'undefined') {
-    return defaultRpcUrl;
-  }
-
-  // Fallback to cloud endpoint for any other cases
+  // Fallback to cloud endpoint for CLI and any other non-browser cases
   return defaultRpcUrl;
 };
 

@@ -1,0 +1,8 @@
+{
+  "tasks": {
+    "build": "deno run -A npm:esbuild@0.25.12 src/app.ts --bundle --outfile=public/app.js --minify --format=esm --platform=browser --sourcemap",
+    "build:watch": "deno run -A npm:esbuild@0.25.12 src/app.ts --bundle --outfile=public/app.js --format=esm --platform=browser --sourcemap=inline --watch=forever",
+    "serve": "deno run --allow-all serve.ts",
+    "serve:dev": "deno run --allow-all serve-dev.ts"
+  }
+}
