@@ -8,7 +8,7 @@ jobs:
     permissions:
       contents: read
       actions: write
-    uses: ubiquity/deno-deploy-workflow/.github/workflows/deno-deploy-build.yml@codex/deno-2-programmatic
+    uses: ubiquity/deno-deploy-workflow/.github/workflows/deno-deploy-build.yml@codex
     with:
       entrypoint: serve.ts
       install_command: deno install
