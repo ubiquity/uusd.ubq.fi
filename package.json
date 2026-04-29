@@ -3,11 +3,11 @@
   "module": "src/app.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun run build:watch & bun run serve:dev",
-    "build": "bun run esbuild src/app.ts --bundle --outfile=public/app.js --minify --format=esm --platform=browser --sourcemap",
-    "build:watch": "bun run esbuild src/app.ts --bundle --outfile=public/app.js --format=esm --platform=browser --sourcemap=inline --watch=forever",
-    "serve": "deno run --allow-all serve.ts",
-    "serve:dev": "deno run --allow-all serve-dev.ts",
+    "dev": "deno task build:watch & deno task serve:dev",
+    "build": "deno task build",
+    "build:watch": "deno task build:watch",
+    "serve": "deno task serve",
+    "serve:dev": "deno task serve:dev",
     "serve:bun": "bun run serve.ts",
     "serve:bun:dev": "bun run serve-dev.ts",
     "browser:open": "/Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser --remote-debugging-port=9222",
@@ -28,10 +28,8 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "globals": "^16.3.0",
-    "prettier": "^3.6.2"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2"
   },
   "dependencies": {
     "@cowprotocol/cow-sdk": "^7.2.7",

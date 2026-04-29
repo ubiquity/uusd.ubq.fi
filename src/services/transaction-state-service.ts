@@ -11,7 +11,7 @@ export interface TransactionState {
   error?: string;
   buttonElement: HTMLButtonElement;
   config: TransactionStateConfig;
-  originalClickHandler?: ((this: GlobalEventHandlers, ev: MouseEvent) => void) | null;
+  originalClickHandler?: GlobalEventHandlers["onclick"];
 }
 
 export class TransactionStateService {

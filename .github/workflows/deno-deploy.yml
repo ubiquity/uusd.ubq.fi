@@ -6,13 +6,13 @@ on:
 
 jobs:
   deploy:
-    uses: ubiquity/deno-deploy-workflow/.github/workflows/deno-deploy-reusable.yml@main
+    uses: ubiquity/deno-deploy-workflow/.github/workflows/deno-deploy-reusable.yml@codex
     with:
       project: uusd-ubq-fi
+      deploy_platform: deno2
       entrypoint: serve.ts
-      bun_version: 1.3.4
-      install_command: bun install
-      build_command: bun run build
+      install_command: deno install
+      build_command: deno task build
       build_env: |
         SUPABASE_URL=$SUPABASE_URL
         SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY

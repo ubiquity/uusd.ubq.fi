@@ -1,8 +1,8 @@
-name: Deno Deploy (PR preview)
+name: Deno Deploy 2 (PR preview)
 
 on:
   workflow_run:
-    workflows: ["Deno Deploy (PR build)"]
+    workflows: ["Deno Deploy 2 (PR build)"]
     types: [completed]
 
 jobs:
@@ -13,9 +13,10 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
-    uses: ubiquity/deno-deploy-workflow/.github/workflows/deno-deploy-reusable.yml@main
+    uses: ubiquity/deno-deploy-workflow/.github/workflows/deno-deploy-reusable.yml@codex
     with:
       project: uusd-ubq-fi
+      deploy_platform: deno2
       entrypoint: serve.ts
       include: |
         public/**

@@ -11,9 +11,9 @@ export interface TokenBalanceBatchParams {
 /**
  * Result of a token balance batch request
  */
-export interface TokenBalanceBatchResult {
+export interface TokenBalanceBatchResult<TSymbol extends string = string> {
   tokenAddress: Address;
-  symbol: string;
+  symbol: TSymbol;
   balance: bigint;
 }
 
@@ -32,13 +32,13 @@ function encodeBalanceOfCall(userAddress: Address): `0x${string}` {
  * Batch fetch ERC20 token balances using multicall pattern
  * This uses multiple individual eth_call requests but processes them more efficiently
  */
-export async function batchFetchTokenBalances(
+export async function batchFetchTokenBalances<TSymbol extends string>(
   publicClient: PublicClient,
-  tokens: { address: Address; symbol: string }[],
+  tokens: { address: Address; symbol: TSymbol }[],
   userAddress: Address
-): Promise<TokenBalanceBatchResult[]> {
+): Promise<TokenBalanceBatchResult<TSymbol>[]> {
   // Create all the balance requests
-  const balancePromises = tokens.map(async (token): Promise<TokenBalanceBatchResult> => {
+  const balancePromises = tokens.map(async (token): Promise<TokenBalanceBatchResult<TSymbol>> => {
     try {
       // Use eth_call directly for better performance
       const callData = encodeBalanceOfCall(userAddress);
@@ -77,11 +77,11 @@ export async function batchFetchTokenBalances(
  * Alternative implementation using the multicall contract pattern
  * This would be even more efficient but requires a multicall contract deployment
  */
-export async function batchFetchTokenBalancesMulticall(
+export async function batchFetchTokenBalancesMulticall<TSymbol extends string>(
   publicClient: PublicClient,
-  tokens: { address: Address; symbol: string }[],
+  tokens: { address: Address; symbol: TSymbol }[],
   userAddress: Address
-): Promise<TokenBalanceBatchResult[]> {
+): Promise<TokenBalanceBatchResult<TSymbol>[]> {
   // This would use a multicall contract to batch all the calls into a single transaction
   // Use simpler approach until multicall is implemented
   // TODO: Implement when multicall contract address is available
