@@ -1,4 +1,4 @@
-name: Deno Deploy (PR build)
+name: Deno Deploy 2 (PR build)
 
 on:
   pull_request:

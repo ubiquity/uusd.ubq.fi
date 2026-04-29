@@ -1,8 +1,8 @@
-name: Deno Deploy (PR preview)
+name: Deno Deploy 2 (PR preview)
 
 on:
   workflow_run:
-    workflows: ["Deno Deploy (PR build)"]
+    workflows: ["Deno Deploy 2 (PR build)"]
     types: [completed]
 
 jobs:
