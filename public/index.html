@@ -45,7 +45,10 @@
         <div id="exchangeForm" class="exchange-form" style="display: none;">
             <form onsubmit="window.app.handleExchange(event)">
                 <div id="input" class="form-group">
-                    <input type="number" id="exchangeAmount" step="any" placeholder="Enter amount" required>
+                    <div class="input-with-max">
+                        <input type="number" id="exchangeAmount" step="any" placeholder="Enter amount" required>
+                        <button type="button" id="maxButton" class="max-button" title="Set maximum amount">Max</button>
+                    </div>
                 </div>
 
                 <!-- Optional: UBQ Discount (only shown when protocol allows) -->
