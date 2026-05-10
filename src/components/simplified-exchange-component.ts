@@ -42,6 +42,7 @@ export class SimplifiedExchangeComponent {
   private _transactionStateService: TransactionStateService;
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private _renderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private _routeCalculationId = 0;
 
   // Simplified state
   private _state = {
@@ -291,8 +292,10 @@ export class SimplifiedExchangeComponent {
   private _setupWalletEventListeners() {
     this._services.walletService.addEventListener(WALLET_EVENTS.CONNECT, async (_account?: Address | null) => {
       // Clear state and re-evaluate on wallet connect
+      this._routeCalculationId++;
       this._state.amount = "";
       this._state.routeResult = null;
+      this._state.isCalculating = false;
 
       // Wait for balances to load before rendering
       await this._services.centralizedRefreshService.forceRefresh();
@@ -303,8 +306,12 @@ export class SimplifiedExchangeComponent {
 
     this._services.walletService.addEventListener(WALLET_EVENTS.DISCONNECT, async () => {
       // Clear all state on disconnect
+      this._routeCalculationId++;
       this._state.amount = "";
       this._state.routeResult = null;
+      this._state.isCalculating = false;
+      this._transactionStateService.resetAllButtons();
+      this._services.notificationManager.clearNotifications("exchange");
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (amountInput) amountInput.value = "";
       await this._services.centralizedRefreshService.forceRefresh();
@@ -313,8 +320,11 @@ export class SimplifiedExchangeComponent {
 
     this._services.walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, async (account?: Address | null) => {
       // Clear state and force re-evaluation when switching accounts
+      this._routeCalculationId++;
       this._state.amount = "";
       this._state.routeResult = null;
+      this._state.isCalculating = false;
+      this._services.notificationManager.clearNotifications("exchange");
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (amountInput) amountInput.value = "";
 
@@ -418,6 +428,11 @@ export class SimplifiedExchangeComponent {
   private _handleAmountChange() {
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
     this._state.amount = amountInput?.value || "";
+    this._routeCalculationId++;
+    this._state.routeResult = null;
+    this._state.isCalculating = false;
+    this._services.notificationManager.clearNotifications("exchange");
+    this._renderOutput();
 
     // Debounce calculation
     if (this._debounceTimer) {
@@ -451,14 +466,14 @@ export class SimplifiedExchangeComponent {
   }
 
   private _handleTokenSelect(_event: Event) {
-    if (this._state.direction === "deposit") {
-      const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
-      amountInput.value = "";
-      this._state.amount = "";
-    }
+    this._routeCalculationId++;
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (amountInput) amountInput.value = "";
+    this._state.amount = "";
+    this._state.routeResult = null;
+    this._state.isCalculating = false;
     this._services.notificationManager.clearNotifications("exchange");
-    void this._render();
-    void this._calculateRoute();
+    this._render();
   }
 
   /**
@@ -466,9 +481,11 @@ export class SimplifiedExchangeComponent {
    */
   private async _switchDirection(direction: ExchangeDirection) {
     // Clear current state
+    this._routeCalculationId++;
     this._state.direction = direction;
     this._state.amount = "";
     this._state.routeResult = null;
+    this._state.isCalculating = false;
 
     // Clear input
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
@@ -509,12 +526,17 @@ export class SimplifiedExchangeComponent {
   private async _calculateRoute() {
     const amount = this._state.amount;
     if (!amount || amount === "0") {
+      this._routeCalculationId++;
       this._state.routeResult = null;
+      this._state.isCalculating = false;
       this._renderOutput();
       return;
     }
 
+    const calculationId = ++this._routeCalculationId;
     this._state.isCalculating = true;
+    this._state.routeResult = null;
+    this._renderOutput();
 
     try {
       const selectedToken = this._getSelectedToken();
@@ -541,14 +563,22 @@ export class SimplifiedExchangeComponent {
         }
       }
 
+      if (calculationId !== this._routeCalculationId) {
+        return;
+      }
       this._state.routeResult = routeResult;
     } catch (error) {
+      if (calculationId !== this._routeCalculationId) {
+        return;
+      }
       console.error("Error calculating route:", error);
       this._state.routeResult = null;
+    } finally {
+      if (calculationId === this._routeCalculationId) {
+        this._state.isCalculating = false;
+        this._renderOutput();
+      }
     }
-
-    this._state.isCalculating = false;
-    this._renderOutput();
   }
 
   /**
@@ -857,10 +887,35 @@ export class SimplifiedExchangeComponent {
 
     if (!outputSection || !button) return;
 
-    // Hide output if no route calculated
+    if (this._state.isCalculating && this._state.amount) {
+      outputSection.style.display = "block";
+
+      const expectedOutputEl = document.getElementById("expectedOutput");
+      const ubqOutputEl = document.getElementById("ubqOutput");
+      if (expectedOutputEl) {
+        expectedOutputEl.textContent = "Finding best route...";
+      }
+      if (ubqOutputEl) {
+        ubqOutputEl.textContent = "";
+      }
+
+      button.innerHTML = `Finding best route<span class="loading"></span>`;
+      button.disabled = true;
+      return;
+    }
+
+    // Hide output if no amount has been entered
     if (!this._state.routeResult || !this._state.amount) {
-      outputSection.style.display = "none";
-      button.textContent = "Enter amount to continue";
+      outputSection.style.display = this._state.amount ? "block" : "none";
+      const expectedOutputEl = document.getElementById("expectedOutput");
+      const ubqOutputEl = document.getElementById("ubqOutput");
+      if (expectedOutputEl) {
+        expectedOutputEl.textContent = this._state.amount ? "No route available" : "-";
+      }
+      if (ubqOutputEl) {
+        ubqOutputEl.textContent = "";
+      }
+      button.textContent = this._state.amount ? "No route available" : "Enter amount to continue";
       button.disabled = true;
       return;
     }
@@ -910,6 +965,8 @@ export class SimplifiedExchangeComponent {
         return "🔄 Protocol Redeem";
       case "swap":
         return "🔀 Curve Swap";
+      case "cowswap":
+        return "🐮 CoW Swap";
       default:
         return "";
     }
@@ -921,6 +978,12 @@ export class SimplifiedExchangeComponent {
   private async _updateActionButton() {
     const button = document.getElementById("exchangeButton") as HTMLButtonElement;
     if (!button || !this._state.routeResult) return;
+
+    if (this._state.isCalculating) {
+      button.innerHTML = `Finding best route<span class="loading"></span>`;
+      button.disabled = true;
+      return;
+    }
 
     const account = this._services.walletService.getAccount();
 
@@ -992,6 +1055,12 @@ export class SimplifiedExchangeComponent {
    * Execute the transaction
    */
   async executeTransaction(): Promise<void> {
+    const button = document.getElementById("exchangeButton") as HTMLButtonElement | null;
+    const transactionState = this._transactionStateService.getButtonState("exchangeButton");
+    if (transactionState?.isLoading || this._state.isCalculating || button?.disabled) {
+      return;
+    }
+
     this._transactionStateService.startTransaction("exchangeButton");
     this._services.notificationManager.clearNotifications("exchange");
 
@@ -1172,7 +1241,11 @@ export class SimplifiedExchangeComponent {
         this._render();
       });
     } else {
+      this._routeCalculationId++;
       this._state.routeResult = null;
+      this._state.isCalculating = false;
+      this._services.notificationManager.clearNotifications("exchange");
+      this._transactionStateService.resetAllButtons();
       this._renderOutput();
       this._render();
     }
