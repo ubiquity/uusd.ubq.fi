@@ -25,7 +25,7 @@ export function getMaxTokenBalance(inventoryBar: InventoryBarComponent, tokenSym
   const formattedBalance = formatUnits(tokenBalance.balance, tokenBalance.decimals);
 
   // Remove trailing zeros and ensure clean formatting
-  const cleanBalance = formattedBalance.replace(/\.?0+$/, "");
+  const cleanBalance = formattedBalance.replace(/\.?0+$/, "") || "0";
 
   return cleanBalance;
 }

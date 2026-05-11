@@ -14,10 +14,10 @@ import type { InventoryBarComponent } from "./inventory-bar-component.ts";
 import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
-import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
+import { INVENTORY_TOKENS, type TokenBalance } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
 import type { CowSwapService } from "../services/cowswap-service.ts";
-import tokenList from "../constants/token-list.json" with { type: "json" };
+import { hasVisibleTokenValue, sortBalancesByValue } from "../utils/token-utils.ts";
 
 interface SimplifiedExchangeServices {
   walletService: WalletService;
@@ -162,74 +162,53 @@ export class SimplifiedExchangeComponent {
     }
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
+    const previousSelection = selectEl.value;
 
-    if (refreshData?.tokenBalances) {
+    yourTokenGroup.replaceChildren();
+    otherTokenGroup.replaceChildren();
+
+    const walletTokens = sortBalancesByValue((refreshData?.tokenBalances ?? []).filter(hasVisibleTokenValue));
+
+    if (walletTokens.length > 0) {
       yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
-      if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
-        !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-      ) {
-        // Ensure LUSD is always in the first position
-        const option = document.createElement("option");
-        option.value = INVENTORY_TOKENS.LUSD.address;
-        option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-        option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-        option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-        yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
-      }
-      refreshData.tokenBalances.forEach((balance) => {
-        if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
-          return; // Token already exists
-        }
-        otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
-
-        const option = document.createElement("option");
-        option.value = balance.address;
-        option.setAttribute("data-decimals", balance.decimals.toString());
-        option.setAttribute("data-symbol", balance.symbol);
-        option.text = balance.symbol.substring(0, 10);
-        yourTokenGroup.appendChild(option);
-      });
-      // Remove old user's tokens
-      yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
-          opt.remove();
-        }
-      });
+      walletTokens.forEach((balance) => this._appendTokenOption(yourTokenGroup, balance));
     } else {
       yourTokenGroup.style.display = "none";
-      yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
     }
 
-    if (
-      !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`) &&
-      !otherTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-    ) {
-      // Ensure LUSD is always in the first position
-      const option = document.createElement("option");
-      option.value = INVENTORY_TOKENS.LUSD.address;
-      option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-      option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-      option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-      otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
+    if (!this._hasTokenOption(selectEl, INVENTORY_TOKENS.LUSD.address)) {
+      this._appendTokenOption(otherTokenGroup, INVENTORY_TOKENS.LUSD);
     }
-    tokenList.forEach((token) => {
-      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
-        return; // Token already exists
-      }
-      const option = document.createElement("option");
-      option.value = token.address;
-      option.setAttribute("data-decimals", token.decimals.toString());
-      option.setAttribute("data-symbol", token.symbol);
-      option.text = token.symbol.substring(0, 10);
-      otherTokenGroup.appendChild(option);
-    });
-    otherTokenGroup.querySelectorAll("option").forEach((opt) => {
-      if (yourTokenGroup.querySelector(`option[value="${opt.value}"i]`)) {
-        opt.remove();
-      }
-    });
+
+    otherTokenGroup.style.display = otherTokenGroup.childElementCount > 0 ? "" : "none";
+    this._restoreTokenSelection(selectEl, previousSelection);
+  }
+
+  private _appendTokenOption(group: HTMLOptGroupElement, token: Pick<TokenBalance, "address" | "symbol" | "decimals">): void {
+    const option = document.createElement("option");
+    option.value = token.address;
+    option.setAttribute("data-decimals", token.decimals.toString());
+    option.setAttribute("data-symbol", token.symbol);
+    option.text = token.symbol.substring(0, 10);
+    group.appendChild(option);
+  }
+
+  private _hasTokenOption(selectEl: HTMLSelectElement, address: Address): boolean {
+    return [...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, address));
+  }
+
+  private _restoreTokenSelection(selectEl: HTMLSelectElement, previousSelection: string): void {
+    if (previousSelection && this._hasTokenOption(selectEl, previousSelection as Address)) {
+      selectEl.value = previousSelection;
+      return;
+    }
+
+    const lusdOption = [...selectEl.options].find((opt) => areAddressesEqual(opt.value as Address, INVENTORY_TOKENS.LUSD.address));
+    if (lusdOption) {
+      selectEl.value = lusdOption.value;
+    } else if (selectEl.options.length > 0) {
+      selectEl.selectedIndex = 0;
+    }
   }
 
   /**
@@ -353,6 +332,11 @@ export class SimplifiedExchangeComponent {
         amountInput.addEventListener("input", () => this._handleAmountChange());
       }
 
+      const maxAmountButton = document.getElementById("maxAmountButton") as HTMLButtonElement;
+      if (maxAmountButton) {
+        maxAmountButton.addEventListener("click", () => this._handleMaxButtonClick());
+      }
+
       if (depositButton) {
         depositButton.addEventListener("click", () => this._switchDirection("deposit"));
       }
@@ -427,6 +411,20 @@ export class SimplifiedExchangeComponent {
     this._debounceTimer = setTimeout(() => {
       void this._calculateRoute();
     }, 1000);
+  }
+
+  private _handleMaxButtonClick() {
+    if (!this._services.walletService.isConnected()) return;
+
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (!amountInput) return;
+
+    const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+    const maxBalance = getMaxTokenBalance(this._services.inventoryBar, selectedToken.symbol);
+
+    amountInput.value = maxBalance;
+    this._state.amount = maxBalance;
+    void this._calculateRoute();
   }
 
   private _getSelectedToken() {
