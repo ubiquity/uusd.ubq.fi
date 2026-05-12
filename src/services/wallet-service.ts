@@ -217,7 +217,13 @@ export class WalletService {
       }
 
       if (this._wagmiAdapter) {
-        await reconnect(this._wagmiAdapter.wagmiConfig);
+        try {
+          await reconnect(this._wagmiAdapter.wagmiConfig);
+        } catch (error) {
+          console.warn("Reown auto-reconnect failed:", error);
+          return null;
+        }
+
         const wagmiAccount = getAccount(this._wagmiAdapter.wagmiConfig);
         if (wagmiAccount.isConnected && wagmiAccount.address) {
           return this._setConnectedAccount(wagmiAccount.address);
@@ -279,25 +285,16 @@ export class WalletService {
       },
     });
 
-    this._appKit.subscribeAccount((account) => {
-      if (account.isConnected && account.address) {
-        void this._setConnectedAccount(account.address as Address).catch((error) => {
-          console.error("Failed to sync Reown account:", error);
-        });
-      } else if (this._account) {
-        this._clearConnectionState();
-      }
-    }, "eip155");
-
     return this._appKit;
   }
 
   private async _waitForReownConnection(): Promise<Address> {
-    if (!this._wagmiAdapter) {
+    const wagmiAdapter = this._wagmiAdapter;
+    if (!wagmiAdapter) {
       throw new Error("Wallet connection is not initialized");
     }
 
-    const existingAccount = getAccount(this._wagmiAdapter.wagmiConfig);
+    const existingAccount = getAccount(wagmiAdapter.wagmiConfig);
     if (existingAccount.isConnected && existingAccount.address) {
       return this._setConnectedAccount(existingAccount.address);
     }
@@ -308,7 +305,7 @@ export class WalletService {
         reject(new Error("Wallet connection timeout"));
       }, 120000);
 
-      const unwatch = watchAccount(this._wagmiAdapter!.wagmiConfig, {
+      const unwatch = watchAccount(wagmiAdapter.wagmiConfig, {
         onChange: (account) => {
           if (account.isConnected && account.address) {
             clearTimeout(timeout);
