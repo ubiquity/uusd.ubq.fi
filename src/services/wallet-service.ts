@@ -1,7 +1,23 @@
-import { createWalletClient, createPublicClient, custom, http, type Address, type WalletClient, type PublicClient } from "viem";
+import { createAppKit, type AppKit } from "@reown/appkit";
+import { mainnet as appKitMainnet } from "@reown/appkit/networks";
+import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
+import { disconnect as wagmiDisconnect, getAccount, getWalletClient, reconnect, watchAccount } from "@wagmi/core";
+import { createPublicClient, createWalletClient, custom, http, type Address, type PublicClient, type WalletClient } from "viem";
 import { mainnet } from "viem/chains";
 import { validateWalletConnection } from "../utils/validation-utils.ts";
 import { RPC_URL } from "../../tools/config.ts";
+
+type EthereumProvider = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on?: (event: string, callback: (...args: unknown[]) => void) => void;
+  removeListener?: (event: string, callback: (...args: unknown[]) => void) => void;
+};
+
+declare global {
+  interface Window {
+    REOWN_PROJECT_ID?: string;
+  }
+}
 
 /**
  * Wallet events that can be emitted
@@ -23,18 +39,27 @@ type WalletEventListener<T extends WalletEvent> = T extends typeof WALLET_EVENTS
     ? () => void
     : never;
 
+const REOWN_PROJECT_ID_STORAGE_KEY = "reown_project_id";
+
 /**
- * Service responsible for wallet connection and management
+ * Service responsible for wallet connection and management.
+ *
+ * Reown AppKit is used when a project id is configured. The direct injected
+ * wallet fallback keeps local development working until production provides
+ * a Reown project id.
  */
 export class WalletService {
   private _walletClient: WalletClient | null = null;
   private _publicClient: PublicClient;
   private _account: Address | null = null;
   private _eventListeners: Map<WalletEvent, Array<(address?: Address | null) => void>> = new Map();
+  private _appKit: AppKit | null = null;
+  private _wagmiAdapter: WagmiAdapter | null = null;
+  private _unwatchAccount: (() => void) | null = null;
   private static readonly _storageKey = "uusd_wallet_address";
 
-  // Store MetaMask event handlers for cleanup
-  private _metaMaskHandlers: {
+  // Store injected wallet event handlers for cleanup.
+  private _injectedWalletHandlers: {
     accountsChanged?: (...args: unknown[]) => void;
     chainChanged?: (...args: unknown[]) => void;
     disconnect?: () => void;
@@ -46,8 +71,7 @@ export class WalletService {
       transport: http(RPC_URL, { batch: true }),
     });
 
-    // Set up MetaMask event listeners for automatic account switching
-    this._setupMetaMaskListeners();
+    this._setupInjectedWalletListeners();
   }
 
   /**
@@ -96,76 +120,39 @@ export class WalletService {
    * Connect to user's wallet
    */
   async connect(forceSelection: boolean = false): Promise<Address> {
-    if (!window.ethereum) {
-      throw new Error("Please install a wallet extension");
+    const projectId = this._getReownProjectId();
+    if (!projectId) {
+      return this._connectInjectedWallet(forceSelection);
     }
 
-    try {
-      if (forceSelection) {
-        await Promise.race([
-          window.ethereum.request({
-            method: "wallet_requestPermissions",
-            params: [{ eth_accounts: {} }],
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timeout")), 60000)),
-        ]);
-      }
-
-      this._walletClient = createWalletClient({
-        chain: mainnet,
-        transport: custom(window.ethereum),
-      });
-
-      const addresses = await Promise.race([
-        this._walletClient.requestAddresses(),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Address request timeout")), 60000)),
-      ]);
-      const [address] = addresses;
-
-      this._account = address;
-
-      this._walletClient = createWalletClient({
-        account: address,
-        chain: mainnet,
-        transport: custom(window.ethereum),
-      });
-
-      // Store the connected wallet address in localStorage
-      localStorage.setItem(WalletService._storageKey, address);
-
-      this._emit(WALLET_EVENTS.CONNECT, address);
-
-      this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, address);
-
-      return address;
-    } catch (error) {
-      console.error("🔌 DEBUG: [WalletService] Connect failed:", error);
-      throw error;
-    }
+    const appKit = this._getOrCreateAppKit(projectId);
+    await appKit.open({ view: "Connect" });
+    return this._waitForReownConnection();
   }
 
   /**
    * Disconnect wallet
    */
   disconnect(): void {
-    this._walletClient = null;
-    this._account = null;
+    if (this._appKit) {
+      void this._appKit.disconnect("eip155").catch((error) => {
+        console.warn("Reown disconnect failed:", error);
+      });
+    } else if (this._wagmiAdapter) {
+      void wagmiDisconnect(this._wagmiAdapter.wagmiConfig).catch((error) => {
+        console.warn("Wagmi disconnect failed:", error);
+      });
+    }
 
-    // Clear stored wallet address from localStorage
-    localStorage.removeItem(WalletService._storageKey);
-
-    // Clean up MetaMask event listeners
-    this._cleanupMetaMaskListeners();
-
-    this._emit(WALLET_EVENTS.DISCONNECT);
-    this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, null);
+    this._clearConnectionState();
   }
 
   /**
    * Clean up the service (to be called when the component/app is destroyed)
    */
   destroy(): void {
-    this._cleanupMetaMaskListeners();
+    this._cleanupInjectedWalletListeners();
+    this._unwatchAccount?.();
     this._eventListeners.clear();
   }
 
@@ -221,256 +208,25 @@ export class WalletService {
    * Check for stored wallet connection and attempt auto-reconnection
    */
   async checkStoredConnection(): Promise<Address | null> {
-    if (!window.ethereum) {
-      console.log("🚫 No ethereum provider found");
+    const projectId = this._getReownProjectId();
+    if (projectId) {
+      const appKit = this._getOrCreateAppKit(projectId);
+      const account = appKit.getAccount("eip155");
+      if (account?.isConnected && account.address) {
+        return this._setConnectedAccount(account.address as Address);
+      }
+
+      if (this._wagmiAdapter) {
+        await reconnect(this._wagmiAdapter.wagmiConfig);
+        const wagmiAccount = getAccount(this._wagmiAdapter.wagmiConfig);
+        if (wagmiAccount.isConnected && wagmiAccount.address) {
+          return this._setConnectedAccount(wagmiAccount.address);
+        }
+      }
       return null;
     }
 
-    const storedAddress = localStorage.getItem(WalletService._storageKey);
-    if (!storedAddress) {
-      console.log("ℹ️ No stored wallet address found");
-      return null;
-    }
-
-    console.log("📱 Found stored wallet address:", storedAddress);
-
-    try {
-      // Check if the stored address is still available without requiring permission
-      // Using eth_accounts returns already-connected accounts without triggering permission prompt
-      const availableAccounts = (await window.ethereum.request({
-        method: "eth_accounts",
-      })) as string[];
-
-      console.log("🔍 Available accounts from eth_accounts:", availableAccounts);
-      console.log("🔍 Looking for stored address:", storedAddress);
-
-      // Check for address match (case-insensitive)
-      const normalizedStoredAddress = storedAddress.toLowerCase();
-      const normalizedAccounts = availableAccounts.map((addr) => addr.toLowerCase());
-      const isAddressMatch = normalizedAccounts.includes(normalizedStoredAddress);
-
-      console.log("🔍 Address match found (case-insensitive):", isAddressMatch);
-
-      if (isAddressMatch) {
-        // Account is still available, create wallet client and connect
-        this._walletClient = createWalletClient({
-          account: storedAddress as Address,
-          chain: mainnet,
-          transport: custom(window.ethereum),
-        });
-
-        this._account = storedAddress as Address;
-        console.log("🔄 Auto-reconnected to stored wallet:", storedAddress);
-
-        this._emit(WALLET_EVENTS.CONNECT, this._account);
-        this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, this._account);
-        return this._account;
-      } else if (availableAccounts.length === 0) {
-        // No accounts returned by eth_accounts - this could mean:
-        // 1. Wallet is locked
-        // 2. Site permissions were revoked
-        // 3. Wallet provider isn't ready yet
-        console.log("⚠️ No accounts returned by eth_accounts. Trying fallback approach...");
-
-        // Try a fallback approach: create wallet client and try to get addresses silently
-        try {
-          this._walletClient = createWalletClient({
-            chain: mainnet,
-            transport: custom(window.ethereum),
-          });
-
-          // Try to get addresses without triggering permission prompt
-          const addresses = await this._walletClient.getAddresses();
-
-          // Check for address match (case-insensitive)
-          const normalizedStoredAddress = storedAddress.toLowerCase();
-          const normalizedAddresses = addresses.map((addr) => addr.toLowerCase());
-          const isAddressMatch = normalizedAddresses.includes(normalizedStoredAddress);
-
-          if (isAddressMatch) {
-            this._account = storedAddress as Address;
-            console.log("🔄 Auto-reconnected via fallback method:", storedAddress);
-
-            this._walletClient = createWalletClient({
-              account: storedAddress as Address,
-              chain: mainnet,
-              transport: custom(window.ethereum),
-            });
-
-            this._emit(WALLET_EVENTS.CONNECT, this._account);
-            this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, this._account);
-            return this._account;
-          } else {
-            console.log("🗑️ Fallback: Stored address not available, clearing:", storedAddress);
-            localStorage.removeItem(WalletService._storageKey);
-            return null;
-          }
-        } catch (fallbackError) {
-          console.log("❌ Fallback approach also failed:", fallbackError);
-
-          // Try one more approach: check wallet permissions
-          try {
-            const permissions = (await window.ethereum.request({
-              method: "wallet_getPermissions",
-            })) as Array<{ caveats: Array<{ value: string[] }> }>;
-
-            console.log("🔐 Wallet permissions:", permissions);
-
-            // Check if we have eth_accounts permission for the stored address (case-insensitive)
-            const normalizedStoredAddress = storedAddress.toLowerCase();
-            const ethAccountsPermission = permissions.find((p) =>
-              p.caveats?.some((caveat) => caveat.value?.some((addr) => addr.toLowerCase() === normalizedStoredAddress))
-            );
-
-            if (ethAccountsPermission) {
-              console.log("✅ Found permission for stored address, attempting connection...");
-              this._account = storedAddress as Address;
-
-              this._walletClient = createWalletClient({
-                account: storedAddress as Address,
-                chain: mainnet,
-                transport: custom(window.ethereum),
-              });
-
-              this._emit(WALLET_EVENTS.CONNECT, this._account);
-              this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, this._account);
-              return this._account;
-            }
-          } catch (permError) {
-            console.log("❌ Permission check failed:", permError);
-          }
-
-          // Don't clear stored address on fallback failure - user might just need to unlock wallet
-          return null;
-        }
-      } else {
-        // Some accounts available but not the stored one
-        console.log("🗑️ Stored address no longer available, clearing:", storedAddress);
-        localStorage.removeItem(WalletService._storageKey);
-        return null;
-      }
-    } catch (error) {
-      // Auto-reconnection failed, clear stored address
-      console.log("❌ Auto-reconnection failed:", error);
-      localStorage.removeItem(WalletService._storageKey);
-      return null;
-    }
-  }
-
-  /**
-   * Set up MetaMask event listeners for automatic account switching
-   */
-  private _setupMetaMaskListeners(): void {
-    // Only set up listeners if MetaMask is available
-    if (!window.ethereum) {
-      return;
-    }
-
-    // Clean up any existing listeners first
-    this._cleanupMetaMaskListeners();
-
-    // Create and store account change handler
-    this._metaMaskHandlers.accountsChanged = (...args: unknown[]) => {
-      const accounts = args[0] as string[];
-      console.log("🔄 MetaMask account change detected:", accounts);
-      void this._handleAccountsChanged(accounts).catch((error) => {
-        console.error("Error handling account change:", error);
-      });
-    };
-
-    // Create and store chain change handler
-    this._metaMaskHandlers.chainChanged = (...args: unknown[]) => {
-      const chainId = args[0] as string;
-      console.log("🔗 MetaMask chain change detected:", chainId);
-      // For now, just log - you might want to handle chain changes in the future
-    };
-
-    // Create and store disconnect handler
-    this._metaMaskHandlers.disconnect = () => {
-      console.log("🔌 MetaMask disconnect detected");
-      // Handle wallet disconnect
-      if (this.isConnected()) {
-        this.disconnect();
-      }
-    };
-
-    // Attach the handlers
-    window.ethereum.on("accountsChanged", this._metaMaskHandlers.accountsChanged);
-    window.ethereum.on("chainChanged", this._metaMaskHandlers.chainChanged);
-    window.ethereum.on("disconnect", this._metaMaskHandlers.disconnect);
-  }
-
-  /**
-   * Clean up MetaMask event listeners
-   */
-  private _cleanupMetaMaskListeners(): void {
-    if (!window.ethereum) {
-      return;
-    }
-
-    // Remove all stored event handlers
-    if (this._metaMaskHandlers.accountsChanged) {
-      window.ethereum.removeListener("accountsChanged", this._metaMaskHandlers.accountsChanged);
-    }
-    if (this._metaMaskHandlers.chainChanged) {
-      window.ethereum.removeListener("chainChanged", this._metaMaskHandlers.chainChanged);
-    }
-    if (this._metaMaskHandlers.disconnect) {
-      window.ethereum.removeListener("disconnect", this._metaMaskHandlers.disconnect);
-    }
-
-    // Clear the handlers object
-    this._metaMaskHandlers = {};
-  }
-
-  /**
-   * Handle MetaMask account changes
-   */
-  private async _handleAccountsChanged(accounts: string[]): Promise<void> {
-    try {
-      // If no accounts available (wallet locked or disconnected)
-      if (!accounts || accounts.length === 0) {
-        console.log("🔒 No accounts available - wallet may be locked");
-        if (this.isConnected()) {
-          this.disconnect();
-        }
-        return;
-      }
-
-      const newAccount = accounts[0] as Address;
-      const currentAccount = this._account;
-
-      // If the account actually changed and we were connected
-      if (this.isConnected() && currentAccount !== newAccount) {
-        console.log("🔄 Account switched from", currentAccount, "to", newAccount);
-
-        // Update internal state
-        this._account = newAccount;
-
-        // Update stored address
-        localStorage.setItem(WalletService._storageKey, newAccount);
-
-        // Create new wallet client for the new account
-        if (window.ethereum) {
-          this._walletClient = createWalletClient({
-            account: newAccount,
-            chain: mainnet,
-            transport: custom(window.ethereum),
-          });
-        }
-
-        // Notify listeners of the account change
-        this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, newAccount);
-
-        console.log("✅ Account switch completed successfully");
-      } else if (!this.isConnected() && newAccount) {
-        // If we weren't connected but now have an account, don't auto-connect
-        // Let the user manually connect if they want to
-        console.log("📱 New account detected but not auto-connecting. User must manually connect.");
-      }
-    } catch (error) {
-      console.error("❌ Error handling account change:", error);
-    }
+    return this._checkStoredInjectedWalletConnection();
   }
 
   /**
@@ -478,5 +234,268 @@ export class WalletService {
    */
   getStoredAddress(): string | null {
     return localStorage.getItem(WalletService._storageKey);
+  }
+
+  private _getReownProjectId(): string | null {
+    const metaProjectId = document.querySelector<HTMLMetaElement>('meta[name="reown-project-id"]')?.content.trim();
+    const projectId = window.REOWN_PROJECT_ID?.trim() || metaProjectId || localStorage.getItem(REOWN_PROJECT_ID_STORAGE_KEY)?.trim();
+    return projectId || null;
+  }
+
+  private _getOrCreateAppKit(projectId: string): AppKit {
+    if (this._appKit) {
+      return this._appKit;
+    }
+
+    this._wagmiAdapter = new WagmiAdapter({
+      networks: [appKitMainnet],
+      projectId,
+    });
+
+    this._appKit = createAppKit({
+      adapters: [this._wagmiAdapter],
+      networks: [appKitMainnet],
+      projectId,
+      metadata: {
+        name: "Ubiquity Dollar",
+        description: "Ubiquity Dollar exchange",
+        url: window.location.origin,
+        icons: [`${window.location.origin}/favicon.png`],
+      },
+      features: {
+        analytics: false,
+      },
+    });
+
+    this._unwatchAccount = watchAccount(this._wagmiAdapter.wagmiConfig, {
+      onChange: (account) => {
+        if (account.isConnected && account.address) {
+          void this._setConnectedAccount(account.address).catch((error) => {
+            console.error("Failed to sync Reown account:", error);
+          });
+        } else if (this._account) {
+          this._clearConnectionState();
+        }
+      },
+    });
+
+    this._appKit.subscribeAccount((account) => {
+      if (account.isConnected && account.address) {
+        void this._setConnectedAccount(account.address as Address).catch((error) => {
+          console.error("Failed to sync Reown account:", error);
+        });
+      } else if (this._account) {
+        this._clearConnectionState();
+      }
+    }, "eip155");
+
+    return this._appKit;
+  }
+
+  private async _waitForReownConnection(): Promise<Address> {
+    if (!this._wagmiAdapter) {
+      throw new Error("Wallet connection is not initialized");
+    }
+
+    const existingAccount = getAccount(this._wagmiAdapter.wagmiConfig);
+    if (existingAccount.isConnected && existingAccount.address) {
+      return this._setConnectedAccount(existingAccount.address);
+    }
+
+    return new Promise<Address>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        unwatch();
+        reject(new Error("Wallet connection timeout"));
+      }, 120000);
+
+      const unwatch = watchAccount(this._wagmiAdapter!.wagmiConfig, {
+        onChange: (account) => {
+          if (account.isConnected && account.address) {
+            clearTimeout(timeout);
+            unwatch();
+            void this._setConnectedAccount(account.address).then(resolve, reject);
+          }
+        },
+      });
+    });
+  }
+
+  private async _setConnectedAccount(address: Address): Promise<Address> {
+    this._account = address;
+    localStorage.setItem(WalletService._storageKey, address);
+
+    if (this._wagmiAdapter) {
+      this._walletClient = await getWalletClient(this._wagmiAdapter.wagmiConfig);
+    }
+    const provider = this._getEthereumProvider();
+    if (!this._wagmiAdapter && provider) {
+      this._walletClient = createWalletClient({
+        account: address,
+        chain: mainnet,
+        transport: custom(provider),
+      });
+    }
+
+    this._emit(WALLET_EVENTS.CONNECT, address);
+    this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, address);
+    return address;
+  }
+
+  private _clearConnectionState(): void {
+    this._walletClient = null;
+    this._account = null;
+    localStorage.removeItem(WalletService._storageKey);
+    this._emit(WALLET_EVENTS.DISCONNECT);
+    this._emit(WALLET_EVENTS.ACCOUNT_CHANGED, null);
+  }
+
+  private async _connectInjectedWallet(forceSelection: boolean = false): Promise<Address> {
+    const provider = this._getEthereumProvider();
+    if (!provider) {
+      throw new Error("Please install a wallet extension or configure a Reown project id");
+    }
+
+    try {
+      if (forceSelection) {
+        await Promise.race([
+          provider.request({
+            method: "wallet_requestPermissions",
+            params: [{ eth_accounts: {} }],
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timeout")), 60000)),
+        ]);
+      }
+
+      this._walletClient = createWalletClient({
+        chain: mainnet,
+        transport: custom(provider),
+      });
+
+      const addresses = await Promise.race([
+        this._walletClient.requestAddresses(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Address request timeout")), 60000)),
+      ]);
+      const [address] = addresses;
+
+      return this._setConnectedAccount(address);
+    } catch (error) {
+      console.error("Wallet connect failed:", error);
+      throw error;
+    }
+  }
+
+  private async _checkStoredInjectedWalletConnection(): Promise<Address | null> {
+    const provider = this._getEthereumProvider();
+    if (!provider) {
+      console.log("No ethereum provider found");
+      return null;
+    }
+
+    const storedAddress = localStorage.getItem(WalletService._storageKey);
+    if (!storedAddress) {
+      console.log("No stored wallet address found");
+      return null;
+    }
+
+    try {
+      const availableAccounts = (await provider.request({
+        method: "eth_accounts",
+      })) as string[];
+
+      const normalizedStoredAddress = storedAddress.toLowerCase();
+      const normalizedAccounts = availableAccounts.map((addr) => addr.toLowerCase());
+      const isAddressMatch = normalizedAccounts.includes(normalizedStoredAddress);
+
+      if (isAddressMatch) {
+        return this._setConnectedAccount(storedAddress as Address);
+      }
+
+      localStorage.removeItem(WalletService._storageKey);
+      return null;
+    } catch (error) {
+      console.log("Auto-reconnection failed:", error);
+      localStorage.removeItem(WalletService._storageKey);
+      return null;
+    }
+  }
+
+  /**
+   * Set up injected wallet event listeners for automatic account switching
+   */
+  private _setupInjectedWalletListeners(): void {
+    const provider = this._getEthereumProvider();
+    if (!provider?.on) {
+      return;
+    }
+
+    this._cleanupInjectedWalletListeners();
+
+    this._injectedWalletHandlers.accountsChanged = (...args: unknown[]) => {
+      const accounts = args[0] as string[];
+      void this._handleInjectedAccountsChanged(accounts).catch((error) => {
+        console.error("Error handling account change:", error);
+      });
+    };
+
+    this._injectedWalletHandlers.chainChanged = (...args: unknown[]) => {
+      const chainId = args[0] as string;
+      console.log("Injected wallet chain change detected:", chainId);
+    };
+
+    this._injectedWalletHandlers.disconnect = () => {
+      if (this.isConnected()) {
+        this.disconnect();
+      }
+    };
+
+    provider.on("accountsChanged", this._injectedWalletHandlers.accountsChanged);
+    provider.on("chainChanged", this._injectedWalletHandlers.chainChanged);
+    provider.on("disconnect", this._injectedWalletHandlers.disconnect);
+  }
+
+  /**
+   * Clean up injected wallet event listeners
+   */
+  private _cleanupInjectedWalletListeners(): void {
+    const provider = this._getEthereumProvider();
+    if (!provider?.removeListener) {
+      return;
+    }
+
+    if (this._injectedWalletHandlers.accountsChanged) {
+      provider.removeListener("accountsChanged", this._injectedWalletHandlers.accountsChanged);
+    }
+    if (this._injectedWalletHandlers.chainChanged) {
+      provider.removeListener("chainChanged", this._injectedWalletHandlers.chainChanged);
+    }
+    if (this._injectedWalletHandlers.disconnect) {
+      provider.removeListener("disconnect", this._injectedWalletHandlers.disconnect);
+    }
+
+    this._injectedWalletHandlers = {};
+  }
+
+  /**
+   * Handle injected wallet account changes
+   */
+  private async _handleInjectedAccountsChanged(accounts: string[]): Promise<void> {
+    if (!accounts || accounts.length === 0) {
+      if (this.isConnected()) {
+        this.disconnect();
+      }
+      return;
+    }
+
+    const newAccount = accounts[0] as Address;
+    const currentAccount = this._account;
+
+    if (this.isConnected() && currentAccount !== newAccount) {
+      await this._setConnectedAccount(newAccount);
+    }
+  }
+
+  private _getEthereumProvider(): EthereumProvider | null {
+    const provider = window.ethereum as EthereumProvider | undefined;
+    return typeof provider?.request === "function" ? provider : null;
   }
 }

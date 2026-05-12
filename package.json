@@ -32,11 +32,18 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@coinbase/wallet-sdk": "^4.3.7",
     "@cowprotocol/cow-sdk": "^7.2.7",
     "@cowprotocol/sdk-viem-adapter": "^0.3.0",
+    "@metamask/connect-evm": "^1.2.0",
+    "@reown/appkit": "^1.8.19",
+    "@reown/appkit-adapter-wagmi": "^1.8.19",
     "@ubiquity-dao/permit2-rpc-client": "^0.1.2",
+    "@walletconnect/ethereum-provider": "^2.23.9",
     "commander": "^14.0.0",
     "dotenv": "^16.5.0",
-    "viem": "^2.31.2"
+    "porto": "^0.2.37",
+    "viem": "^2.31.2",
+    "wagmi": "^3.6.14"
   }
 }

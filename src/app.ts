@@ -20,16 +20,6 @@ import { formatAddress } from "./utils/format-utils.ts";
 import { TransactionButtonUtils } from "./utils/transaction-button-utils.ts";
 import { CowSwapService } from "./services/cowswap-service.ts";
 
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      on: (event: string, callback: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
-    };
-  }
-}
-
 /**
  * Main Application Class - Lightweight Coordinator
  * Orchestrates components and manages high-level application state
