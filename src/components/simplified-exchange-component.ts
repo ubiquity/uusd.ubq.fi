@@ -14,10 +14,12 @@ import type { InventoryBarComponent } from "./inventory-bar-component.ts";
 import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
-import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
+import { INVENTORY_TOKENS, type TokenBalance } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
 import type { CowSwapService } from "../services/cowswap-service.ts";
 import tokenList from "../constants/token-list.json" with { type: "json" };
+
+const MIN_VISIBLE_TOKEN_USD_VALUE = 1;
 
 interface SimplifiedExchangeServices {
   walletService: WalletService;
@@ -162,74 +164,60 @@ export class SimplifiedExchangeComponent {
     }
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
+    const previousValue = selectEl.value;
 
-    if (refreshData?.tokenBalances) {
-      yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
-      if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
-        !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-      ) {
-        // Ensure LUSD is always in the first position
-        const option = document.createElement("option");
-        option.value = INVENTORY_TOKENS.LUSD.address;
-        option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-        option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-        option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-        yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
+    yourTokenGroup.replaceChildren();
+    otherTokenGroup.replaceChildren();
+
+    function appendOption(group: HTMLOptGroupElement, token: { address: Address; decimals: number; symbol: string }) {
+      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address))) {
+        return;
       }
-      refreshData.tokenBalances.forEach((balance) => {
-        if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
-          return; // Token already exists
-        }
-        otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
 
-        const option = document.createElement("option");
-        option.value = balance.address;
-        option.setAttribute("data-decimals", balance.decimals.toString());
-        option.setAttribute("data-symbol", balance.symbol);
-        option.text = balance.symbol.substring(0, 10);
-        yourTokenGroup.appendChild(option);
-      });
-      // Remove old user's tokens
-      yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
-          opt.remove();
-        }
-      });
-    } else {
-      yourTokenGroup.style.display = "none";
-      yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
-    }
-
-    if (
-      !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`) &&
-      !otherTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-    ) {
-      // Ensure LUSD is always in the first position
-      const option = document.createElement("option");
-      option.value = INVENTORY_TOKENS.LUSD.address;
-      option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-      option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-      option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-      otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
-    }
-    tokenList.forEach((token) => {
-      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
-        return; // Token already exists
-      }
       const option = document.createElement("option");
       option.value = token.address;
       option.setAttribute("data-decimals", token.decimals.toString());
       option.setAttribute("data-symbol", token.symbol);
       option.text = token.symbol.substring(0, 10);
-      otherTokenGroup.appendChild(option);
-    });
-    otherTokenGroup.querySelectorAll("option").forEach((opt) => {
-      if (yourTokenGroup.querySelector(`option[value="${opt.value}"i]`)) {
-        opt.remove();
+      group.appendChild(option);
+    }
+
+    function isVisibleWalletToken(balance: TokenBalance) {
+      return (
+        balance.balance > 0n && (balance.usdValue ?? 0) >= MIN_VISIBLE_TOKEN_USD_VALUE && !areAddressesEqual(balance.address, INVENTORY_TOKENS.UUSD.address)
+      );
+    }
+    const walletBalances = refreshData?.tokenBalances ?? null;
+
+    if (walletBalances) {
+      const visibleWalletBalances = walletBalances.filter(isVisibleWalletToken);
+
+      yourTokenGroup.style.display = visibleWalletBalances.length > 0 ? "" : "none";
+      visibleWalletBalances.forEach((balance) => appendOption(yourTokenGroup, balance));
+
+      // Once wallet inventory is available, do not show the large preloaded token list.
+      // Keep LUSD as a protocol-native fallback if it is not already in the wallet group.
+      if (!yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)) {
+        appendOption(otherTokenGroup, INVENTORY_TOKENS.LUSD);
       }
-    });
+      otherTokenGroup.style.display = otherTokenGroup.children.length > 0 ? "" : "none";
+    } else {
+      yourTokenGroup.style.display = "none";
+      otherTokenGroup.style.display = "";
+
+      appendOption(otherTokenGroup, INVENTORY_TOKENS.LUSD);
+      tokenList.forEach((token) =>
+        appendOption(otherTokenGroup, {
+          address: token.address as Address,
+          decimals: token.decimals,
+          symbol: token.symbol,
+        })
+      );
+    }
+
+    if (previousValue && [...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, previousValue as Address))) {
+      selectEl.value = previousValue;
+    }
   }
 
   /**
@@ -337,6 +325,7 @@ export class SimplifiedExchangeComponent {
     // eslint-disable-next-line func-style
     const setupListeners = () => {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+      const maxButton = document.getElementById("maxAmountButton") as HTMLButtonElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
       const ubqDiscountCheckbox = document.getElementById("useUbqDiscount") as HTMLInputElement;
@@ -351,6 +340,10 @@ export class SimplifiedExchangeComponent {
 
       if (amountInput) {
         amountInput.addEventListener("input", () => this._handleAmountChange());
+      }
+
+      if (maxButton) {
+        maxButton.addEventListener("click", () => this._handleMaxAmountClick());
       }
 
       if (depositButton) {
@@ -427,6 +420,39 @@ export class SimplifiedExchangeComponent {
     this._debounceTimer = setTimeout(() => {
       void this._calculateRoute();
     }, 1000);
+  }
+
+  private _getCurrentInputToken() {
+    return this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+  }
+
+  private _getMaxAmountForCurrentInput(): string {
+    const inputToken = this._getCurrentInputToken();
+    const tokenBalance = this._services.inventoryBar.getBalances().find((balance) => areAddressesEqual(balance.address, inputToken.address));
+
+    if (!tokenBalance || tokenBalance.balance <= 0n) {
+      return "0";
+    }
+
+    return formatUnits(tokenBalance.balance, tokenBalance.decimals).replace(/\.?0+$/, "") || "0";
+  }
+
+  private _handleMaxAmountClick() {
+    const maxAmount = this._getMaxAmountForCurrentInput();
+    if (maxAmount === "0") {
+      return;
+    }
+
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (!amountInput) {
+      return;
+    }
+
+    amountInput.value = maxAmount;
+    this._state.amount = maxAmount;
+    this._services.notificationManager.clearNotifications("exchange");
+    void this._calculateRoute();
+    this._updateMaxButtonState();
   }
 
   private _getSelectedToken() {
@@ -638,8 +664,32 @@ export class SimplifiedExchangeComponent {
 
     // Show/hide options based on protocol state and direction
     this._renderTokenOptions();
+    this._updateMaxButtonState();
     this._renderOptions();
     this._renderOutput();
+  }
+
+  private _updateMaxButtonState() {
+    const maxButton = document.getElementById("maxAmountButton") as HTMLButtonElement;
+    if (!maxButton) {
+      return;
+    }
+
+    if (!this._services.walletService.isConnected() || !this._services.inventoryBar.isInitialLoadComplete()) {
+      maxButton.disabled = true;
+      maxButton.title = "Connect wallet to use max";
+      return;
+    }
+
+    try {
+      const maxAmount = this._getMaxAmountForCurrentInput();
+      maxButton.disabled = maxAmount === "0";
+      maxButton.title = maxButton.disabled ? "No balance available for selected token" : `Use ${maxAmount}`;
+    } catch (error) {
+      console.error("Error updating max button:", error);
+      maxButton.disabled = true;
+      maxButton.title = "Balance unavailable";
+    }
   }
 
   /**

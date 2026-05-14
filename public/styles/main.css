@@ -35,6 +35,25 @@ button:disabled { cursor: not-allowed; }
 label {/* display: block; */margin: 8px;font-weight: 600;}
 input, select {padding: 10px;border: 1px solid #ddd;border-radius: 6px;font-size: 16px;background-color: transparent;border-color: transparent;box-shadow: 0 0 96px #ffffff40;color: #fff; }
 input:focus, select:focus { outline: none; }
+.amount-input-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+}
+.amount-input-row input {
+    flex: 1;
+    min-width: 0;
+}
+.max-button {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    font-size: 14px;
+    box-shadow: 0 0 96px #ffffff40;
+}
+.max-button:disabled {
+    opacity: 0.45;
+}
 .output-section { margin-top: 20px; padding: 20px; border-radius: 8px; }
 .output-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
 .output-label { }
