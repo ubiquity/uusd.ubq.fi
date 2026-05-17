@@ -32,6 +32,8 @@ export interface TokenMetadata {
   displayName?: string;
 }
 
+export const MIN_VISIBLE_INVENTORY_USD = 1;
+
 /**
  * Supported tokens for inventory display
  */
