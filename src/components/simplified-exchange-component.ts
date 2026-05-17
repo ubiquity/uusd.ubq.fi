@@ -11,10 +11,10 @@ import { WALLET_EVENTS } from "../services/wallet-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
-import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
+import { getMaxTokenBalance } from "../utils/balance-utils.ts";
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
-import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
+import { INVENTORY_TOKENS, MIN_VISIBLE_INVENTORY_USD, type TokenBalance } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
 import type { CowSwapService } from "../services/cowswap-service.ts";
 import tokenList from "../constants/token-list.json" with { type: "json" };
@@ -162,12 +162,15 @@ export class SimplifiedExchangeComponent {
     }
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
+    const visibleTokenBalances = this._getVisibleInventoryBalances(refreshData?.tokenBalances ?? []);
+    const hasLoadedInventory = Boolean(refreshData?.tokenBalances);
 
-    if (refreshData?.tokenBalances) {
-      yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
+    if (hasLoadedInventory) {
+      yourTokenGroup.style.display = visibleTokenBalances.length > 0 ? "" : "none";
+      otherTokenGroup.style.display = "none";
+      otherTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
       if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
+        visibleTokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
         !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
       ) {
         // Ensure LUSD is always in the first position
@@ -178,11 +181,10 @@ export class SimplifiedExchangeComponent {
         option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
         yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
       }
-      refreshData.tokenBalances.forEach((balance) => {
+      visibleTokenBalances.forEach((balance) => {
         if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
         }
-        otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
 
         const option = document.createElement("option");
         option.value = balance.address;
@@ -193,43 +195,56 @@ export class SimplifiedExchangeComponent {
       });
       // Remove old user's tokens
       yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
+        if (!visibleTokenBalances.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
           opt.remove();
         }
       });
     } else {
       yourTokenGroup.style.display = "none";
+      otherTokenGroup.style.display = "";
       yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
     }
 
-    if (
-      !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`) &&
-      !otherTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-    ) {
-      // Ensure LUSD is always in the first position
-      const option = document.createElement("option");
-      option.value = INVENTORY_TOKENS.LUSD.address;
-      option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-      option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-      option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-      otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
-    }
-    tokenList.forEach((token) => {
-      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
-        return; // Token already exists
+    if (!hasLoadedInventory) {
+      if (
+        !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`) &&
+        !otherTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
+      ) {
+        // Ensure LUSD is always in the first position
+        const option = document.createElement("option");
+        option.value = INVENTORY_TOKENS.LUSD.address;
+        option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
+        option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
+        option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
+        otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
       }
-      const option = document.createElement("option");
-      option.value = token.address;
-      option.setAttribute("data-decimals", token.decimals.toString());
-      option.setAttribute("data-symbol", token.symbol);
-      option.text = token.symbol.substring(0, 10);
-      otherTokenGroup.appendChild(option);
-    });
+      tokenList.forEach((token) => {
+        if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
+          return; // Token already exists
+        }
+        const option = document.createElement("option");
+        option.value = token.address;
+        option.setAttribute("data-decimals", token.decimals.toString());
+        option.setAttribute("data-symbol", token.symbol);
+        option.text = token.symbol.substring(0, 10);
+        otherTokenGroup.appendChild(option);
+      });
+    }
     otherTokenGroup.querySelectorAll("option").forEach((opt) => {
       if (yourTokenGroup.querySelector(`option[value="${opt.value}"i]`)) {
         opt.remove();
       }
     });
+    selectEl.disabled = selectEl.options.length === 0;
+  }
+
+  private _getVisibleInventoryBalances(tokenBalances: TokenBalance[]): TokenBalance[] {
+    return tokenBalances.filter((balance) => (balance.usdValue ?? 0) > MIN_VISIBLE_INVENTORY_USD);
+  }
+
+  private _hasVisibleTokenBalance(tokenSymbol: string): boolean {
+    const tokenBalance = this._services.inventoryBar.getBalances().find((balance) => balance.symbol === tokenSymbol);
+    return (tokenBalance?.usdValue ?? 0) > MIN_VISIBLE_INVENTORY_USD;
   }
 
   /**
@@ -337,6 +352,7 @@ export class SimplifiedExchangeComponent {
     // eslint-disable-next-line func-style
     const setupListeners = () => {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+      const maxButton = document.getElementById("maxAmountButton") as HTMLButtonElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
       const ubqDiscountCheckbox = document.getElementById("useUbqDiscount") as HTMLInputElement;
@@ -351,6 +367,10 @@ export class SimplifiedExchangeComponent {
 
       if (amountInput) {
         amountInput.addEventListener("input", () => this._handleAmountChange());
+      }
+
+      if (maxButton) {
+        maxButton.addEventListener("click", () => this._setAmountToMaxBalance());
       }
 
       if (depositButton) {
@@ -638,6 +658,7 @@ export class SimplifiedExchangeComponent {
 
     // Show/hide options based on protocol state and direction
     this._renderTokenOptions();
+    this._renderMaxButton(isBalancesLoading);
     this._renderOptions();
     this._renderOutput();
   }
@@ -1119,6 +1140,42 @@ export class SimplifiedExchangeComponent {
 
   private _autoPopulateRetryTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  private _renderMaxButton(isBalancesLoading: boolean = false) {
+    const maxButton = document.getElementById("maxAmountButton") as HTMLButtonElement;
+    if (!maxButton) return;
+
+    let hasBalance = false;
+    try {
+      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+      hasBalance = this._hasVisibleTokenBalance(selectedToken.symbol);
+    } catch {
+      hasBalance = false;
+    }
+
+    maxButton.disabled = isBalancesLoading || !this._services.walletService.isConnected() || !hasBalance;
+  }
+
+  private _setAmountToMaxBalance() {
+    if (!this._services.walletService.isConnected()) return;
+
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (!amountInput || amountInput.disabled) return;
+
+    try {
+      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+      if (!this._hasVisibleTokenBalance(selectedToken.symbol)) return;
+
+      const maxBalance = getMaxTokenBalance(this._services.inventoryBar, selectedToken.symbol);
+      if (maxBalance === "0") return;
+
+      amountInput.value = maxBalance;
+      this._state.amount = maxBalance;
+      void this._calculateRoute();
+    } catch (error) {
+      console.error("Error setting max balance:", error);
+    }
+  }
+
   /**
    * Auto-populate with max balance
    */
@@ -1145,12 +1202,8 @@ export class SimplifiedExchangeComponent {
 
     try {
       const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
-      const tokenSymbol = selectedToken.symbol;
-      if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
-        const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
-        amountInput.value = maxBalance;
-        this._state.amount = maxBalance;
-        void this._calculateRoute();
+      if (this._hasVisibleTokenBalance(selectedToken.symbol)) {
+        this._setAmountToMaxBalance();
       } else if (retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
         // If balances not loaded yet, retry
         this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
