@@ -35,6 +35,11 @@ button:disabled { cursor: not-allowed; }
 label {/* display: block; */margin: 8px;font-weight: 600;}
 input, select {padding: 10px;border: 1px solid #ddd;border-radius: 6px;font-size: 16px;background-color: transparent;border-color: transparent;box-shadow: 0 0 96px #ffffff40;color: #fff; }
 input:focus, select:focus { outline: none; }
+#input.form-group {display: flex;gap: 8px;align-items: center;justify-content: center;}
+#input.form-group input {min-width: 0;flex: 1;}
+#input.form-group select {max-width: 148px;}
+.max-amount-button {padding: 10px 12px;font-size: 14px;text-transform: uppercase;line-height: 1;}
+.max-amount-button:disabled {opacity: 0.35;box-shadow: none;}
 .output-section { margin-top: 20px; padding: 20px; border-radius: 8px; }
 .output-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
 .output-label { }
