@@ -32,6 +32,11 @@ button:disabled { cursor: not-allowed; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .form-group {margin: 20px auto;}
+#input {display: grid;grid-template-columns: minmax(96px, auto) minmax(0, 1fr) auto;gap: 8px;align-items: center;}
+#input > span {justify-self: start;}
+#exchangeAmount {width: 100%;min-width: 0;}
+.max-button {padding: 10px 14px;font-size: 14px;font-weight: 600;text-transform: uppercase;letter-spacing: 0;}
+.max-button:disabled {opacity: 0.45;box-shadow: none;}
 label {/* display: block; */margin: 8px;font-weight: 600;}
 input, select {padding: 10px;border: 1px solid #ddd;border-radius: 6px;font-size: 16px;background-color: transparent;border-color: transparent;box-shadow: 0 0 96px #ffffff40;color: #fff; }
 input:focus, select:focus { outline: none; }

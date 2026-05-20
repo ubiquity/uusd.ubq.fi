@@ -6,6 +6,7 @@ export const DEFAULT_SLIPPAGE_BPS = 50n; // 0.5% in basis points
 export const MIN_SLIPPAGE_BPS = 10n; // 0.1% minimum
 export const MAX_SLIPPAGE_BPS = 1000n; // 10% maximum
 export const DEFAULT_SLIPPAGE_PERCENT = 0.005; // 0.5% as decimal
+export const MIN_DISPLAY_TOKEN_USD_VALUE = 1;
 
 // // Price precision for protocol calculations (6 decimals)
 // export const PRICE_PRECISION = 1000000n;
