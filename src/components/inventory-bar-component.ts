@@ -6,7 +6,7 @@ import type { PriceService } from "../services/price-service.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
-import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
+import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero, isBalanceWorthDisplaying } from "../utils/token-utils.ts";
 import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
 
 import icons from "./icons.ts";
@@ -418,16 +418,16 @@ export class InventoryBarComponent {
       return;
     }
 
-    // Filter out zero balances and render individual token balances
-    const nonZeroBalances = this._state.balances.filter((balance) => !isBalanceZero(balance.balance, balance.decimals));
+    // Filter out dust and unpriced balances so tiny wallet spam does not crowd the inventory.
+    const displayableBalances = this._state.balances.filter(isBalanceWorthDisplaying);
 
-    if (nonZeroBalances.length === 0) {
-      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances available</div>';
+    if (displayableBalances.length === 0) {
+      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances over $1.00</div>';
       totalValueElement.textContent = "$0.00";
       return;
     }
 
-    const tokenElements = nonZeroBalances
+    const tokenElements = displayableBalances
       .map((balance) => {
         const amount = formatTokenAmount(balance.balance, balance.decimals);
         const usdValue = balance.usdValue ? formatUsdValue(balance.usdValue) : "";
@@ -447,7 +447,7 @@ export class InventoryBarComponent {
       .join("");
 
     tokensContainer.innerHTML = tokenElements;
-    totalValueElement.textContent = formatUsdValue(this._state.totalUsdValue);
+    totalValueElement.textContent = formatUsdValue(calculateTotalUsdValue(displayableBalances));
   }
 
   /**

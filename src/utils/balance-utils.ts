@@ -1,4 +1,4 @@
-import { formatUnits } from "viem";
+import { formatUnits, type Address } from "viem";
 import type { TokenBalance as _TokenBalance } from "../types/inventory.types.ts";
 import type { InventoryBarComponent } from "../components/inventory-bar-component.ts";
 
@@ -17,6 +17,24 @@ export function getMaxTokenBalance(inventoryBar: InventoryBarComponent, tokenSym
   const balances = inventoryBar.getBalances();
   const tokenBalance = balances.find((balance) => balance.symbol === tokenSymbol);
 
+  return formatBalanceForInput(tokenBalance);
+}
+
+/**
+ * Get the maximum available balance for a specific token address from inventory bar
+ */
+export function getMaxTokenBalanceByAddress(inventoryBar: InventoryBarComponent, tokenAddress: Address): string {
+  if (!inventoryBar) {
+    return "0";
+  }
+
+  const balances = inventoryBar.getBalances();
+  const tokenBalance = balances.find((balance) => balance.address.toLowerCase() === tokenAddress.toLowerCase());
+
+  return formatBalanceForInput(tokenBalance);
+}
+
+function formatBalanceForInput(tokenBalance: { balance: bigint; decimals: number } | undefined): string {
   if (!tokenBalance) {
     return "0";
   }
@@ -36,6 +54,20 @@ export function getMaxTokenBalance(inventoryBar: InventoryBarComponent, tokenSym
 export function hasAvailableBalance(inventoryBar: InventoryBarComponent, tokenSymbol: string): boolean {
   const balances = inventoryBar.getBalances();
   const tokenBalance = balances.find((balance) => balance.symbol === tokenSymbol);
+
+  if (!tokenBalance) {
+    return false;
+  }
+
+  return tokenBalance.balance > 0n;
+}
+
+/**
+ * Check if a token address has a non-zero wallet balance.
+ */
+export function hasAvailableBalanceByAddress(inventoryBar: InventoryBarComponent, tokenAddress: Address): boolean {
+  const balances = inventoryBar.getBalances();
+  const tokenBalance = balances.find((balance) => balance.address.toLowerCase() === tokenAddress.toLowerCase());
 
   if (!tokenBalance) {
     return false;
