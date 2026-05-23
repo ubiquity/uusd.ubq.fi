@@ -1,6 +1,7 @@
 import { formatUnits } from "viem";
 import type { TokenBalance as _TokenBalance } from "../types/inventory.types.ts";
 import type { InventoryBarComponent } from "../components/inventory-bar-component.ts";
+import { getMinimumVisibleTokenAmount, MINIMUM_VISIBLE_TOKEN_AMOUNT } from "./token-utils.ts";
 
 /**
  * Balance utilities for auto-population of input fields
@@ -59,7 +60,7 @@ export function getBalanceDisplay(inventoryBar: InventoryBarComponent, tokenSymb
   const trimmed = formattedBalance.replace(/\.?0+$/, "") || "0";
 
   if (trimmed === "0") return "0";
-  if (tokenBalance.balance < 100000000000000n) return "<0.0001";
+  if (tokenBalance.balance < getMinimumVisibleTokenAmount(tokenBalance.decimals)) return `<${MINIMUM_VISIBLE_TOKEN_AMOUNT}`;
 
   return parseFloat(formattedBalance).toLocaleString("en-US", {
     minimumFractionDigits: 0,

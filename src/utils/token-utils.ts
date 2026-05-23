@@ -1,6 +1,12 @@
 import { formatUnits, parseUnits, type Address as _Address } from "viem";
 import type { TokenBalance, TokenMetadata } from "../types/inventory.types.ts";
 
+export const MINIMUM_VISIBLE_TOKEN_AMOUNT = "0.0001";
+
+export function getMinimumVisibleTokenAmount(decimals: number): bigint {
+  return parseUnits(MINIMUM_VISIBLE_TOKEN_AMOUNT, decimals);
+}
+
 /**
  * Format token amount for display with appropriate decimal places
  */
@@ -9,7 +15,7 @@ export function formatTokenAmount(amount: bigint, decimals: number, displayDecim
   const trimmed = formatted.replace(/\.?0+$/, "") || "0";
 
   if (trimmed === "0") return "0";
-  if (amount < parseUnits("0.0001", decimals)) return "<0.0001";
+  if (amount < getMinimumVisibleTokenAmount(decimals)) return `<${MINIMUM_VISIBLE_TOKEN_AMOUNT}`;
 
   const num = parseFloat(formatted);
   return num.toLocaleString("en-US", {
@@ -50,10 +56,10 @@ export function calculateTotalUsdValue(balances: TokenBalance[]): number {
 }
 
 /**
- * Check if token balance is effectively zero (less than 0.0001)
+ * Check if token balance is effectively zero (less than minimum visible amount)
  */
 export function isBalanceZero(balance: bigint, decimals: number): boolean {
-  return balance < parseUnits("0.0001", decimals);
+  return balance < getMinimumVisibleTokenAmount(decimals);
 }
 
 /**
