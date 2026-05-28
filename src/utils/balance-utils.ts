@@ -1,6 +1,7 @@
 import { formatUnits } from "viem";
 import type { TokenBalance as _TokenBalance } from "../types/inventory.types.ts";
 import type { InventoryBarComponent } from "../components/inventory-bar-component.ts";
+import { MAX_BUTTON_GAS_RESERVE } from "../constants/numeric-constants.ts";
 
 /**
  * Balance utilities for auto-population of input fields
@@ -65,4 +66,24 @@ export function getBalanceDisplay(inventoryBar: InventoryBarComponent, tokenSymb
     minimumFractionDigits: 0,
     maximumFractionDigits: 4,
   });
+}
+
+/**
+ * Get the max spendable amount for the "Max" button.
+ * For ETH/native tokens, reserves gas amount. For ERC-20, returns full balance.
+ */
+export function getMaxSpendableBalance(inventoryBar: InventoryBarComponent, tokenSymbol: string, isNativeToken: boolean = false): string {
+  const maxBalance = getMaxTokenBalance(inventoryBar, tokenSymbol);
+  if (maxBalance === "0") return "0";
+
+  if (isNativeToken) {
+    const balances = inventoryBar.getBalances();
+    const tokenBalance = balances.find((balance) => balance.symbol === tokenSymbol);
+    if (!tokenBalance || tokenBalance.balance <= MAX_BUTTON_GAS_RESERVE) return "0";
+    const spendable = tokenBalance.balance - MAX_BUTTON_GAS_RESERVE;
+    const formatted = formatUnits(spendable, tokenBalance.decimals);
+    return formatted.replace(/\.?0+$/, "") || "0";
+  }
+
+  return maxBalance;
 }
