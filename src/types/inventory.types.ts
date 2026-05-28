@@ -55,3 +55,23 @@ export const INVENTORY_TOKENS = {
     displayName: "UBQ",
   },
 } as const;
+
+/**
+ * Minimum USD value to display an asset in the inventory bar.
+ * Assets worth less than this threshold are hidden to reduce clutter.
+ */
+export const MIN_DISPLAY_VALUE_USD = 1.0;
+
+/**
+ * Filter token balances to only show those above the minimum display threshold.
+ * Preserves core tokens (LUSD, UUSD, UBQ) regardless of balance.
+ */
+export function filterDisplayableBalances(balances: TokenBalance[]): TokenBalance[] {
+  const coreSymbols = new Set(Object.values(INVENTORY_TOKENS).map((t) => t.symbol));
+  return balances.filter((b) => {
+    // Always show core tokens
+    if (coreSymbols.has(b.symbol)) return true;
+    // Show non-core tokens only if USD value >= threshold
+    return (b.usdValue ?? 0) >= MIN_DISPLAY_VALUE_USD;
+  });
+}
