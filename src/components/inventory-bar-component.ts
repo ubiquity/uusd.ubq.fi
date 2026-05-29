@@ -418,8 +418,14 @@ export class InventoryBarComponent {
       return;
     }
 
-    // Filter out zero balances and render individual token balances
-    const nonZeroBalances = this._state.balances.filter((balance) => !isBalanceZero(balance.balance, balance.decimals));
+    // Filter out zero balances and assets with USD value < $1.00 (dust)
+    const MIN_USD_VALUE = 1.0;
+    const nonZeroBalances = this._state.balances.filter((balance) => {
+      if (isBalanceZero(balance.balance, balance.decimals)) {
+        return false;
+      }
+      return balance.usdValue == null || balance.usdValue >= MIN_USD_VALUE;
+    });
 
     if (nonZeroBalances.length === 0) {
       tokensContainer.innerHTML = '<div class="no-balances-message">No token balances available</div>';
