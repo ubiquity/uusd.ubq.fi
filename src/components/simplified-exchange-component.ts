@@ -468,8 +468,8 @@ export class SimplifiedExchangeComponent {
     if (!this._services.walletService.isConnected()) return;
 
     try {
-      const success = this._applyMaxBalance();
-      if (!success) {
+      const isSuccess = this._applyMaxBalance();
+      if (!isSuccess) {
         const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
         if (amountInput) {
           amountInput.value = "";
@@ -1198,8 +1198,8 @@ export class SimplifiedExchangeComponent {
     if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
 
     try {
-      const success = this._applyMaxBalance();
-      if (!success && retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
+      const isSuccess = this._applyMaxBalance();
+      if (!isSuccess && retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
         // If balances not loaded yet, retry
         this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
       }
