@@ -12,7 +12,7 @@ import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
 import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
-import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
+import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR, MIN_USD_VALUE } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
@@ -162,9 +162,6 @@ export class SimplifiedExchangeComponent {
     }
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
-
-    // Minimum USD value to display a token in the inventory list
-    const MIN_USD_VALUE = 1.0;
 
     if (refreshData?.tokenBalances) {
       // Filter out dust tokens (value < $1.00)
@@ -468,6 +465,7 @@ export class SimplifiedExchangeComponent {
       }
     } catch (error) {
       console.error("Error setting max balance:", error);
+      this._services.notificationManager.showError("exchange", "Failed to set maximum balance");
     }
   }
 

@@ -7,6 +7,7 @@ import type { NotificationManager } from "./notification-manager.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
 import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
+import { MIN_USD_VALUE } from "../constants/numeric-constants.ts";
 import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
 
 import icons from "./icons.ts";
@@ -419,7 +420,6 @@ export class InventoryBarComponent {
     }
 
     // Filter out zero balances and assets with USD value < $1.00 (dust)
-    const MIN_USD_VALUE = 1.0;
     const nonZeroBalances = this._state.balances.filter((balance) => {
       if (isBalanceZero(balance.balance, balance.decimals)) {
         return false;
