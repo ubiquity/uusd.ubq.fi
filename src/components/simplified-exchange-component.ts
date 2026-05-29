@@ -441,27 +441,41 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
+   * Applies the maximum balance of the selected token to the input field.
+   * Returns true if max balance was successfully found and applied, false otherwise.
+   */
+  private _applyMaxBalance(): boolean {
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (!amountInput) return false;
+
+    const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+    const tokenSymbol = selectedToken.symbol;
+
+    if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
+      const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
+      amountInput.value = maxBalance;
+      this._state.amount = maxBalance;
+      void this._calculateRoute();
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Handle Max button click - set input to maximum available balance
    */
   private _handleMaxButton() {
     if (!this._services.walletService.isConnected()) return;
 
     try {
-      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
-      const tokenSymbol = selectedToken.symbol;
-      const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
-      if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
-        const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
+      const success = this._applyMaxBalance();
+      if (!success) {
+        const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
         if (amountInput) {
-          amountInput.value = maxBalance;
-          this._state.amount = maxBalance;
+          amountInput.value = "";
+          this._state.amount = "";
           void this._calculateRoute();
         }
-      } else if (amountInput) {
-        // Clear stale input when Max resolves to no balance
-        amountInput.value = "";
-        this._state.amount = "";
-        void this._calculateRoute();
       }
     } catch (error) {
       console.error("Error setting max balance:", error);
@@ -1184,14 +1198,8 @@ export class SimplifiedExchangeComponent {
     if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
 
     try {
-      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
-      const tokenSymbol = selectedToken.symbol;
-      if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
-        const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
-        amountInput.value = maxBalance;
-        this._state.amount = maxBalance;
-        void this._calculateRoute();
-      } else if (retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
+      const success = this._applyMaxBalance();
+      if (!success && retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
         // If balances not loaded yet, retry
         this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
       }
