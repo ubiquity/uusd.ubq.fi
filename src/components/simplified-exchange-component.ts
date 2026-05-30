@@ -165,7 +165,7 @@ export class SimplifiedExchangeComponent {
 
     if (refreshData?.tokenBalances) {
       // Filter out dust tokens (value < $1.00)
-      const significantBalances = refreshData.tokenBalances.filter((balance) => balance.usdValue == null || balance.usdValue >= MIN_USD_VALUE);
+      const significantBalances = refreshData.tokenBalances.filter((balance) => typeof balance.usdValue === "number" && balance.usdValue >= MIN_USD_VALUE);
 
       yourTokenGroup.style.display = significantBalances.length > 0 ? "" : "none";
 

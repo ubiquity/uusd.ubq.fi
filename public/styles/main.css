@@ -850,10 +850,12 @@ button#connectWallet {
     font-weight: 600;
     white-space: nowrap;
     transition: background 0.2s;
+    box-shadow: none;
 }
 
 .max-button:hover {
     background: #3a3a5e;
+    box-shadow: none;
 }
 
 .max-button:active {

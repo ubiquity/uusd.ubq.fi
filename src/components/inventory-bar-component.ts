@@ -424,7 +424,7 @@ export class InventoryBarComponent {
       if (isBalanceZero(balance.balance, balance.decimals)) {
         return false;
       }
-      return balance.usdValue == null || balance.usdValue >= MIN_USD_VALUE;
+      return typeof balance.usdValue === "number" && balance.usdValue >= MIN_USD_VALUE;
     });
 
     if (nonZeroBalances.length === 0) {
