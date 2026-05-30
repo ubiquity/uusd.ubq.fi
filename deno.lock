@@ -22,6 +22,7 @@
     "npm:commander@14": "14.0.3",
     "npm:dotenv@^16.5.0": "16.6.1",
     "npm:esbuild@0.25": "0.25.12",
+    "npm:esbuild@0.25.12": "0.25.12",
     "npm:eslint-config-prettier@^10.1.8": "10.1.8_eslint@9.39.4",
     "npm:eslint-plugin-prettier@^5.5.4": "5.5.4_eslint@9.39.4_eslint-config-prettier@10.1.8__eslint@9.39.4_prettier@3.8.3",
     "npm:eslint@^9.33.0": "9.39.4",

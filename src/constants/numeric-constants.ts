@@ -20,5 +20,8 @@ export const DEFAULT_SLIPPAGE_PERCENT = 0.005; // 0.5% as decimal
 // export const PROTOCOL_SUPPORTER_BONUS_BPS = 50000n; // 5 * 10000
 
 // // Timeout durations in milliseconds
-// export const MARKET_CONDITIONS_TIMEOUT = 10000; // 10 seconds
-// export const CALCULATION_TIMEOUT = 10000; // 10 seconds
+export const MARKET_CONDITIONS_TIMEOUT = 10000; // 10 seconds
+export const CALCULATION_TIMEOUT = 10000; // 10 seconds
+
+// Minimum USD value to display a token in the inventory list (dust filter)
+export const MIN_USD_VALUE = 1.0;
