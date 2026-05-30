@@ -1,4 +1,4 @@
-import { parseEther, formatEther, type Address, parseUnits, formatUnits } from "viem";
+import { type Address, formatEther, formatUnits, parseEther, parseUnits } from "viem";
 import type { WalletService } from "../services/wallet-service.ts";
 import type { ContractService, ProtocolSettings } from "../services/contract-service.ts";
 import type { PriceService } from "../services/price-service.ts";
@@ -6,13 +6,13 @@ import type { CurvePriceService } from "../services/curve-price-service.ts";
 import type { TransactionService } from "../services/transaction-service.ts";
 import type { SwapService } from "../services/swap-service.ts";
 import { TransactionStateService } from "../services/transaction-state-service.ts";
-import { OptimalRouteService, type OptimalRouteResult, type ExchangeDirection } from "../services/optimal-route-service.ts";
+import { type ExchangeDirection, type OptimalRouteResult, OptimalRouteService } from "../services/optimal-route-service.ts";
 import { WALLET_EVENTS } from "../services/wallet-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
 import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
-import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
+import { BASIS_POINTS_DIVISOR, DEFAULT_SLIPPAGE_BPS, DEFAULT_SLIPPAGE_PERCENT, MIN_USD_VALUE } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
@@ -164,10 +164,13 @@ export class SimplifiedExchangeComponent {
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
 
     if (refreshData?.tokenBalances) {
-      yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
+      // Filter out dust tokens (value < $1.00)
+      const significantBalances = refreshData.tokenBalances.filter((balance) => typeof balance.usdValue === "number" && balance.usdValue >= MIN_USD_VALUE);
+
+      yourTokenGroup.style.display = significantBalances.length > 0 ? "" : "none";
+
       if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
+        significantBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
         !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
       ) {
         // Ensure LUSD is always in the first position
@@ -178,7 +181,7 @@ export class SimplifiedExchangeComponent {
         option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
         yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
       }
-      refreshData.tokenBalances.forEach((balance) => {
+      significantBalances.forEach((balance) => {
         if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
         }
@@ -193,13 +196,17 @@ export class SimplifiedExchangeComponent {
       });
       // Remove old user's tokens
       yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
+        if (!significantBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
           opt.remove();
         }
       });
+
+      // Hide preloaded list when user already has tokens loaded
+      otherTokenGroup.style.display = significantBalances.length > 0 ? "none" : "";
     } else {
       yourTokenGroup.style.display = "none";
       yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
+      otherTokenGroup.style.display = "";
     }
 
     if (
@@ -353,6 +360,11 @@ export class SimplifiedExchangeComponent {
         amountInput.addEventListener("input", () => this._handleAmountChange());
       }
 
+      const maxButton = document.getElementById("maxButton") as HTMLButtonElement;
+      if (maxButton) {
+        maxButton.addEventListener("click", () => this._handleMaxButton());
+      }
+
       if (depositButton) {
         depositButton.addEventListener("click", () => this._switchDirection("deposit"));
       }
@@ -427,6 +439,49 @@ export class SimplifiedExchangeComponent {
     this._debounceTimer = setTimeout(() => {
       void this._calculateRoute();
     }, 1000);
+  }
+
+  /**
+   * Applies the maximum balance of the selected token to the input field.
+   * Returns true if max balance was successfully found and applied, false otherwise.
+   */
+  private _applyMaxBalance(): boolean {
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (!amountInput) return false;
+
+    const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+    const tokenSymbol = selectedToken.symbol;
+
+    if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
+      const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
+      amountInput.value = maxBalance;
+      this._state.amount = maxBalance;
+      void this._calculateRoute();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Handle Max button click - set input to maximum available balance
+   */
+  private _handleMaxButton() {
+    if (!this._services.walletService.isConnected()) return;
+
+    try {
+      const isSuccess = this._applyMaxBalance();
+      if (!isSuccess) {
+        const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+        if (amountInput) {
+          amountInput.value = "";
+          this._state.amount = "";
+          void this._calculateRoute();
+        }
+      }
+    } catch (error) {
+      console.error("Error setting max balance:", error);
+      this._services.notificationManager.showError("exchange", "Failed to set maximum balance");
+    }
   }
 
   private _getSelectedToken() {
@@ -516,9 +571,12 @@ export class SimplifiedExchangeComponent {
 
     this._state.isCalculating = true;
 
+    let selectedToken;
+    let inputToken;
+
     try {
-      const selectedToken = this._getSelectedToken();
-      const inputToken = this._state.direction === "deposit" ? selectedToken : INVENTORY_TOKENS.UUSD;
+      selectedToken = this._getSelectedToken();
+      inputToken = this._state.direction === "deposit" ? selectedToken : INVENTORY_TOKENS.UUSD;
       const inputAmount = parseUnits(amount, inputToken.decimals);
       let routeResult: OptimalRouteResult;
 
@@ -544,7 +602,24 @@ export class SimplifiedExchangeComponent {
       this._state.routeResult = routeResult;
     } catch (error) {
       console.error("Error calculating route:", error);
-      this._state.routeResult = null;
+      const message = error instanceof Error ? error.message : String(error);
+      const normalizedMessage = message.toLowerCase();
+      const isPriceTooHigh =
+        normalizedMessage.includes("price too high") || normalizedMessage.includes("price is too high") || normalizedMessage.includes("dollar price too high");
+
+      if (this._state.direction === "withdraw" && isPriceTooHigh && inputToken) {
+        this._state.redemptionsDisabled = true;
+        this._state.forceSwapOnly = true;
+        this._renderOptions();
+        try {
+          this._state.routeResult = await this._optimalRouteService.getOptimalWithdrawRoute(parseUnits(amount, inputToken.decimals), true);
+        } catch (fallbackError) {
+          console.error("Fallback route calculation also failed:", fallbackError);
+          this._state.routeResult = null;
+        }
+      } else {
+        this._state.routeResult = null;
+      }
     }
 
     this._state.isCalculating = false;
@@ -725,7 +800,9 @@ export class SimplifiedExchangeComponent {
       // Hide all options if settings not loaded
       if (ubqOptionDiv) ubqOptionDiv.style.display = "none";
       if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
-      if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
+      if (fractionalRedemptionDiv) {
+        fractionalRedemptionDiv.style.display = "none";
+      }
       return;
     }
 
@@ -758,7 +835,9 @@ export class SimplifiedExchangeComponent {
 
       // Hide swap-only and fractional redemption options for deposits
       if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
-      if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
+      if (fractionalRedemptionDiv) {
+        fractionalRedemptionDiv.style.display = "none";
+      }
     } else {
       // WITHDRAWALS: Intelligent routing based on protocol economics
       const settings = this._state.protocolSettings;
@@ -769,7 +848,9 @@ export class SimplifiedExchangeComponent {
 
         this._state.forceSwapOnly = true;
         if (swapOnlyDiv) swapOnlyDiv.style.display = "none";
-        if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
+        if (fractionalRedemptionDiv) {
+          fractionalRedemptionDiv.style.display = "none";
+        }
         if (swapOnlyCheckbox) {
           swapOnlyCheckbox.checked = true;
           swapOnlyCheckbox.disabled = true;
@@ -783,7 +864,9 @@ export class SimplifiedExchangeComponent {
           swapOnlyCheckbox.disabled = false;
           swapOnlyCheckbox.checked = this._state.forceSwapOnly;
         }
-        if (fractionalRedemptionDiv) fractionalRedemptionDiv.style.display = "none";
+        if (fractionalRedemptionDiv) {
+          fractionalRedemptionDiv.style.display = "none";
+        }
       } else if (settings.isFractional) {
         // Case 3: Protocol fractionally collateralized (~65%) AND price below peg
         // Default to Curve swap (pure LUSD), allow opt-in to fractional redemption (LUSD+UBQ)
@@ -1059,7 +1142,9 @@ export class SimplifiedExchangeComponent {
 
     this._services.notificationManager.showSuccess(
       "exchange",
-      `Successfully ${direction.toLowerCase()} ${this._state.amount} ${this._state.direction === "deposit" ? this._getSelectedToken().symbol : INVENTORY_TOKENS.UUSD.symbol}!`
+      `Successfully ${direction.toLowerCase()} ${this._state.amount} ${
+        this._state.direction === "deposit" ? this._getSelectedToken().symbol : INVENTORY_TOKENS.UUSD.symbol
+      }!`
     );
 
     // Clear form
@@ -1144,14 +1229,8 @@ export class SimplifiedExchangeComponent {
     if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
 
     try {
-      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
-      const tokenSymbol = selectedToken.symbol;
-      if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
-        const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
-        amountInput.value = maxBalance;
-        this._state.amount = maxBalance;
-        void this._calculateRoute();
-      } else if (retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
+      const isSuccess = this._applyMaxBalance();
+      if (!isSuccess && retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
         // If balances not loaded yet, retry
         this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
       }

@@ -5,8 +5,9 @@ import type { ContractService } from "../services/contract-service.ts";
 import type { PriceService } from "../services/price-service.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
-import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
-import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
+import type { InventoryBarState, TokenBalance } from "../types/inventory.types.ts";
+import { calculateTotalUsdValue, formatTokenAmount, formatUsdValue, isBalanceZero } from "../utils/token-utils.ts";
+import { MIN_USD_VALUE } from "../constants/numeric-constants.ts";
 import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
 
 import icons from "./icons.ts";
@@ -418,8 +419,13 @@ export class InventoryBarComponent {
       return;
     }
 
-    // Filter out zero balances and render individual token balances
-    const nonZeroBalances = this._state.balances.filter((balance) => !isBalanceZero(balance.balance, balance.decimals));
+    // Filter out zero balances and assets with USD value < $1.00 (dust)
+    const nonZeroBalances = this._state.balances.filter((balance) => {
+      if (isBalanceZero(balance.balance, balance.decimals)) {
+        return false;
+      }
+      return typeof balance.usdValue === "number" && balance.usdValue >= MIN_USD_VALUE;
+    });
 
     if (nonZeroBalances.length === 0) {
       tokensContainer.innerHTML = '<div class="no-balances-message">No token balances available</div>';
@@ -447,7 +453,7 @@ export class InventoryBarComponent {
       .join("");
 
     tokensContainer.innerHTML = tokenElements;
-    totalValueElement.textContent = formatUsdValue(this._state.totalUsdValue);
+    totalValueElement.textContent = formatUsdValue(calculateTotalUsdValue(nonZeroBalances));
   }
 
   /**
