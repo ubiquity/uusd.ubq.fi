@@ -453,7 +453,7 @@ export class InventoryBarComponent {
       .join("");
 
     tokensContainer.innerHTML = tokenElements;
-    totalValueElement.textContent = formatUsdValue(this._state.totalUsdValue);
+    totalValueElement.textContent = formatUsdValue(calculateTotalUsdValue(nonZeroBalances));
   }
 
   /**
