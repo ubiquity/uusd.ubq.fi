@@ -603,7 +603,9 @@ export class SimplifiedExchangeComponent {
     } catch (error) {
       console.error("Error calculating route:", error);
       const message = error instanceof Error ? error.message : String(error);
-      const isPriceTooHigh = message.includes("Price Too High");
+      const normalizedMessage = message.toLowerCase();
+      const isPriceTooHigh =
+        normalizedMessage.includes("price too high") || normalizedMessage.includes("price is too high") || normalizedMessage.includes("dollar price too high");
 
       if (this._state.direction === "withdraw" && isPriceTooHigh && inputToken) {
         this._state.redemptionsDisabled = true;
