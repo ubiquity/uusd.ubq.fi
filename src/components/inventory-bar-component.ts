@@ -4,9 +4,20 @@ import type { WalletService } from "../services/wallet-service.ts";
 import type { ContractService } from "../services/contract-service.ts";
 import type { PriceService } from "../services/price-service.ts";
 import type { NotificationManager } from "./notification-manager.ts";
-import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
-import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
-import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
+import type {
+  CentralizedRefreshService,
+  RefreshData,
+} from "../services/centralized-refresh-service.ts";
+import type {
+  InventoryBarState,
+  TokenBalance,
+} from "../types/inventory.types.ts";
+import {
+  calculateTotalUsdValue,
+  formatTokenAmount,
+  formatUsdValue,
+  isBalanceZero,
+} from "../utils/token-utils.ts";
 import { MIN_USD_VALUE } from "../constants/numeric-constants.ts";
 import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
 
@@ -81,7 +92,9 @@ export class InventoryBarComponent {
     this._boundHandleRefreshData = this._handleRefreshData.bind(this);
 
     // Subscribe to centralized refresh data
-    this._services.centralizedRefreshService.subscribe(this._boundHandleRefreshData);
+    this._services.centralizedRefreshService.subscribe(
+      this._boundHandleRefreshData,
+    );
 
     // Check initial connection state
     const account = this._services.walletService.getAccount();
@@ -113,14 +126,21 @@ export class InventoryBarComponent {
 
       // Update each token balance individually
       data.tokenBalances.forEach((newBalance) => {
-        const existingIndex = updatedBalances.findIndex((existing) => existing.symbol === newBalance.symbol);
+        const existingIndex = updatedBalances.findIndex((existing) =>
+          existing.symbol === newBalance.symbol
+        );
 
         if (existingIndex >= 0) {
           // ONLY update if we have valid data - NO FALLBACKS
-          if (newBalance.balance !== undefined && newBalance.usdValue !== undefined) {
+          if (
+            newBalance.balance !== undefined &&
+            newBalance.usdValue !== undefined
+          ) {
             updatedBalances[existingIndex] = newBalance;
           } else {
-            console.error(`INVALID DATA for ${newBalance.symbol} - not updating. Balance: ${newBalance.balance}, USD: ${newBalance.usdValue}`);
+            console.error(
+              `INVALID DATA for ${newBalance.symbol} - not updating. Balance: ${newBalance.balance}, USD: ${newBalance.usdValue}`,
+            );
             // Keep existing value in updatedBalances - don't clear it
           }
         } else {
@@ -165,10 +185,13 @@ export class InventoryBarComponent {
     this._updateConnectionState();
 
     // Check if this is an account change (different from current account)
-    const isAccountChange = this._state.currentAccount && this._state.currentAccount !== account;
+    const isAccountChange = this._state.currentAccount &&
+      this._state.currentAccount !== account;
 
     if (isAccountChange) {
-      console.log(`🔄 Account changed from ${this._state.currentAccount} to ${account} - clearing stale balance data`);
+      console.log(
+        `🔄 Account changed from ${this._state.currentAccount} to ${account} - clearing stale balance data`,
+      );
 
       // Clear stale balance data immediately for account changes
       this._state.balances = [];
@@ -233,7 +256,9 @@ export class InventoryBarComponent {
   /**
    * Load token balances for the connected wallet using JSON-RPC 2.0 batch requests
    */
-  private async _loadBalances(isBackgroundRefresh: boolean = false): Promise<void> {
+  private async _loadBalances(
+    isBackgroundRefresh: boolean = false,
+  ): Promise<void> {
     if (!this._state.isConnected) {
       return;
     }
@@ -266,23 +291,33 @@ export class InventoryBarComponent {
       }));
 
       // Execute batch request for all token balances
-      const batchResults = await batchFetchTokenBalances(publicClient, tokens, account);
+      const batchResults = await batchFetchTokenBalances(
+        publicClient,
+        tokens,
+        account,
+      );
 
       // Process results and calculate USD values
-      const balancePromises = batchResults.map(async (result): Promise<TokenBalance> => {
-        const tokenMetadata = INVENTORY_TOKENS[result.symbol];
-        if (!tokenMetadata) {
-          throw new Error(`Token metadata not found for ${result.symbol}`);
-        }
+      const balancePromises = batchResults.map(
+        async (result): Promise<TokenBalance> => {
+          const tokenMetadata = INVENTORY_TOKENS[result.symbol];
+          if (!tokenMetadata) {
+            throw new Error(`Token metadata not found for ${result.symbol}`);
+          }
 
-        return {
-          symbol: result.symbol,
-          address: result.tokenAddress,
-          balance: result.balance,
-          decimals: tokenMetadata.decimals,
-          usdValue: await this._calculateUsdValue(result.symbol, result.balance, tokenMetadata.decimals),
-        };
-      });
+          return {
+            symbol: result.symbol,
+            address: result.tokenAddress,
+            balance: result.balance,
+            decimals: tokenMetadata.decimals,
+            usdValue: await this._calculateUsdValue(
+              result.symbol,
+              result.balance,
+              tokenMetadata.decimals,
+            ),
+          };
+        },
+      );
 
       const balances = await Promise.all(balancePromises);
 
@@ -307,7 +342,10 @@ export class InventoryBarComponent {
       console.error("Failed to load token balances:", error);
       this._state.isLoading = false;
       this._hideBackgroundRefreshIndicator();
-      this._services.notificationManager.showError("mint", "Failed to load token balances");
+      this._services.notificationManager.showError(
+        "mint",
+        "Failed to load token balances",
+      );
       this._renderErrorState();
     }
   }
@@ -315,7 +353,11 @@ export class InventoryBarComponent {
   /**
    * Calculate USD value for a token balance
    */
-  private async _calculateUsdValue(symbol: string, balance: bigint, decimals: number): Promise<number> {
+  private async _calculateUsdValue(
+    symbol: string,
+    balance: bigint,
+    decimals: number,
+  ): Promise<number> {
     if (isBalanceZero(balance, decimals)) {
       return 0;
     }
@@ -325,13 +367,16 @@ export class InventoryBarComponent {
       let priceInUsd = 1; // Default fallback price
 
       if (symbol === "UUSD") {
-        const rawPrice = await this._services.contractService.getDollarPriceUsd();
+        const rawPrice = await this._services.contractService
+          .getDollarPriceUsd();
         priceInUsd = parseFloat(formatUnits(rawPrice, 6));
       } else if (symbol === "UBQ") {
-        const rawPrice = await this._services.contractService.getGovernancePrice();
+        const rawPrice = await this._services.contractService
+          .getGovernancePrice();
         priceInUsd = parseFloat(formatUnits(rawPrice, 6));
       } else if (symbol === "LUSD") {
-        const rawPrice = await this._services.contractService.getLUSDOraclePrice();
+        const rawPrice = await this._services.contractService
+          .getLUSDOraclePrice();
         priceInUsd = parseFloat(formatUnits(rawPrice, 6));
       }
 
@@ -408,13 +453,15 @@ export class InventoryBarComponent {
     if (!tokensContainer || !totalValueElement) return;
 
     if (!this._state.isConnected) {
-      tokensContainer.innerHTML = '<div class="disconnected-message">Connect wallet to view balances</div>';
+      tokensContainer.innerHTML =
+        '<div class="disconnected-message">Connect wallet to view balances</div>';
       totalValueElement.textContent = "$0.00";
       return;
     }
 
     if (this._state.balances.length === 0) {
-      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances found</div>';
+      tokensContainer.innerHTML =
+        '<div class="no-balances-message">No token balances found</div>';
       totalValueElement.textContent = "$0.00";
       return;
     }
@@ -428,7 +475,8 @@ export class InventoryBarComponent {
     });
 
     if (nonZeroBalances.length === 0) {
-      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances available</div>';
+      tokensContainer.innerHTML =
+        '<div class="no-balances-message">No token balances available</div>';
       totalValueElement.textContent = "$0.00";
       return;
     }
@@ -436,16 +484,22 @@ export class InventoryBarComponent {
     const tokenElements = nonZeroBalances
       .map((balance) => {
         const amount = formatTokenAmount(balance.balance, balance.decimals);
-        const usdValue = balance.usdValue ? formatUsdValue(balance.usdValue) : "";
+        const usdValue = balance.usdValue
+          ? formatUsdValue(balance.usdValue)
+          : "";
 
         return `
                 <div class="token-balance">
                     <div class="token-info">
                         <div class="token-symbol">${
-                          Object.keys(icons).includes(balance.symbol) ? icons[balance.symbol as keyof typeof icons] : balance.symbol
-                        }</div>
+          Object.keys(icons).includes(balance.symbol)
+            ? icons[balance.symbol as keyof typeof icons]
+            : balance.symbol
+        }</div>
                         <div class="token-amount">${amount}</div>
-                        ${usdValue ? `<div class="token-usd-value">${usdValue}</div>` : ""}
+                        ${
+          usdValue ? `<div class="token-usd-value">${usdValue}</div>` : ""
+        }
                     </div>
                 </div>
             `;
@@ -494,7 +548,9 @@ export class InventoryBarComponent {
   /**
    * Handle wallet connection (called by main app)
    */
-  public async handleWalletConnectionChange(account: Address | null): Promise<void> {
+  public async handleWalletConnectionChange(
+    account: Address | null,
+  ): Promise<void> {
     if (account) {
       await this._handleWalletConnect(account);
     } else {
@@ -574,7 +630,9 @@ export class InventoryBarComponent {
   public destroy(): void {
     // Unsubscribe using the stored reference
     if (this._boundHandleRefreshData) {
-      this._services.centralizedRefreshService.unsubscribe(this._boundHandleRefreshData);
+      this._services.centralizedRefreshService.unsubscribe(
+        this._boundHandleRefreshData,
+      );
       this._boundHandleRefreshData = null;
     }
 
