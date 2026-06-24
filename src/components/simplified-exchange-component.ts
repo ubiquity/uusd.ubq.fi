@@ -11,7 +11,7 @@ import { WALLET_EVENTS } from "../services/wallet-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
-import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
+import { getMaxTokenBalance, hasAvailableBalance, hasDisplayableUsdValue } from "../utils/balance-utils.ts";
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
@@ -145,12 +145,24 @@ export class SimplifiedExchangeComponent {
     labelSpan.textContent = "UUSD";
     labelSpan.id = "tokenLabel";
 
+    let maxButton = document.getElementById("maxAmountButton") as HTMLButtonElement | null;
+    if (!maxButton) {
+      maxButton = document.createElement("button");
+      maxButton.id = "maxAmountButton";
+      maxButton.className = "max-amount-button";
+      maxButton.type = "button";
+      maxButton.textContent = "Max";
+      maxButton.addEventListener("click", () => this._setMaxAmount());
+    }
+
     if (this._state.direction === "deposit") {
       inputDiv.insertBefore(selectEl, inputDiv.firstChild);
+      inputDiv.appendChild(maxButton);
       outputDiv.insertBefore(labelSpan, ubqOutputEl);
     } else if (this._state.direction === "withdraw") {
       outputDiv.insertBefore(selectEl, ubqOutputEl);
       inputDiv.insertBefore(labelSpan, inputDiv.firstChild);
+      inputDiv.appendChild(maxButton);
     }
   }
 
@@ -164,25 +176,16 @@ export class SimplifiedExchangeComponent {
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
 
     if (refreshData?.tokenBalances) {
-      yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
-      if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
-        !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-      ) {
-        // Ensure LUSD is always in the first position
-        const option = document.createElement("option");
-        option.value = INVENTORY_TOKENS.LUSD.address;
-        option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-        option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-        option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-        yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
-      }
-      refreshData.tokenBalances.forEach((balance) => {
+      const displayableTokenBalances = refreshData.tokenBalances.filter(hasDisplayableUsdValue);
+
+      yourTokenGroup.style.display = displayableTokenBalances.length > 0 ? "" : "none";
+      otherTokenGroup.style.display = "none";
+      otherTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
+
+      displayableTokenBalances.forEach((balance) => {
         if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
         }
-        otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
 
         const option = document.createElement("option");
         option.value = balance.address;
@@ -193,10 +196,11 @@ export class SimplifiedExchangeComponent {
       });
       // Remove old user's tokens
       yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
+        if (!displayableTokenBalances.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
           opt.remove();
         }
       });
+      return;
     } else {
       yourTokenGroup.style.display = "none";
       yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
@@ -635,6 +639,8 @@ export class SimplifiedExchangeComponent {
         amountInput.placeholder = "Enter amount";
       }
     }
+
+    this._renderMaxButton();
 
     // Show/hide options based on protocol state and direction
     this._renderTokenOptions();
@@ -1157,6 +1163,35 @@ export class SimplifiedExchangeComponent {
       }
     } catch (error) {
       console.error("Error auto-populating max balance:", error);
+    }
+  }
+
+  private _setMaxAmount() {
+    if (!this._services.walletService.isConnected()) return;
+
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (!amountInput) return;
+
+    try {
+      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+      const maxBalance = getMaxTokenBalance(this._services.inventoryBar, selectedToken.symbol);
+      amountInput.value = maxBalance;
+      this._state.amount = maxBalance;
+      void this._calculateRoute();
+    } catch (error) {
+      console.error("Error setting max amount:", error);
+    }
+  }
+
+  private _renderMaxButton() {
+    const maxButton = document.getElementById("maxAmountButton") as HTMLButtonElement;
+    if (!maxButton) return;
+
+    try {
+      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+      maxButton.disabled = !this._services.walletService.isConnected() || !hasAvailableBalance(this._services.inventoryBar, selectedToken.symbol);
+    } catch {
+      maxButton.disabled = true;
     }
   }
 

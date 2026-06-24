@@ -8,6 +8,7 @@ import type { CentralizedRefreshService, RefreshData } from "../services/central
 import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
 import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
 import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
+import { hasDisplayableUsdValue } from "../utils/balance-utils.ts";
 
 import icons from "./icons.ts";
 
@@ -418,16 +419,15 @@ export class InventoryBarComponent {
       return;
     }
 
-    // Filter out zero balances and render individual token balances
-    const nonZeroBalances = this._state.balances.filter((balance) => !isBalanceZero(balance.balance, balance.decimals));
+    const displayableBalances = this._state.balances.filter((balance) => !isBalanceZero(balance.balance, balance.decimals) && hasDisplayableUsdValue(balance));
 
-    if (nonZeroBalances.length === 0) {
-      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances available</div>';
-      totalValueElement.textContent = "$0.00";
+    if (displayableBalances.length === 0) {
+      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances above $1.00</div>';
+      totalValueElement.textContent = formatUsdValue(this._state.totalUsdValue);
       return;
     }
 
-    const tokenElements = nonZeroBalances
+    const tokenElements = displayableBalances
       .map((balance) => {
         const amount = formatTokenAmount(balance.balance, balance.decimals);
         const usdValue = balance.usdValue ? formatUsdValue(balance.usdValue) : "";

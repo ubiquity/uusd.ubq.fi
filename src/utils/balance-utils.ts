@@ -1,10 +1,19 @@
 import { formatUnits } from "viem";
-import type { TokenBalance as _TokenBalance } from "../types/inventory.types.ts";
+import type { TokenBalance } from "../types/inventory.types.ts";
 import type { InventoryBarComponent } from "../components/inventory-bar-component.ts";
 
 /**
  * Balance utilities for auto-population of input fields
  */
+
+export const MINIMUM_DISPLAY_USD_VALUE = 1;
+
+/**
+ * Keep dust out of the UI so useful balances rise to the top.
+ */
+export function hasDisplayableUsdValue(balance: TokenBalance): boolean {
+  return (balance.usdValue ?? 0) > MINIMUM_DISPLAY_USD_VALUE;
+}
 
 /**
  * Get the maximum available balance for a specific token from inventory bar
