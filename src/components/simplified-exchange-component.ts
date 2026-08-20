@@ -17,7 +17,6 @@ import type { CentralizedRefreshService, RefreshData } from "../services/central
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
 import type { CowSwapService } from "../services/cowswap-service.ts";
-import tokenList from "../constants/token-list.json" with { type: "json" };
 
 interface SimplifiedExchangeServices {
   walletService: WalletService;
@@ -136,10 +135,6 @@ export class SimplifiedExchangeComponent {
     yourTokenGroup.label = "Your Tokens";
     yourTokenGroup.id = "yourTokenGroup";
     selectEl.appendChild(yourTokenGroup);
-    const otherTokensGroup = document.createElement("optgroup");
-    otherTokensGroup.label = "Other Tokens";
-    otherTokensGroup.id = "otherTokenGroup";
-    selectEl.appendChild(otherTokensGroup);
 
     const labelSpan = document.createElement("span");
     labelSpan.textContent = "UUSD";
@@ -161,11 +156,10 @@ export class SimplifiedExchangeComponent {
       return;
     }
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
-    const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
+    if (!yourTokenGroup) return;
 
-    if (refreshData?.tokenBalances) {
+    if (refreshData?.tokenBalances && refreshData.tokenBalances.length > 0) {
       yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
       if (
         refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
         !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
@@ -182,7 +176,6 @@ export class SimplifiedExchangeComponent {
         if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
         }
-        otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
 
         const option = document.createElement("option");
         option.value = balance.address;
@@ -193,43 +186,22 @@ export class SimplifiedExchangeComponent {
       });
       // Remove old user's tokens
       yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
+        if (
+          !areAddressesEqual(opt.value as Address, INVENTORY_TOKENS.LUSD.address) &&
+          !refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))
+        ) {
           opt.remove();
         }
       });
     } else {
-      yourTokenGroup.style.display = "none";
-      yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
-    }
-
-    if (
-      !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`) &&
-      !otherTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-    ) {
-      // Ensure LUSD is always in the first position
+      yourTokenGroup.innerHTML = "";
       const option = document.createElement("option");
       option.value = INVENTORY_TOKENS.LUSD.address;
       option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
       option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
       option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-      otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
+      yourTokenGroup.appendChild(option);
     }
-    tokenList.forEach((token) => {
-      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
-        return; // Token already exists
-      }
-      const option = document.createElement("option");
-      option.value = token.address;
-      option.setAttribute("data-decimals", token.decimals.toString());
-      option.setAttribute("data-symbol", token.symbol);
-      option.text = token.symbol.substring(0, 10);
-      otherTokenGroup.appendChild(option);
-    });
-    otherTokenGroup.querySelectorAll("option").forEach((opt) => {
-      if (yourTokenGroup.querySelector(`option[value="${opt.value}"i]`)) {
-        opt.remove();
-      }
-    });
   }
 
   /**
@@ -337,6 +309,7 @@ export class SimplifiedExchangeComponent {
     // eslint-disable-next-line func-style
     const setupListeners = () => {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+      const maxButton = document.getElementById("maxButton") as HTMLButtonElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
       const ubqDiscountCheckbox = document.getElementById("useUbqDiscount") as HTMLInputElement;
@@ -351,6 +324,10 @@ export class SimplifiedExchangeComponent {
 
       if (amountInput) {
         amountInput.addEventListener("input", () => this._handleAmountChange());
+      }
+
+      if (maxButton) {
+        maxButton.addEventListener("click", () => this._handleMaxClick());
       }
 
       if (depositButton) {
@@ -1157,6 +1134,28 @@ export class SimplifiedExchangeComponent {
       }
     } catch (error) {
       console.error("Error auto-populating max balance:", error);
+    }
+  }
+
+  /**
+   * Handle MAX button click
+   */
+  private _handleMaxClick() {
+    if (!this._services.walletService.isConnected()) return;
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (!amountInput) return;
+
+    try {
+      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+      const tokenSymbol = selectedToken.symbol;
+      if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
+        const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
+        amountInput.value = maxBalance;
+        this._state.amount = maxBalance;
+        void this._calculateRoute();
+      }
+    } catch (error) {
+      console.error("Error setting max balance:", error);
     }
   }
 
