@@ -1,10 +1,32 @@
-import { formatUnits } from "viem";
-import type { TokenBalance as _TokenBalance } from "../types/inventory.types.ts";
+import { formatUnits, type Address } from "viem";
+import type { TokenBalance } from "../types/inventory.types.ts";
 import type { InventoryBarComponent } from "../components/inventory-bar-component.ts";
+import { areAddressesEqual } from "./format-utils.ts";
 
 /**
- * Balance utilities for auto-population of input fields
+ * Minimum USD value for a balance to be displayed in inventory-facing UI
  */
+export const MIN_DISPLAY_USD_VALUE = 1;
+
+/**
+ * Balance utilities for inventory display and amount input fields
+ */
+
+/**
+ * Format a raw balance into a human-readable string without trailing zeros
+ */
+function formatBalanceForInput(tokenBalance: TokenBalance): string {
+  const formattedBalance = formatUnits(tokenBalance.balance, tokenBalance.decimals);
+  if (!formattedBalance.includes(".")) {
+    return formattedBalance;
+  }
+
+  return formattedBalance.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "") || "0";
+}
+
+function findBalanceByAddress(balances: TokenBalance[], tokenAddress: Address): TokenBalance | undefined {
+  return balances.find((balance) => areAddressesEqual(balance.address, tokenAddress));
+}
 
 /**
  * Get the maximum available balance for a specific token from inventory bar
@@ -21,13 +43,24 @@ export function getMaxTokenBalance(inventoryBar: InventoryBarComponent, tokenSym
     return "0";
   }
 
-  // Convert to human-readable format for input field
-  const formattedBalance = formatUnits(tokenBalance.balance, tokenBalance.decimals);
+  return formatBalanceForInput(tokenBalance);
+}
 
-  // Remove trailing zeros and ensure clean formatting
-  const cleanBalance = formattedBalance.replace(/\.?0+$/, "");
+/**
+ * Get the maximum available balance for a specific token address from inventory bar
+ */
+export function getMaxTokenBalanceByAddress(inventoryBar: InventoryBarComponent, tokenAddress: Address): string {
+  if (!inventoryBar) {
+    return "0";
+  }
 
-  return cleanBalance;
+  const tokenBalance = findBalanceByAddress(inventoryBar.getBalances(), tokenAddress);
+
+  if (!tokenBalance) {
+    return "0";
+  }
+
+  return formatBalanceForInput(tokenBalance);
 }
 
 /**
@@ -42,6 +75,26 @@ export function hasAvailableBalance(inventoryBar: InventoryBarComponent, tokenSy
   }
 
   return tokenBalance.balance > 0n;
+}
+
+/**
+ * Check if a token balance is available and greater than zero for a specific token address
+ */
+export function hasAvailableBalanceByAddress(inventoryBar: InventoryBarComponent, tokenAddress: Address): boolean {
+  const tokenBalance = findBalanceByAddress(inventoryBar.getBalances(), tokenAddress);
+
+  if (!tokenBalance) {
+    return false;
+  }
+
+  return tokenBalance.balance > 0n;
+}
+
+/**
+ * Filter balances to the minimum USD value shown in inventory-facing UI
+ */
+export function getDisplayableBalances(balances: TokenBalance[]): TokenBalance[] {
+  return balances.filter((balance) => balance.balance > 0n && (balance.usdValue ?? 0) > MIN_DISPLAY_USD_VALUE);
 }
 
 /**

@@ -11,10 +11,10 @@ import { WALLET_EVENTS } from "../services/wallet-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
-import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
+import { getDisplayableBalances, getMaxTokenBalanceByAddress, hasAvailableBalanceByAddress } from "../utils/balance-utils.ts";
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
-import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
+import { INVENTORY_TOKENS, type TokenBalance } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
 import type { CowSwapService } from "../services/cowswap-service.ts";
 import tokenList from "../constants/token-list.json" with { type: "json" };
@@ -93,12 +93,6 @@ export class SimplifiedExchangeComponent {
 
     this._render();
 
-    // Auto-populate on initial load if wallet is connected
-    if (this._isWalletConnected()) {
-      // Balances are guaranteed to be loaded now
-      this._autoPopulateMaxBalance();
-    }
-
     // If we're starting on deposit mode, immediately hide UBQ option if minting disabled
     if (this._state.direction === "deposit" && this._state.mintingDisabled) {
       const ubqOptionDiv = document.getElementById("ubqDiscountOption");
@@ -162,74 +156,59 @@ export class SimplifiedExchangeComponent {
     }
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
+    const selectedValue = selectEl.value as Address | "";
 
-    if (refreshData?.tokenBalances) {
-      yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
-      if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
-        !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-      ) {
-        // Ensure LUSD is always in the first position
-        const option = document.createElement("option");
-        option.value = INVENTORY_TOKENS.LUSD.address;
-        option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-        option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-        option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-        yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
-      }
-      refreshData.tokenBalances.forEach((balance) => {
-        if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
-          return; // Token already exists
-        }
-        otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
+    yourTokenGroup.replaceChildren();
+    otherTokenGroup.replaceChildren();
 
-        const option = document.createElement("option");
-        option.value = balance.address;
-        option.setAttribute("data-decimals", balance.decimals.toString());
-        option.setAttribute("data-symbol", balance.symbol);
-        option.text = balance.symbol.substring(0, 10);
-        yourTokenGroup.appendChild(option);
+    const displayableBalances = getDisplayableBalances(refreshData?.tokenBalances ?? []);
+    const hasWalletTokens = displayableBalances.length > 0;
+
+    yourTokenGroup.style.display = hasWalletTokens ? "" : "none";
+    otherTokenGroup.style.display = hasWalletTokens ? "none" : "";
+
+    if (hasWalletTokens) {
+      const sortedBalances = [...displayableBalances].sort((a, b) => {
+        const isALusd = areAddressesEqual(a.address, INVENTORY_TOKENS.LUSD.address);
+        const isBLusd = areAddressesEqual(b.address, INVENTORY_TOKENS.LUSD.address);
+
+        if (isALusd && !isBLusd) return -1;
+        if (!isALusd && isBLusd) return 1;
+
+        return (b.usdValue ?? 0) - (a.usdValue ?? 0);
       });
-      // Remove old user's tokens
-      yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
-          opt.remove();
-        }
+
+      sortedBalances.forEach((balance) => {
+        this._appendTokenOption(yourTokenGroup, balance);
       });
     } else {
-      yourTokenGroup.style.display = "none";
-      yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
+      tokenList.forEach((token) => {
+        this._appendTokenOption(otherTokenGroup, {
+          address: token.address as Address,
+          decimals: token.decimals,
+          symbol: token.symbol,
+        });
+      });
     }
 
-    if (
-      !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`) &&
-      !otherTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-    ) {
-      // Ensure LUSD is always in the first position
-      const option = document.createElement("option");
-      option.value = INVENTORY_TOKENS.LUSD.address;
-      option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-      option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-      option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-      otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
+    // Restore the selection, falling back to the first available option
+    if (selectedValue && [...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, selectedValue))) {
+      selectEl.value = selectedValue;
+    } else if (selectEl.options.length > 0) {
+      selectEl.selectedIndex = 0;
     }
-    tokenList.forEach((token) => {
-      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
-        return; // Token already exists
-      }
-      const option = document.createElement("option");
-      option.value = token.address;
-      option.setAttribute("data-decimals", token.decimals.toString());
-      option.setAttribute("data-symbol", token.symbol);
-      option.text = token.symbol.substring(0, 10);
-      otherTokenGroup.appendChild(option);
-    });
-    otherTokenGroup.querySelectorAll("option").forEach((opt) => {
-      if (yourTokenGroup.querySelector(`option[value="${opt.value}"i]`)) {
-        opt.remove();
-      }
-    });
+  }
+
+  /**
+   * Append a token option to an optgroup
+   */
+  private _appendTokenOption(group: HTMLOptGroupElement, token: Pick<TokenBalance, "address" | "decimals" | "symbol">) {
+    const option = document.createElement("option");
+    option.value = token.address;
+    option.setAttribute("data-decimals", token.decimals.toString());
+    option.setAttribute("data-symbol", token.symbol);
+    option.text = token.symbol.substring(0, 10);
+    group.appendChild(option);
   }
 
   /**
@@ -298,7 +277,6 @@ export class SimplifiedExchangeComponent {
       await this._services.centralizedRefreshService.forceRefresh();
 
       this._render();
-      this._autoPopulateMaxBalance();
     });
 
     this._services.walletService.addEventListener(WALLET_EVENTS.DISCONNECT, async () => {
@@ -311,7 +289,7 @@ export class SimplifiedExchangeComponent {
       this._render();
     });
 
-    this._services.walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, async (account?: Address | null) => {
+    this._services.walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, async (_account?: Address | null) => {
       // Clear state and force re-evaluation when switching accounts
       this._state.amount = "";
       this._state.routeResult = null;
@@ -321,11 +299,6 @@ export class SimplifiedExchangeComponent {
       await this._services.centralizedRefreshService.forceRefresh();
       // Force a fresh render that will auto-select the correct direction
       this._render();
-
-      // If connected, auto-populate balance for the new account
-      if (account) {
-        this._autoPopulateMaxBalance();
-      }
     });
   }
 
@@ -337,6 +310,7 @@ export class SimplifiedExchangeComponent {
     // eslint-disable-next-line func-style
     const setupListeners = () => {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+      const maxAmountButton = document.getElementById("maxAmountButton") as HTMLButtonElement;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
       const ubqDiscountCheckbox = document.getElementById("useUbqDiscount") as HTMLInputElement;
@@ -344,13 +318,17 @@ export class SimplifiedExchangeComponent {
       const fractionalRedemptionCheckbox = document.getElementById("acceptFractionalRedemption") as HTMLInputElement;
 
       // Check if critical elements exist, if not retry
-      if (!amountInput || !depositButton || !withdrawButton) {
+      if (!amountInput || !maxAmountButton || !depositButton || !withdrawButton) {
         requestAnimationFrame(setupListeners);
         return;
       }
 
       if (amountInput) {
         amountInput.addEventListener("input", () => this._handleAmountChange());
+      }
+
+      if (maxAmountButton) {
+        maxAmountButton.addEventListener("click", () => this._handleMaxAmountClick());
       }
 
       if (depositButton) {
@@ -498,9 +476,6 @@ export class SimplifiedExchangeComponent {
 
     // Re-render UI
     this._render();
-
-    // Auto-populate with max balance if available
-    this._autoPopulateMaxBalance();
   }
 
   /**
@@ -638,6 +613,7 @@ export class SimplifiedExchangeComponent {
 
     // Show/hide options based on protocol state and direction
     this._renderTokenOptions();
+    this._updateMaxButton();
     this._renderOptions();
     this._renderOutput();
   }
@@ -1105,58 +1081,78 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Setup balance subscription for auto-populate
+   * Setup balance subscription to refresh the max button on balance updates
    */
   private _setupBalanceSubscription() {
     if (this._services.inventoryBar) {
       this._services.inventoryBar.onBalancesUpdated(() => {
         // Re-render the UI to update button visibility based on new balances
         this._render();
-        this._autoPopulateMaxBalance();
       });
     }
   }
 
-  private _autoPopulateRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Get the token whose max balance applies for the current direction
+   */
+  private _getMaxBalanceToken() {
+    return this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+  }
 
   /**
-   * Auto-populate with max balance
+   * Check whether the token for the current direction has a positive balance
    */
-  private _autoPopulateMaxBalance(retryCount: number = 0) {
-    // Cancel any pending retries when called
-    if (this._autoPopulateRetryTimeout) {
-      clearTimeout(this._autoPopulateRetryTimeout);
-      this._autoPopulateRetryTimeout = null;
+  private _hasMaxAvailableBalance(): boolean {
+    try {
+      const token = this._getMaxBalanceToken();
+      return hasAvailableBalanceByAddress(this._services.inventoryBar, token.address);
+    } catch {
+      return false;
     }
+  }
 
-    if (!this._services.walletService.isConnected()) return;
-
-    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
-    if (!amountInput) {
-      // Retry if DOM element not ready (max 3 retries)
-      if (retryCount < 3) {
-        this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 50);
-      }
+  /**
+   * Enable/disable the Max button based on connection and balance state
+   */
+  private _updateMaxButton() {
+    const maxAmountButton = document.getElementById("maxAmountButton") as HTMLButtonElement;
+    if (!maxAmountButton) {
       return;
     }
 
-    // Only auto-populate if input is empty or zero
-    if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
+    const isConnected = this._isWalletConnected();
+    const isBalancesLoading = isConnected && !this._services.inventoryBar.isInitialLoadComplete();
+    const hasMaxBalance = isConnected && !isBalancesLoading && this._hasMaxAvailableBalance();
+
+    maxAmountButton.disabled = !hasMaxBalance;
+    maxAmountButton.title = hasMaxBalance ? "Use maximum available balance" : "No available balance";
+  }
+
+  /**
+   * Fill the amount input with the maximum available balance
+   */
+  private _handleMaxAmountClick() {
+    if (!this._services.walletService.isConnected()) return;
+
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (!amountInput || amountInput.disabled) {
+      return;
+    }
 
     try {
-      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
-      const tokenSymbol = selectedToken.symbol;
-      if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
-        const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
-        amountInput.value = maxBalance;
-        this._state.amount = maxBalance;
-        void this._calculateRoute();
-      } else if (retryCount < 3 && !this._services.inventoryBar.isInitialLoadComplete()) {
-        // If balances not loaded yet, retry
-        this._autoPopulateRetryTimeout = setTimeout(() => this._autoPopulateMaxBalance(retryCount + 1), 100);
+      const token = this._getMaxBalanceToken();
+      const maxBalance = getMaxTokenBalanceByAddress(this._services.inventoryBar, token.address);
+
+      if (maxBalance === "0") {
+        return;
       }
+
+      amountInput.value = maxBalance;
+      this._state.amount = maxBalance;
+      this._services.notificationManager.clearNotifications("exchange");
+      void this._calculateRoute();
     } catch (error) {
-      console.error("Error auto-populating max balance:", error);
+      console.error("Error setting max balance:", error);
     }
   }
 
