@@ -152,6 +152,48 @@ export class SimplifiedExchangeComponent {
       outputDiv.insertBefore(selectEl, ubqOutputEl);
       inputDiv.insertBefore(labelSpan, inputDiv.firstChild);
     }
+
+    this._initMaxButton();
+  }
+
+  /**
+   * Add a Max button next to the amount input that fills the selected token balance.
+   */
+  private _initMaxButton(): void {
+    const amountInput = document.getElementById("exchangeAmount");
+    if (!amountInput || document.getElementById("maxAmountButton")) {
+      return;
+    }
+    const maxButton = document.createElement("button");
+    maxButton.id = "maxAmountButton";
+    maxButton.type = "button";
+    maxButton.textContent = "Max";
+    maxButton.className = "max-amount-button";
+    maxButton.addEventListener("click", () => this._fillMaxBalance());
+    amountInput.insertAdjacentElement("afterend", maxButton);
+  }
+
+  /**
+   * Fill the amount input with the selected token's max available balance.
+   */
+  private _fillMaxBalance(): void {
+    if (!this._services.walletService.isConnected()) {
+      return;
+    }
+    try {
+      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+      if (hasAvailableBalance(this._services.inventoryBar, selectedToken.symbol)) {
+        const maxBalance = getMaxTokenBalance(this._services.inventoryBar, selectedToken.symbol);
+        const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+        if (amountInput) {
+          amountInput.value = maxBalance;
+          this._state.amount = maxBalance;
+          void this._calculateRoute();
+        }
+      }
+    } catch (error) {
+      console.error("Error filling max balance:", error);
+    }
   }
 
   private _renderTokenOptions() {
@@ -181,6 +223,15 @@ export class SimplifiedExchangeComponent {
       refreshData.tokenBalances.forEach((balance) => {
         if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
+        }
+        // Hide dust: only show inventory balances worth more than $1.00.
+        // LUSD is exempt so the core swap token stays selectable.
+        if (
+          !areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address) &&
+          balance.usdValue !== undefined &&
+          balance.usdValue <= 1
+        ) {
+          return;
         }
         otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
 
@@ -214,17 +265,21 @@ export class SimplifiedExchangeComponent {
       option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
       otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
     }
-    tokenList.forEach((token) => {
-      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
-        return; // Token already exists
-      }
-      const option = document.createElement("option");
-      option.value = token.address;
-      option.setAttribute("data-decimals", token.decimals.toString());
-      option.setAttribute("data-symbol", token.symbol);
-      option.text = token.symbol.substring(0, 10);
-      otherTokenGroup.appendChild(option);
-    });
+    // Preloaded token list only makes sense when no live inventory is loaded.
+    // Once balances arrive, "Your Tokens" is the source of truth.
+    if (!refreshData?.tokenBalances?.length) {
+      tokenList.forEach((token) => {
+        if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
+          return; // Token already exists
+        }
+        const option = document.createElement("option");
+        option.value = token.address;
+        option.setAttribute("data-decimals", token.decimals.toString());
+        option.setAttribute("data-symbol", token.symbol);
+        option.text = token.symbol.substring(0, 10);
+        otherTokenGroup.appendChild(option);
+      });
+    }
     otherTokenGroup.querySelectorAll("option").forEach((opt) => {
       if (yourTokenGroup.querySelector(`option[value="${opt.value}"i]`)) {
         opt.remove();
