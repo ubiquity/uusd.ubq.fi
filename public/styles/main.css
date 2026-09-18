@@ -32,6 +32,12 @@ button:disabled { cursor: not-allowed; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .form-group {margin: 20px auto;}
+.max-button {
+    margin-left: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    vertical-align: middle;
+}
 label {/* display: block; */margin: 8px;font-weight: 600;}
 input, select {padding: 10px;border: 1px solid #ddd;border-radius: 6px;font-size: 16px;background-color: transparent;border-color: transparent;box-shadow: 0 0 96px #ffffff40;color: #fff; }
 input:focus, select:focus { outline: none; }
