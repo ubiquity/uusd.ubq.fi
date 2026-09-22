@@ -1,6 +1,22 @@
 import { formatUnits, parseUnits, type Address as _Address } from "viem";
 import type { TokenBalance, TokenMetadata } from "../types/inventory.types.ts";
 
+export const MINIMUM_VISIBLE_TOKEN_AMOUNT = "0.0001";
+
+const MINIMUM_VISIBLE_TOKEN_AMOUNT_DECIMALS = 4;
+
+/**
+ * Minimum raw token amount that is considered visible for a token with the given decimals.
+ *
+ * Tokens with fewer than 4 decimals cannot represent 0.0001 (viem rounds it down to 0n), so the
+ * smallest raw unit is used instead: any non-zero balance is above 0.0001 at those precisions.
+ */
+export function getMinimumVisibleTokenAmount(decimals: number): bigint {
+  if (decimals < MINIMUM_VISIBLE_TOKEN_AMOUNT_DECIMALS) return 1n;
+
+  return parseUnits(MINIMUM_VISIBLE_TOKEN_AMOUNT, decimals);
+}
+
 /**
  * Format token amount for display with appropriate decimal places
  */
@@ -9,7 +25,7 @@ export function formatTokenAmount(amount: bigint, decimals: number, displayDecim
   const trimmed = formatted.replace(/\.?0+$/, "") || "0";
 
   if (trimmed === "0") return "0";
-  if (amount < parseUnits("0.0001", decimals)) return "<0.0001";
+  if (amount < getMinimumVisibleTokenAmount(decimals)) return `<${MINIMUM_VISIBLE_TOKEN_AMOUNT}`;
 
   const num = parseFloat(formatted);
   return num.toLocaleString("en-US", {
@@ -50,10 +66,10 @@ export function calculateTotalUsdValue(balances: TokenBalance[]): number {
 }
 
 /**
- * Check if token balance is effectively zero (less than 0.0001)
+ * Check if token balance is effectively zero (less than the minimum visible amount)
  */
 export function isBalanceZero(balance: bigint, decimals: number): boolean {
-  return balance < parseUnits("0.0001", decimals);
+  return balance < getMinimumVisibleTokenAmount(decimals);
 }
 
 /**
