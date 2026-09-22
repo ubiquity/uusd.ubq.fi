@@ -11,10 +11,16 @@ import { WALLET_EVENTS } from "../services/wallet-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
-import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
+import {
+  getMaxTokenBalance,
+  getMaxTokenBalanceByAddress,
+  getSelectableWalletBalances,
+  hasAvailableBalance,
+  hasAvailableBalanceByAddress,
+} from "../utils/balance-utils.ts";
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
-import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
+import { INVENTORY_TOKENS, type TokenBalance } from "../types/inventory.types.ts";
 import { areAddressesEqual } from "../utils/format-utils.ts";
 import type { CowSwapService } from "../services/cowswap-service.ts";
 import tokenList from "../constants/token-list.json" with { type: "json" };
@@ -42,6 +48,8 @@ export class SimplifiedExchangeComponent {
   private _transactionStateService: TransactionStateService;
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private _renderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  // Incremented on every selection/amount change so a slow quote cannot overwrite a newer one.
+  private _routeRequestId = 0;
 
   // Simplified state
   private _state = {
@@ -155,81 +163,80 @@ export class SimplifiedExchangeComponent {
   }
 
   private _renderTokenOptions() {
-    const refreshData = this._services.centralizedRefreshService.getLastData();
     const selectEl = document.querySelector("#tokenSelect") as HTMLSelectElement;
     if (!selectEl) {
       return;
     }
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
+    if (!yourTokenGroup || !otherTokenGroup) {
+      return;
+    }
+    const selectedAddress = selectEl.value as Address | "";
 
-    if (refreshData?.tokenBalances) {
+    // Wallet balances are the selector's source of truth; unpriced holdings stay selectable.
+    const walletBalances = getSelectableWalletBalances(this._services.inventoryBar.getBalances());
+    const hasWalletTokens = walletBalances.length > 0;
+
+    yourTokenGroup.replaceChildren();
+    otherTokenGroup.replaceChildren();
+
+    if (hasWalletTokens) {
+      // LUSD stays available even when the wallet's own LUSD is dust or absent.
+      const lusdBalance = walletBalances.find((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address));
+      yourTokenGroup.appendChild(this._createTokenOption(lusdBalance ?? INVENTORY_TOKENS.LUSD));
+      walletBalances
+        .filter((balance) => !areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address))
+        .forEach((balance) => yourTokenGroup.appendChild(this._createTokenOption(balance)));
+
       yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
-      if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
-        !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-      ) {
-        // Ensure LUSD is always in the first position
-        const option = document.createElement("option");
-        option.value = INVENTORY_TOKENS.LUSD.address;
-        option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-        option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-        option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-        yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
-      }
-      refreshData.tokenBalances.forEach((balance) => {
-        if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
-          return; // Token already exists
-        }
-        otherTokenGroup.querySelector(`option[value="${balance.address}"i]`)?.remove(); // Remove from other tokens if present
-
-        const option = document.createElement("option");
-        option.value = balance.address;
-        option.setAttribute("data-decimals", balance.decimals.toString());
-        option.setAttribute("data-symbol", balance.symbol);
-        option.text = balance.symbol.substring(0, 10);
-        yourTokenGroup.appendChild(option);
-      });
-      // Remove old user's tokens
-      yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
-          opt.remove();
-        }
-      });
+      otherTokenGroup.style.display = "none";
     } else {
+      // No eligible wallet holdings: fall back to the preloaded list, never to an empty selector.
+      tokenList.forEach((token) => {
+        otherTokenGroup.appendChild(this._createTokenOption({ address: token.address as Address, decimals: token.decimals, symbol: token.symbol }));
+      });
+      if (![...selectEl.options].some((option) => areAddressesEqual(option.value as Address, INVENTORY_TOKENS.LUSD.address))) {
+        otherTokenGroup.insertBefore(this._createTokenOption(INVENTORY_TOKENS.LUSD), otherTokenGroup.firstChild);
+      }
+
       yourTokenGroup.style.display = "none";
-      yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
+      otherTokenGroup.style.display = "";
     }
 
-    if (
-      !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`) &&
-      !otherTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
-    ) {
-      // Ensure LUSD is always in the first position
-      const option = document.createElement("option");
-      option.value = INVENTORY_TOKENS.LUSD.address;
-      option.setAttribute("data-decimals", INVENTORY_TOKENS.LUSD.decimals.toString());
-      option.setAttribute("data-symbol", INVENTORY_TOKENS.LUSD.symbol);
-      option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
-      otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
+    this._restoreSelectedToken(selectEl, selectedAddress);
+  }
+
+  /**
+   * Build a token option; single source of truth for option markup and its data attributes.
+   */
+  private _createTokenOption(token: Pick<TokenBalance, "address" | "decimals" | "symbol">): HTMLOptionElement {
+    const option = document.createElement("option");
+    option.value = token.address;
+    option.setAttribute("data-decimals", token.decimals.toString());
+    option.setAttribute("data-symbol", token.symbol);
+    option.text = token.symbol.substring(0, 10);
+    return option;
+  }
+
+  /**
+   * Restore the previous selection by address; when that token is gone, drop the now-stale amount and route.
+   */
+  private _restoreSelectedToken(selectEl: HTMLSelectElement, selectedAddress: Address | ""): void {
+    const previousOption = selectedAddress ? [...selectEl.options].find((option) => areAddressesEqual(option.value as Address, selectedAddress)) : undefined;
+
+    if (previousOption) {
+      selectEl.value = previousOption.value;
+      return;
     }
-    tokenList.forEach((token) => {
-      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
-        return; // Token already exists
-      }
-      const option = document.createElement("option");
-      option.value = token.address;
-      option.setAttribute("data-decimals", token.decimals.toString());
-      option.setAttribute("data-symbol", token.symbol);
-      option.text = token.symbol.substring(0, 10);
-      otherTokenGroup.appendChild(option);
-    });
-    otherTokenGroup.querySelectorAll("option").forEach((opt) => {
-      if (yourTokenGroup.querySelector(`option[value="${opt.value}"i]`)) {
-        opt.remove();
-      }
-    });
+
+    if (selectedAddress) {
+      this._clearStaleAmount();
+    }
+
+    if (selectEl.options.length > 0) {
+      selectEl.selectedIndex = 0;
+    }
   }
 
   /**
@@ -291,8 +298,10 @@ export class SimplifiedExchangeComponent {
   private _setupWalletEventListeners() {
     this._services.walletService.addEventListener(WALLET_EVENTS.CONNECT, async (_account?: Address | null) => {
       // Clear state and re-evaluate on wallet connect
+      this._routeRequestId++;
       this._state.amount = "";
       this._state.routeResult = null;
+      this._state.isCalculating = false;
 
       // Wait for balances to load before rendering
       await this._services.centralizedRefreshService.forceRefresh();
@@ -303,8 +312,11 @@ export class SimplifiedExchangeComponent {
 
     this._services.walletService.addEventListener(WALLET_EVENTS.DISCONNECT, async () => {
       // Clear all state on disconnect
+      this._routeRequestId++;
       this._state.amount = "";
       this._state.routeResult = null;
+      this._state.isCalculating = false;
+      this._services.notificationManager.clearNotifications("exchange");
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (amountInput) amountInput.value = "";
       await this._services.centralizedRefreshService.forceRefresh();
@@ -313,8 +325,11 @@ export class SimplifiedExchangeComponent {
 
     this._services.walletService.addEventListener(WALLET_EVENTS.ACCOUNT_CHANGED, async (account?: Address | null) => {
       // Clear state and force re-evaluation when switching accounts
+      this._routeRequestId++;
       this._state.amount = "";
       this._state.routeResult = null;
+      this._state.isCalculating = false;
+      this._services.notificationManager.clearNotifications("exchange");
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
       if (amountInput) amountInput.value = "";
 
@@ -337,6 +352,7 @@ export class SimplifiedExchangeComponent {
     // eslint-disable-next-line func-style
     const setupListeners = () => {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+      const maxButton = document.getElementById("maxButton") as HTMLButtonElement | null;
       const depositButton = document.getElementById("depositButton") as HTMLButtonElement;
       const withdrawButton = document.getElementById("withdrawButton") as HTMLButtonElement;
       const ubqDiscountCheckbox = document.getElementById("useUbqDiscount") as HTMLInputElement;
@@ -351,6 +367,10 @@ export class SimplifiedExchangeComponent {
 
       if (amountInput) {
         amountInput.addEventListener("input", () => this._handleAmountChange());
+      }
+
+      if (maxButton) {
+        maxButton.addEventListener("click", () => this._handleMaxAmountClick());
       }
 
       if (depositButton) {
@@ -419,6 +439,13 @@ export class SimplifiedExchangeComponent {
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
     this._state.amount = amountInput?.value || "";
 
+    // Drop any in-flight quote and previously shown route immediately: the debounced recalculation owns the new value.
+    this._routeRequestId++;
+    this._state.routeResult = null;
+    this._state.isCalculating = false;
+    this._services.notificationManager.clearNotifications("exchange");
+    this._renderOutput();
+
     // Debounce calculation
     if (this._debounceTimer) {
       clearTimeout(this._debounceTimer);
@@ -427,6 +454,93 @@ export class SimplifiedExchangeComponent {
     this._debounceTimer = setTimeout(() => {
       void this._calculateRoute();
     }, 1000);
+  }
+
+  /**
+   * Token whose balance the Max button should use: the selected deposit token, or UUSD when withdrawing.
+   */
+  private _getMaxBalanceToken() {
+    return this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+  }
+
+  private _hasMaxAvailableBalance(): boolean {
+    try {
+      const token = this._getMaxBalanceToken();
+      return hasAvailableBalanceByAddress(this._services.inventoryBar, token.address);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Keep the Max button in step with connection, loading and balance state.
+   */
+  private _updateMaxButton(): void {
+    const maxButton = document.getElementById("maxButton") as HTMLButtonElement | null;
+    if (!maxButton) {
+      return;
+    }
+
+    const isConnected = this._isWalletConnected();
+    const isBalancesLoading = isConnected && !this._services.inventoryBar.isInitialLoadComplete();
+    const hasMaxBalance = isConnected && !isBalancesLoading && this._hasMaxAvailableBalance();
+
+    maxButton.disabled = !hasMaxBalance;
+    maxButton.title = hasMaxBalance ? "Use maximum available balance" : "No available balance";
+  }
+
+  /**
+   * Explicit Max action: fill the exact balance for the current token, or clear stale input when there is none.
+   */
+  private _handleMaxAmountClick(): void {
+    if (!this._services.walletService.isConnected()) return;
+
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement | null;
+    if (!amountInput || amountInput.disabled) {
+      return;
+    }
+
+    // An explicit Max owns the amount: drop any pending debounced recalculation of a typed amount.
+    if (this._debounceTimer) {
+      clearTimeout(this._debounceTimer);
+      this._debounceTimer = null;
+    }
+
+    try {
+      const token = this._getMaxBalanceToken();
+      const maxBalance = getMaxTokenBalanceByAddress(this._services.inventoryBar, token.address);
+
+      if (maxBalance === "0") {
+        this._clearStaleAmount();
+        return;
+      }
+
+      amountInput.value = maxBalance;
+      this._state.amount = maxBalance;
+      this._state.routeResult = null;
+      this._state.isCalculating = false;
+      this._services.notificationManager.clearNotifications("exchange");
+      // Render the cleared state before the new quote starts, so no previous quote or enabled action survives Max.
+      this._renderOutput();
+      void this._calculateRoute();
+    } catch (error) {
+      console.error("Error setting max balance:", error);
+    }
+  }
+
+  /**
+   * Drop the amount, in-flight quote and notifications when the current selection no longer resolves.
+   */
+  private _clearStaleAmount(): void {
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement | null;
+    if (amountInput) amountInput.value = "";
+
+    this._routeRequestId++;
+    this._state.amount = "";
+    this._state.routeResult = null;
+    this._state.isCalculating = false;
+    this._services.notificationManager.clearNotifications("exchange");
+    this._renderOutput();
   }
 
   private _getSelectedToken() {
@@ -451,13 +565,18 @@ export class SimplifiedExchangeComponent {
   }
 
   private _handleTokenSelect(_event: Event) {
+    // Invalidate in-flight quotes for the previous token before anything else.
+    this._routeRequestId++;
+    this._state.routeResult = null;
+    this._state.isCalculating = false;
+
     if (this._state.direction === "deposit") {
       const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
-      amountInput.value = "";
+      if (amountInput) amountInput.value = "";
       this._state.amount = "";
     }
     this._services.notificationManager.clearNotifications("exchange");
-    void this._render();
+    this._render();
     void this._calculateRoute();
   }
 
@@ -466,9 +585,11 @@ export class SimplifiedExchangeComponent {
    */
   private async _switchDirection(direction: ExchangeDirection) {
     // Clear current state
+    this._routeRequestId++;
     this._state.direction = direction;
     this._state.amount = "";
     this._state.routeResult = null;
+    this._state.isCalculating = false;
 
     // Clear input
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
@@ -509,11 +630,15 @@ export class SimplifiedExchangeComponent {
   private async _calculateRoute() {
     const amount = this._state.amount;
     if (!amount || amount === "0") {
+      this._routeRequestId++;
       this._state.routeResult = null;
+      this._state.isCalculating = false;
       this._renderOutput();
       return;
     }
 
+    // Only the newest request may write the route state.
+    const requestId = ++this._routeRequestId;
     this._state.isCalculating = true;
 
     try {
@@ -541,8 +666,16 @@ export class SimplifiedExchangeComponent {
         }
       }
 
+      if (requestId !== this._routeRequestId) {
+        return;
+      }
+
       this._state.routeResult = routeResult;
     } catch (error) {
+      if (requestId !== this._routeRequestId) {
+        return;
+      }
+
       console.error("Error calculating route:", error);
       this._state.routeResult = null;
     }
@@ -618,12 +751,15 @@ export class SimplifiedExchangeComponent {
       }
     }
 
-    // Update input label
+    // Update the amount label so the accessible name matches the token actually being entered.
     const amountLabel = document.getElementById("amountLabel");
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
 
     if (amountLabel) {
-      amountLabel.textContent = this._state.direction === "deposit" ? "LUSD" : "UUSD";
+      const tokenSelect = document.getElementById("tokenSelect") as HTMLSelectElement | null;
+      const selectedSymbol = tokenSelect?.selectedOptions[0]?.getAttribute("data-symbol");
+      const inputSymbol = this._state.direction === "deposit" ? selectedSymbol || INVENTORY_TOKENS.LUSD.symbol : INVENTORY_TOKENS.UUSD.symbol;
+      amountLabel.textContent = `Amount (${inputSymbol})`;
     }
 
     if (amountInput) {
@@ -638,6 +774,7 @@ export class SimplifiedExchangeComponent {
 
     // Show/hide options based on protocol state and direction
     this._renderTokenOptions();
+    this._updateMaxButton();
     this._renderOptions();
     this._renderOutput();
   }
@@ -1140,8 +1277,8 @@ export class SimplifiedExchangeComponent {
       return;
     }
 
-    // Only auto-populate if input is empty or zero
-    if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
+    // Auto-populate only while the user has not entered an amount; background updates never overwrite a manual amount.
+    if (amountInput.value !== "") return;
 
     try {
       const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
@@ -1172,7 +1309,10 @@ export class SimplifiedExchangeComponent {
         this._render();
       });
     } else {
+      this._routeRequestId++;
       this._state.routeResult = null;
+      this._state.isCalculating = false;
+      this._services.notificationManager.clearNotifications("exchange");
       this._renderOutput();
       this._render();
     }

@@ -45,7 +45,11 @@
         <div id="exchangeForm" class="exchange-form" style="display: none;">
             <form onsubmit="window.app.handleExchange(event)">
                 <div id="input" class="form-group">
-                    <input type="number" id="exchangeAmount" step="any" placeholder="Enter amount" required>
+                    <label for="exchangeAmount" id="amountLabel" class="amount-label">Amount (LUSD)</label>
+                    <div class="amount-input-row">
+                        <input type="number" id="exchangeAmount" step="any" placeholder="Enter amount" required>
+                        <button type="button" id="maxButton" class="max-button" title="Use maximum available balance" disabled>Max</button>
+                    </div>
                 </div>
 
                 <!-- Optional: UBQ Discount (only shown when protocol allows) -->
