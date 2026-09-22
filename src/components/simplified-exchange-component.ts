@@ -50,6 +50,10 @@ export class SimplifiedExchangeComponent {
   private _renderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   // Incremented on every selection/amount change so a slow quote cannot overwrite a newer one.
   private _routeRequestId = 0;
+  // Effective swap-only choice remembered while redemptions are unavailable, restored when they return.
+  private _swapOnlyChoiceBeforeUnavailable: boolean | null = null;
+  // The one-off init status check is provisional until the first authoritative refresh eligibility arrives.
+  private _refreshOwnsEligibility = false;
 
   // Simplified state
   private _state = {
@@ -263,6 +267,10 @@ export class SimplifiedExchangeComponent {
 
     // Subscribe to updates
     this._services.centralizedRefreshService.subscribe((data: RefreshData) => {
+      // From the first refresh payload on, refresh eligibility is authoritative and the provisional init
+      // check (including its error path) must not overwrite it when it settles later.
+      this._refreshOwnsEligibility = true;
+
       const didHaveMintingDisabled = this._state.mintingDisabled;
       this._state.mintingDisabled = !data.isMintingAllowed;
 
@@ -271,10 +279,20 @@ export class SimplifiedExchangeComponent {
         this._state.useUbqDiscount = false;
       }
 
+      // Keep redemption eligibility fresh from the existing refresh payload, which carries the same
+      // TWAP-vs-threshold condition the init-time _checkRedemptionStatus consumed.
+      const didRedemptionEligibilityChange = this._applyRedemptionEligibility(data.isRedeemingAllowed);
+
       // Re-render if minting state changed and we're on deposit
       if (this._state.direction === "deposit" && didHaveMintingDisabled !== this._state.mintingDisabled) {
         console.log("[CENTRALIZED UPDATE] Minting state changed, re-rendering");
         this._renderOptions();
+      }
+
+      if (didRedemptionEligibilityChange) {
+        console.log("[CENTRALIZED UPDATE] Redemption eligibility changed, re-rendering");
+        this._renderOptions();
+        this._refreshWithdrawQuoteForEligibilityChange();
       }
     });
   }
@@ -599,6 +617,9 @@ export class SimplifiedExchangeComponent {
     // Only reset forceSwapOnly for deposits (user preference)
     if (direction === "deposit") {
       this._state.forceSwapOnly = false;
+      // The deposit reset also drops any swap-only choice saved for the unavailable interval, so returning to
+      // withdraw cannot resurrect it.
+      this._swapOnlyChoiceBeforeUnavailable = null;
     }
 
     // For withdrawals, ensure checkbox is hidden if redemptions are disabled
@@ -780,7 +801,55 @@ export class SimplifiedExchangeComponent {
   }
 
   /**
-   * Check redemption status and update state
+   * Apply the redemption-eligibility policy shared by the init check and the refresh subscriber.
+   * While redemptions are unavailable the effective swap-only choice is remembered and the UI is forced onto
+   * the Curve swap; when they return, the remembered choice is restored for the withdraw path. Returns true
+   * only for a real transition.
+   */
+  private _applyRedemptionEligibility(isRedeemingAllowed: boolean): boolean {
+    const shouldDisableRedemptions = !isRedeemingAllowed;
+    if (shouldDisableRedemptions === this._state.redemptionsDisabled) {
+      return false;
+    }
+
+    if (shouldDisableRedemptions) {
+      // Remember the user's effective choice so the forced interval does not erase it.
+      this._swapOnlyChoiceBeforeUnavailable = this._state.forceSwapOnly;
+      this._state.redemptionsDisabled = true;
+      this._state.forceSwapOnly = true;
+
+      // Immediately hide and disable the checkbox while redemptions are unavailable
+      const swapOnlyDiv = document.getElementById("swapOnlyOption");
+      const swapOnlyCheckbox = document.getElementById("forceSwapOnly") as HTMLInputElement;
+
+      if (swapOnlyDiv) {
+        swapOnlyDiv.style.display = "none";
+      }
+
+      if (swapOnlyCheckbox) {
+        swapOnlyCheckbox.checked = true;
+        swapOnlyCheckbox.disabled = true;
+      }
+    } else {
+      const shouldRestoreSwapOnly = this._swapOnlyChoiceBeforeUnavailable ?? false;
+      this._swapOnlyChoiceBeforeUnavailable = null;
+      this._state.redemptionsDisabled = false;
+      // The deposit direction keeps its existing intentional reset; _renderOptions still owns the fractional
+      // acceptFractionalRedemption policy.
+      this._state.forceSwapOnly = this._state.direction === "withdraw" ? shouldRestoreSwapOnly : false;
+    }
+
+    console.log("[REDEMPTION STATUS] Eligibility changed:", {
+      isRedeemingAllowed,
+      redemptionsDisabled: this._state.redemptionsDisabled,
+      forceSwapOnly: this._state.forceSwapOnly,
+    });
+
+    return true;
+  }
+
+  /**
+   * Provisional startup check: apply its result only until the first authoritative refresh eligibility arrives.
    */
   private async _checkRedemptionStatus() {
     try {
@@ -797,40 +866,26 @@ export class SimplifiedExchangeComponent {
         raw: redeemResult,
       });
 
-      // Update redemption disabled state
-      this._state.redemptionsDisabled = !redeemResult.isRedeemingAllowed;
-
-      // Force swap-only if redemptions are disabled
-      if (this._state.redemptionsDisabled) {
-        this._state.forceSwapOnly = true;
-
-        // Immediately hide and disable the checkbox
-        const swapOnlyDiv = document.getElementById("swapOnlyOption");
-        const swapOnlyCheckbox = document.getElementById("forceSwapOnly") as HTMLInputElement;
-
-        if (swapOnlyDiv) {
-          swapOnlyDiv.style.display = "none";
-        }
-
-        if (swapOnlyCheckbox) {
-          swapOnlyCheckbox.checked = true;
-          swapOnlyCheckbox.disabled = true;
-        }
+      if (this._refreshOwnsEligibility) {
+        console.log("[REDEMPTION CHECK] Provisional result ignored; refresh already owns eligibility");
       } else {
-        // Only reset if redemptions are enabled
-        this._state.redemptionsDisabled = false;
-        this._state.forceSwapOnly = false;
+        this._applyRedemptionEligibility(redeemResult.isRedeemingAllowed);
       }
     } catch (error) {
       console.error("[REDEMPTION CHECK] Error caught:", error);
-      // On error, assume redemptions are disabled to be safe
-      this._state.redemptionsDisabled = true;
-      this._state.forceSwapOnly = true;
 
-      // Hide checkbox on error too
-      const swapOnlyDiv = document.getElementById("swapOnlyOption");
-      if (swapOnlyDiv) {
-        swapOnlyDiv.style.display = "none";
+      if (this._refreshOwnsEligibility) {
+        console.log("[REDEMPTION CHECK] Provisional error ignored; refresh already owns eligibility");
+      } else {
+        // On error, assume redemptions are disabled to be safe
+        this._state.redemptionsDisabled = true;
+        this._state.forceSwapOnly = true;
+
+        // Hide checkbox on error too
+        const swapOnlyDiv = document.getElementById("swapOnlyOption");
+        if (swapOnlyDiv) {
+          swapOnlyDiv.style.display = "none";
+        }
       }
     }
 
@@ -838,6 +893,44 @@ export class SimplifiedExchangeComponent {
       redemptionsDisabled: this._state.redemptionsDisabled,
       forceSwapOnly: this._state.forceSwapOnly,
     });
+  }
+
+  /**
+   * An eligibility transition changes only the LUSD protocol/Curve choice for a withdrawal. Drop any
+   * displayed or in-flight quote for that path using the accepted request-generation guard, cancel a
+   * pending amount debounce so the current amount is quoted once, render the cleared state before
+   * recalculating, and leave every other selection untouched.
+   */
+  private _refreshWithdrawQuoteForEligibilityChange(): void {
+    if (this._state.direction !== "withdraw" || !this._isLusdWithdrawSelection()) {
+      return;
+    }
+
+    if (this._debounceTimer) {
+      clearTimeout(this._debounceTimer);
+      this._debounceTimer = null;
+    }
+
+    this._routeRequestId++;
+    this._state.routeResult = null;
+    this._state.isCalculating = false;
+    this._services.notificationManager.clearNotifications("exchange");
+    this._renderOutput();
+    void this._calculateRoute();
+  }
+
+  /**
+   * True only for the LUSD selection, whose withdrawal uses the protocol/Curve choice governed by
+   * redemption eligibility. A non-LUSD CoW output token keeps its own route and is never switched to LUSD.
+   */
+  private _isLusdWithdrawSelection(): boolean {
+    const selectEl = document.getElementById("tokenSelect") as HTMLSelectElement | null;
+    const selectedOption = selectEl?.selectedOptions[0];
+    if (!selectedOption) {
+      return false;
+    }
+
+    return areAddressesEqual(selectedOption.value as Address, LUSD_COLLATERAL.address);
   }
 
   /**
