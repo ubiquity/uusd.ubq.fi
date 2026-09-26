@@ -12,6 +12,7 @@ import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
 import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
+import { isBalanceZero } from "../utils/token-utils.ts";
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
@@ -155,7 +156,6 @@ export class SimplifiedExchangeComponent {
   }
 
   private _renderTokenOptions() {
-    const refreshData = this._services.centralizedRefreshService.getLastData();
     const selectEl = document.querySelector("#tokenSelect") as HTMLSelectElement;
     if (!selectEl) {
       return;
@@ -163,11 +163,19 @@ export class SimplifiedExchangeComponent {
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
 
-    if (refreshData?.tokenBalances) {
+    // The selector relies on the address-keyed inventory cache so same-symbol
+    // contracts remain distinct and still-owned tokens survive partial refreshes.
+    const inventoryBalances = this._services.inventoryBar.getBalances();
+    const userBalances = inventoryBalances.filter((balance) => !isBalanceZero(balance.balance, balance.decimals));
+
+    // Preserve the currently selected address so it can be restored after rebuild
+    const previousSelection = selectEl.value;
+
+    if (userBalances.length > 0) {
       yourTokenGroup.style.display = "";
       otherTokenGroup.style.display = "";
       if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
+        userBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
         !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
       ) {
         // Ensure LUSD is always in the first position
@@ -178,7 +186,7 @@ export class SimplifiedExchangeComponent {
         option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
         yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
       }
-      refreshData.tokenBalances.forEach((balance) => {
+      userBalances.forEach((balance) => {
         if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
         }
@@ -193,7 +201,7 @@ export class SimplifiedExchangeComponent {
       });
       // Remove old user's tokens
       yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
+        if (!userBalances.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
           opt.remove();
         }
       });
@@ -230,6 +238,18 @@ export class SimplifiedExchangeComponent {
         opt.remove();
       }
     });
+
+    // Restore the preserved selection, or fall back to LUSD when the selected
+    // token became ineligible after the refresh.
+    const selectionIsRestorable = [...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, previousSelection as Address));
+    if (selectionIsRestorable) {
+      selectEl.value = previousSelection;
+    } else {
+      const lusdOption = [...selectEl.options].find((opt) => areAddressesEqual(opt.value as Address, INVENTORY_TOKENS.LUSD.address));
+      if (lusdOption) {
+        selectEl.value = lusdOption.value;
+      }
+    }
   }
 
   /**
@@ -618,13 +638,8 @@ export class SimplifiedExchangeComponent {
       }
     }
 
-    // Update input label
-    const amountLabel = document.getElementById("amountLabel");
+    // Update input loading state
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
-
-    if (amountLabel) {
-      amountLabel.textContent = this._state.direction === "deposit" ? "LUSD" : "UUSD";
-    }
 
     if (amountInput) {
       if (isBalancesLoading) {
@@ -638,8 +653,25 @@ export class SimplifiedExchangeComponent {
 
     // Show/hide options based on protocol state and direction
     this._renderTokenOptions();
+    // The amount label must be computed AFTER the token options and the selected
+    // address are restored, so it always matches the active token.
+    this._updateTokenLabel();
     this._renderOptions();
     this._renderOutput();
+  }
+
+  /**
+   * Update the amount/token label to match the restored selection.
+   * Called after _renderTokenOptions() so the select reflects the active token.
+   */
+  private _updateTokenLabel() {
+    const label = document.getElementById("tokenLabel");
+    if (!label) return;
+    try {
+      label.textContent = this._getSelectedToken().symbol;
+    } catch {
+      label.textContent = this._state.direction === "deposit" ? "LUSD" : "UUSD";
+    }
   }
 
   /**
