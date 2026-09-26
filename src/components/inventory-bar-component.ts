@@ -8,6 +8,7 @@ import type { CentralizedRefreshService, RefreshData } from "../services/central
 import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
 import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
 import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
+import { areAddressesEqual } from "../utils/format-utils.ts";
 
 import icons from "./icons.ts";
 
@@ -92,6 +93,33 @@ export class InventoryBarComponent {
   }
 
   /**
+   * Helper to merge incoming token balances with existing cached values.
+   * Matches tokens by contract address to avoid same-symbol collisions.
+   */
+  private _mergeBalances(current: TokenBalance[], incoming: TokenBalance[]): TokenBalance[] {
+    const merged = [...current];
+
+    incoming.forEach((newBalance) => {
+      const existingIndex = merged.findIndex((existing) => areAddressesEqual(existing.address, newBalance.address));
+
+      if (existingIndex >= 0) {
+        // ONLY update if we have valid data - NO FALLBACKS
+        if (newBalance.balance !== undefined && newBalance.usdValue !== undefined) {
+          merged[existingIndex] = newBalance;
+        } else {
+          console.error(`INVALID DATA for ${newBalance.symbol} - not updating. Balance: ${newBalance.balance}, USD: ${newBalance.usdValue}`);
+          // Keep existing value in merged balances - don't clear it
+        }
+      } else {
+        // Add new token balance
+        merged.push(newBalance);
+      }
+    });
+
+    return merged;
+  }
+
+  /**
    * Handle centralized refresh data updates
    */
   private _handleRefreshData(data: RefreshData): void {
@@ -108,25 +136,7 @@ export class InventoryBarComponent {
 
       // Merge new balance data with existing cached values
       // This prevents clearing existing values when partial updates arrive
-      const updatedBalances = [...this._state.balances];
-
-      // Update each token balance individually
-      data.tokenBalances.forEach((newBalance) => {
-        const existingIndex = updatedBalances.findIndex((existing) => existing.symbol === newBalance.symbol);
-
-        if (existingIndex >= 0) {
-          // ONLY update if we have valid data - NO FALLBACKS
-          if (newBalance.balance !== undefined && newBalance.usdValue !== undefined) {
-            updatedBalances[existingIndex] = newBalance;
-          } else {
-            console.error(`INVALID DATA for ${newBalance.symbol} - not updating. Balance: ${newBalance.balance}, USD: ${newBalance.usdValue}`);
-            // Keep existing value in updatedBalances - don't clear it
-          }
-        } else {
-          // Add new token balance
-          updatedBalances.push(newBalance);
-        }
-      });
+      const updatedBalances = this._mergeBalances(this._state.balances, data.tokenBalances);
 
       // Update state with merged data
       this._state.balances = updatedBalances;
@@ -285,8 +295,13 @@ export class InventoryBarComponent {
 
       const balances = await Promise.all(balancePromises);
 
-      this._state.balances = balances;
-      this._state.totalUsdValue = calculateTotalUsdValue(balances);
+      // Merge the (partial core-token) refresh into the complete wallet snapshot
+      // instead of replacing it. This keeps still-owned tokens (e.g. USDC) selectable
+      // when only a subset of core tokens is refreshed (e.g. after a trade).
+      const mergedBalances = this._mergeBalances(this._state.balances, balances);
+
+      this._state.balances = mergedBalances;
+      this._state.totalUsdValue = calculateTotalUsdValue(mergedBalances);
       this._state.isLoading = false;
 
       this._renderBalances();
