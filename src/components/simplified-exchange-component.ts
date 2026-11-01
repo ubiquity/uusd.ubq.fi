@@ -155,19 +155,20 @@ export class SimplifiedExchangeComponent {
   }
 
   private _renderTokenOptions() {
-    const refreshData = this._services.centralizedRefreshService.getLastData();
+    const tokenBalances = this._services.inventoryBar.getBalances().filter((balance) => balance.balance > 0n);
     const selectEl = document.querySelector("#tokenSelect") as HTMLSelectElement;
     if (!selectEl) {
       return;
     }
+    const selectedAddress = selectEl.value as Address;
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
 
-    if (refreshData?.tokenBalances) {
+    if (tokenBalances.length > 0) {
       yourTokenGroup.style.display = "";
-      otherTokenGroup.style.display = "";
+      otherTokenGroup.style.display = "none";
       if (
-        refreshData.tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
+        tokenBalances.some((balance) => areAddressesEqual(balance.address, INVENTORY_TOKENS.LUSD.address)) &&
         !yourTokenGroup.querySelector(`option[value="${INVENTORY_TOKENS.LUSD.address}"i]`)
       ) {
         // Ensure LUSD is always in the first position
@@ -178,7 +179,7 @@ export class SimplifiedExchangeComponent {
         option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
         yourTokenGroup.insertBefore(option, yourTokenGroup.firstChild);
       }
-      refreshData.tokenBalances.forEach((balance) => {
+      tokenBalances.forEach((balance) => {
         if (yourTokenGroup.querySelector(`option[value="${balance.address}"i]`)) {
           return; // Token already exists
         }
@@ -193,12 +194,13 @@ export class SimplifiedExchangeComponent {
       });
       // Remove old user's tokens
       yourTokenGroup.querySelectorAll("option").forEach((opt) => {
-        if (!refreshData.tokenBalances?.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
+        if (!tokenBalances.some((balance) => areAddressesEqual(balance.address, opt.value as Address))) {
           opt.remove();
         }
       });
     } else {
       yourTokenGroup.style.display = "none";
+      otherTokenGroup.style.display = "";
       yourTokenGroup.querySelectorAll("option").forEach((opt) => opt.remove());
     }
 
@@ -230,6 +232,16 @@ export class SimplifiedExchangeComponent {
         opt.remove();
       }
     });
+
+    // Removing or moving options can reset the browser's selection. Restore it only
+    // within the active group, falling back to LUSD (or the first owned token).
+    const activeGroup = tokenBalances.length > 0 ? yourTokenGroup : otherTokenGroup;
+    const options = [...activeGroup.querySelectorAll("option")];
+    const selectedOption =
+      options.find((option) => areAddressesEqual(option.value as Address, selectedAddress)) ??
+      options.find((option) => areAddressesEqual(option.value as Address, INVENTORY_TOKENS.LUSD.address)) ??
+      options[0];
+    selectEl.value = selectedOption?.value ?? "";
   }
 
   /**
@@ -618,12 +630,15 @@ export class SimplifiedExchangeComponent {
       }
     }
 
+    // Restore options and selection before deriving the active token label.
+    this._renderTokenOptions();
+
     // Update input label
     const amountLabel = document.getElementById("amountLabel");
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
 
     if (amountLabel) {
-      amountLabel.textContent = this._state.direction === "deposit" ? "LUSD" : "UUSD";
+      amountLabel.textContent = this._state.direction === "deposit" ? this._getSelectedToken().symbol : INVENTORY_TOKENS.UUSD.symbol;
     }
 
     if (amountInput) {
@@ -637,7 +652,6 @@ export class SimplifiedExchangeComponent {
     }
 
     // Show/hide options based on protocol state and direction
-    this._renderTokenOptions();
     this._renderOptions();
     this._renderOutput();
   }
