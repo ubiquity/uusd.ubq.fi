@@ -418,16 +418,16 @@ export class InventoryBarComponent {
       return;
     }
 
-    // Filter out zero balances and render individual token balances
-    const nonZeroBalances = this._state.balances.filter((balance) => !isBalanceZero(balance.balance, balance.decimals));
+    // Hide dust in the inventory without discarding balances used by the exchange.
+    const visibleBalances = this._state.balances.filter((balance) => balance.balance > 0n && (balance.usdValue ?? 0) > 1);
 
-    if (nonZeroBalances.length === 0) {
-      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances available</div>';
-      totalValueElement.textContent = "$0.00";
+    if (visibleBalances.length === 0) {
+      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances over $1.00</div>';
+      totalValueElement.textContent = formatUsdValue(this._state.totalUsdValue);
       return;
     }
 
-    const tokenElements = nonZeroBalances
+    const tokenElements = visibleBalances
       .map((balance) => {
         const amount = formatTokenAmount(balance.balance, balance.decimals);
         const usdValue = balance.usdValue ? formatUsdValue(balance.usdValue) : "";
