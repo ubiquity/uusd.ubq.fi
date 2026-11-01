@@ -11,7 +11,6 @@ import { WALLET_EVENTS } from "../services/wallet-service.ts";
 import { LUSD_COLLATERAL } from "../contracts/constants.ts";
 import type { NotificationManager } from "./notification-manager.ts";
 import type { InventoryBarComponent } from "./inventory-bar-component.ts";
-import { getMaxTokenBalance, hasAvailableBalance } from "../utils/balance-utils.ts";
 import { DEFAULT_SLIPPAGE_PERCENT, DEFAULT_SLIPPAGE_BPS, BASIS_POINTS_DIVISOR } from "../constants/numeric-constants.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import { INVENTORY_TOKENS } from "../types/inventory.types.ts";
@@ -152,6 +151,8 @@ export class SimplifiedExchangeComponent {
       outputDiv.insertBefore(selectEl, ubqOutputEl);
       inputDiv.insertBefore(labelSpan, inputDiv.firstChild);
     }
+
+    this._renderTokenOptions();
   }
 
   private _renderTokenOptions() {
@@ -160,6 +161,7 @@ export class SimplifiedExchangeComponent {
     if (!selectEl) {
       return;
     }
+    const selectedAddress = selectEl.value;
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
 
@@ -230,6 +232,11 @@ export class SimplifiedExchangeComponent {
         opt.remove();
       }
     });
+
+    const selectedOption = [...selectEl.options].find((option) => areAddressesEqual(option.value as Address, selectedAddress as Address));
+    if (selectedOption) {
+      selectEl.value = selectedOption.value;
+    }
   }
 
   /**
@@ -353,6 +360,8 @@ export class SimplifiedExchangeComponent {
         amountInput.addEventListener("input", () => this._handleAmountChange());
       }
 
+      document.getElementById("maxAmountButton")?.addEventListener("click", () => this._autoPopulateMaxBalance(0, true));
+
       if (depositButton) {
         depositButton.addEventListener("click", () => this._switchDirection("deposit"));
       }
@@ -448,6 +457,12 @@ export class SimplifiedExchangeComponent {
       symbol,
       decimals,
     };
+  }
+
+  private _getInputTokenBalance() {
+    const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+    const balances = this._services.centralizedRefreshService.getLastData()?.tokenBalances ?? this._services.inventoryBar.getBalances();
+    return balances.find((balance) => areAddressesEqual(balance.address, selectedToken.address));
   }
 
   private _handleTokenSelect(_event: Event) {
@@ -638,6 +653,11 @@ export class SimplifiedExchangeComponent {
 
     // Show/hide options based on protocol state and direction
     this._renderTokenOptions();
+    const maxAmountButton = document.getElementById("maxAmountButton") as HTMLButtonElement;
+    if (maxAmountButton) {
+      maxAmountButton.disabled =
+        !isConnected || isBalancesLoading || this._transactionStateService.hasActiveTransaction() || (this._getInputTokenBalance()?.balance ?? 0n) <= 0n;
+    }
     this._renderOptions();
     this._renderOutput();
   }
@@ -1122,14 +1142,14 @@ export class SimplifiedExchangeComponent {
   /**
    * Auto-populate with max balance
    */
-  private _autoPopulateMaxBalance(retryCount: number = 0) {
+  private _autoPopulateMaxBalance(retryCount: number = 0, replaceExisting: boolean = false) {
     // Cancel any pending retries when called
     if (this._autoPopulateRetryTimeout) {
       clearTimeout(this._autoPopulateRetryTimeout);
       this._autoPopulateRetryTimeout = null;
     }
 
-    if (!this._services.walletService.isConnected()) return;
+    if (!this._services.walletService.isConnected() || this._transactionStateService.hasActiveTransaction()) return;
 
     const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
     if (!amountInput) {
@@ -1140,14 +1160,19 @@ export class SimplifiedExchangeComponent {
       return;
     }
 
-    // Only auto-populate if input is empty or zero
-    if (amountInput.value && amountInput.value !== "" && amountInput.value !== "0") return;
+    if (amountInput.disabled) return;
+
+    // Only replace a manually entered amount when Max is explicitly requested.
+    if (!replaceExisting && amountInput.value && amountInput.value !== "0") return;
 
     try {
-      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
-      const tokenSymbol = selectedToken.symbol;
-      if (hasAvailableBalance(this._services.inventoryBar, tokenSymbol)) {
-        const maxBalance = getMaxTokenBalance(this._services.inventoryBar, tokenSymbol);
+      const tokenBalance = this._getInputTokenBalance();
+      if (tokenBalance && tokenBalance.balance > 0n) {
+        const maxBalance = formatUnits(tokenBalance.balance, tokenBalance.decimals);
+        if (this._debounceTimer) {
+          clearTimeout(this._debounceTimer);
+          this._debounceTimer = null;
+        }
         amountInput.value = maxBalance;
         this._state.amount = maxBalance;
         void this._calculateRoute();

@@ -319,6 +319,7 @@ export class TransactionStateService {
     document.getElementById("exchangeButton")?.setAttribute("disabled", "true");
     document.getElementById("tokenSelect")?.setAttribute("disabled", "true");
     document.getElementById("exchangeAmount")?.setAttribute("disabled", "true");
+    document.getElementById("maxAmountButton")?.setAttribute("disabled", "true");
   }
 
   enableAllInteractiveElements(): void {
@@ -328,5 +329,6 @@ export class TransactionStateService {
     document.getElementById("exchangeButton")?.removeAttribute("disabled");
     document.getElementById("tokenSelect")?.removeAttribute("disabled");
     document.getElementById("exchangeAmount")?.removeAttribute("disabled");
+    document.getElementById("maxAmountButton")?.removeAttribute("disabled");
   }
 }
