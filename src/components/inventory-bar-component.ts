@@ -92,6 +92,22 @@ export class InventoryBarComponent {
   }
 
   /**
+   * Merge partial refreshes by contract address, not symbol. USD pricing is optional.
+   */
+  private _mergeBalances(balances: TokenBalance[]): void {
+    const balancesByAddress = new Map(this._state.balances.map((balance) => [balance.address.toLowerCase(), balance]));
+    for (const balance of balances) {
+      if (balance.balance !== undefined) {
+        balancesByAddress.set(balance.address.toLowerCase(), balance);
+      } else {
+        console.error(`INVALID DATA for ${balance.symbol} - not updating. Balance: ${balance.balance}`);
+      }
+    }
+    this._state.balances = [...balancesByAddress.values()];
+    this._state.totalUsdValue = calculateTotalUsdValue(this._state.balances);
+  }
+
+  /**
    * Handle centralized refresh data updates
    */
   private _handleRefreshData(data: RefreshData): void {
@@ -106,31 +122,7 @@ export class InventoryBarComponent {
         })),
       });
 
-      // Merge new balance data with existing cached values
-      // This prevents clearing existing values when partial updates arrive
-      const updatedBalances = [...this._state.balances];
-
-      // Update each token balance individually
-      data.tokenBalances.forEach((newBalance) => {
-        const existingIndex = updatedBalances.findIndex((existing) => existing.symbol === newBalance.symbol);
-
-        if (existingIndex >= 0) {
-          // ONLY update if we have valid data - NO FALLBACKS
-          if (newBalance.balance !== undefined && newBalance.usdValue !== undefined) {
-            updatedBalances[existingIndex] = newBalance;
-          } else {
-            console.error(`INVALID DATA for ${newBalance.symbol} - not updating. Balance: ${newBalance.balance}, USD: ${newBalance.usdValue}`);
-            // Keep existing value in updatedBalances - don't clear it
-          }
-        } else {
-          // Add new token balance
-          updatedBalances.push(newBalance);
-        }
-      });
-
-      // Update state with merged data
-      this._state.balances = updatedBalances;
-      this._state.totalUsdValue = calculateTotalUsdValue(updatedBalances);
+      this._mergeBalances(data.tokenBalances);
       this._state.isLoading = false;
 
       console.log("📊 Final inventory state:", {
@@ -285,8 +277,7 @@ export class InventoryBarComponent {
 
       const balances = await Promise.all(balancePromises);
 
-      this._state.balances = balances;
-      this._state.totalUsdValue = calculateTotalUsdValue(balances);
+      this._mergeBalances(balances);
       this._state.isLoading = false;
 
       this._renderBalances();
