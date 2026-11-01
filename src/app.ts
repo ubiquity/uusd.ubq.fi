@@ -20,16 +20,6 @@ import { formatAddress } from "./utils/format-utils.ts";
 import { TransactionButtonUtils } from "./utils/transaction-button-utils.ts";
 import { CowSwapService } from "./services/cowswap-service.ts";
 
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      on: (event: string, callback: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
-    };
-  }
-}
-
 /**
  * Main Application Class - Lightweight Coordinator
  * Orchestrates components and manages high-level application state
@@ -450,6 +440,8 @@ class UUSDApp {
       const walletAddress = document.getElementById("walletAddress");
       if (walletInfo) walletInfo.style.display = "unset";
       if (walletAddress) walletAddress.textContent = formatAddress(account);
+      const networkName = document.getElementById("networkName");
+      if (networkName) networkName.textContent = this._walletService.getChain()?.name ?? "Unsupported network";
     } else {
       // When disconnected, show connect button and hide wallet info
 
@@ -519,7 +511,8 @@ class UUSDApp {
         connectButton.disabled = true;
 
         // Disconnect wallet (this will clear localStorage)
-        this._walletService.disconnect();
+        this._isConnecting = true;
+        await this._walletService.disconnect();
         // Manually update UI after disconnection
         // Don't rely on event handlers as they may not fire immediately
         this._updateWalletUI(null);
@@ -531,8 +524,8 @@ class UUSDApp {
         connectButton.textContent = "Connecting...";
         connectButton.disabled = true;
 
-        // Force wallet selection since user explicitly clicked connect
-        await this._walletService.connect(true);
+        // Open AppKit wallet selection since user explicitly clicked connect
+        await this._walletService.connect();
         // Manually update UI after successful connection
         // Don't rely on event handlers as they may not fire immediately
         if (this._walletService.isConnected()) {
@@ -550,6 +543,14 @@ class UUSDApp {
       this._notificationManager.showError("exchange", message);
     } finally {
       this._isConnecting = false;
+    }
+  }
+
+  async manageWallet() {
+    try {
+      await this._walletService.openAccount();
+    } catch (error: unknown) {
+      this._notificationManager.showError("exchange", error instanceof Error ? error.message : "Unable to open wallet management.");
     }
   }
 

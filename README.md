@@ -31,6 +31,46 @@ cd uusd.ubq.fi
 deno install
 ```
 
+### Wallet connection configuration
+
+Create an AppKit project in Reown Cloud and configure its allowed origins for your
+production and preview domains. Supply the **public** project ID at build time:
+
+```bash
+NEXT_PUBLIC_PROJECT_ID=your-reown-project-id deno task build
+# Use the same environment variable with deno task build:watch during development.
+```
+
+The build embeds only this public identifier, not the rest of the environment.
+Never supply wallet private keys or seed phrases. Without a project ID, read-only
+views remain available and connecting displays a configuration error.
+
+This application uses vanilla TypeScript, so AppKit is initialized once through
+its JavaScript API with `WagmiAdapter`, rather than adding a React provider tree.
+Connect Wallet opens AppKit for WalletConnect, injected and discovered EVM wallets.
+Manage Wallet opens account/network management; Disconnect terminates the connector
+session. Ethereum, Gnosis and Arbitrum are available in AppKit, but UUSD trading is
+restricted to Ethereum Mainnet to avoid submitting to mainnet addresses on another
+chain. Wallet approval and signing continue through the selected connector's viem
+client, never through a hard-coded browser extension.
+
+Deployment builds must receive `NEXT_PUBLIC_PROJECT_ID` as well. For Deno Deploy,
+include it in the workflows' `build_env` allowlists and configure the public ID in
+the build environment. Setting it only in the serving runtime will not update the
+compiled browser bundle.
+
+Offline wallet lifecycle tests (mock connectors, no funds required):
+
+```bash
+bun test ./tools/wallet-service.test.ts
+```
+
+Before deployment, verify with a real Reown project: QR connection on a browser
+without an extension; injected-wallet connection; cancel/retry; reload/reconnect;
+account/network switching; disconnect/reconnect; signature rejection and approval;
+and transaction approval/rejection on Ethereum. Other networks must show the
+Ethereum-only error before a UUSD transaction is sent.
+
 ### Development
 
 ```bash
