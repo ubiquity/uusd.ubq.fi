@@ -72,6 +72,23 @@ deno task serve:dev
 bun run diamond
 ```
 
+## Savings Account Preview
+
+The **Savings Account** view previews a proposed single-asset LUSD deposit into a
+Uniswap v4 UUSD/LUSD strategy targeting 0.9999–1.0001 LUSD per UUSD. It is separate
+from the existing buy/sell flow and does not submit transactions or request token
+approvals. Deposits remain disabled: this repository has no deployed v4 pool or
+integrated savings strategy to accept funds. Production deposits require that
+integration, including swap/liquidity execution, slippage protection, position
+management and withdrawals.
+
+APR is deliberately shown as unavailable. Concentrated liquidity alone does not
+multiply pool fee revenue; a live estimate must use actual volume, fees, active
+liquidity and time in range, accounting for costs. Returns are not guaranteed,
+and this is not an insured bank account.
+
+Run the offline preview tests with `bun test ./tools/test-savings-account.test.ts`.
+
 ## License
 
 This project is part of the Ubiquity ecosystem. See LICENSE file for details.
