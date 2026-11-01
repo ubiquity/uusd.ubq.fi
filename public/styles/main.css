@@ -11,7 +11,7 @@ body {
     color: #fff;
 }
 .container {
-    margin: 0;
+    margin: auto 0;
     text-align: center;
     width: 100%;
     max-width: 600px;
@@ -828,3 +828,16 @@ hr{border: 0.5px solid #ffffff40;margin-bottom: 10px;margin-left: 8px;margin: 20
 button#connectWallet {
     margin: 20px auto;
 }
+
+/* Account navigation is independent of the exchange's buy/sell direction. */
+.account-navigation { margin-top: 20px; }
+.direction-toggle[hidden], .exchange-form[hidden] { display: none !important; }
+.savings-account { margin-bottom: 100px; }
+.savings-account h1 { font-size: 24px; }
+.savings-preview { font-size: 12px; font-weight: normal; color: #bbb; }
+.savings-details { margin: 20px 0; text-align: left; }
+.savings-details > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin-bottom: 12px; }
+.savings-details dt { color: #bbb; }
+.savings-details dd { margin: 0; }
+.savings-account .action-button { margin-top: 20px; opacity: 0.5; }
+.savings-risks { margin-top: 20px; color: #ccc; text-align: left; }

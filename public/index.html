@@ -35,8 +35,13 @@
             <button id="connectWallet" onclick="window.app.connectWallet()">Connect Wallet</button>
         </div>
 
+        <nav class="tabs account-navigation" aria-label="Account activity">
+            <button type="button" id="exchangeViewButton" class="tab active" aria-pressed="true" aria-controls="exchangeNavigation exchangeForm">Exchange</button>
+            <button type="button" id="savingsViewButton" class="tab" aria-pressed="false" aria-controls="savingsView">Savings Account</button>
+        </nav>
+
         <!-- Direction Toggle -->
-        <div class="direction-toggle" style="display: none;">
+        <div id="exchangeNavigation" class="direction-toggle" style="display: none;">
             <button id="depositButton" class="direction-button active">Buy UUSD</button>
             <button id="withdrawButton" class="direction-button">Sell UUSD</button>
         </div>
@@ -99,6 +104,23 @@
                 </div>
             </form>
         </div>
+
+        <section id="savingsView" class="exchange-form savings-account" aria-labelledby="savingsHeading" hidden>
+            <h1 id="savingsHeading">Savings Account <span class="savings-preview">Preview</span></h1>
+            <p class="info-text">A planned single-asset LUSD deposit into a UUSD/LUSD liquidity strategy. Swapping and liquidity management would be handled for you.</p>
+
+            <dl class="savings-details">
+                <div><dt>Proposed strategy</dt><dd>Uniswap v4 concentrated liquidity</dd></div>
+                <div><dt>Target range</dt><dd>0.9999–1.0001 LUSD per UUSD</dd></div>
+                <div><dt>Proposed swap fee</dt><dd>0.01%</dd></div>
+                <div><dt>Estimated APR</dt><dd>Not available</dd></div>
+            </dl>
+
+            <p id="savingsAvailability" class="info-text">Deposits are not available yet. A deployed pool and integrated savings strategy are required before funds can be accepted.</p>
+            <button type="button" id="savingsDepositButton" class="action-button" disabled aria-describedby="savingsAvailability savingsRisks">Deposit LUSD — Coming soon</button>
+
+            <p id="savingsRisks" class="info-text savings-risks">This is not an insured bank account. Returns are variable and not guaranteed. Positions earn no swap fees while out of range; depegs, rebalancing costs and smart contract risks can cause losses. No live yield estimate is available.</p>
+        </section>
 
     </div>
 

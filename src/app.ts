@@ -14,6 +14,7 @@ import { CentralizedRefreshService, type RefreshData } from "./services/centrali
 import { NotificationManager } from "./components/notification-manager.ts";
 import { SimplifiedExchangeComponent } from "./components/simplified-exchange-component.ts";
 import { InventoryBarComponent } from "./components/inventory-bar-component.ts";
+import { SavingsAccountComponent } from "./components/savings-account-component.ts";
 
 // Import utilities
 import { formatAddress } from "./utils/format-utils.ts";
@@ -49,6 +50,7 @@ class UUSDApp {
   private _notificationManager: NotificationManager;
   private _simplifiedExchangeComponent: SimplifiedExchangeComponent;
   private _inventoryBarComponent: InventoryBarComponent;
+  private _savingsAccountComponent: SavingsAccountComponent;
 
   // State flags
   private _isConnecting = false;
@@ -90,6 +92,8 @@ class UUSDApp {
       notificationManager: this._notificationManager,
       centralizedRefreshService: this._centralizedRefreshService,
     });
+
+    this._savingsAccountComponent = new SavingsAccountComponent();
 
     // Create simplified exchange component
     this._simplifiedExchangeComponent = new SimplifiedExchangeComponent({
