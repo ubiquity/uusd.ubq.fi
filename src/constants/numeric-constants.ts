@@ -1,6 +1,9 @@
 // Basis points constant (1 basis point = 0.01%)
 export const BASIS_POINTS_DIVISOR = 10000n;
 
+// Minimum priced balance shown in inventory and wallet token selectors
+export const MIN_VISIBLE_USD_VALUE = 0.01;
+
 // Slippage constants
 export const DEFAULT_SLIPPAGE_BPS = 50n; // 0.5% in basis points
 export const MIN_SLIPPAGE_BPS = 10n; // 0.1% minimum
