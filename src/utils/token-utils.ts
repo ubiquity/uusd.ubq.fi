@@ -1,5 +1,6 @@
 import { formatUnits, parseUnits, type Address as _Address } from "viem";
 import type { TokenBalance, TokenMetadata } from "../types/inventory.types.ts";
+import { MIN_VISIBLE_USD_VALUE } from "../constants/numeric-constants.ts";
 
 /**
  * Format token amount for display with appropriate decimal places
@@ -54,6 +55,16 @@ export function calculateTotalUsdValue(balances: TokenBalance[]): number {
  */
 export function isBalanceZero(balance: bigint, decimals: number): boolean {
   return balance < parseUnits("0.0001", decimals);
+}
+
+/**
+ * Hide priced dust without hiding nonzero balances whose USD price is unavailable.
+ */
+export function isTokenBalanceVisible(balance: TokenBalance): boolean {
+  if (balance.balance <= 0n) return false;
+
+  const usdValue = balance.usdValue;
+  return usdValue === undefined || !Number.isFinite(usdValue) || usdValue <= 0 || usdValue >= MIN_VISIBLE_USD_VALUE;
 }
 
 /**
