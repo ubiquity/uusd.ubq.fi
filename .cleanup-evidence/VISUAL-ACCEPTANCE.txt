@@ -1,0 +1,69 @@
+VISUAL ACCEPTANCE 060 — UUSD selector/Max (lane plan-m-uusd-selector-max-ab19eeac3be, base 5b123169)
+
+VERDICT
+ACCEPT for the changed controls. At both captured sizes the native select is readable, the Max button / amount field /
+amount label are visible and unclipped, the inventory rows render correctly with the documented dust semantics, and
+touch targets are usable. No material visible defect found in the 053/056 changed controls. Nonblocking rough edges are
+recorded below; none blocks acceptance.
+
+SOURCE OF THE IMAGES (read with native image input in this session)
+- reviews/uusd.ubq.fi/evidence/acceptance-passed-003/outputs/desktop-1440x900.png (1440x900, sha256 83d48f9a…)
+- reviews/uusd.ubq.fi/evidence/acceptance-passed-003/outputs/narrow-390x844.png (390x844, sha256 4725925c…)
+- Same run: outputs/summary.json (passes 62, failures 0, cleanupErrors []), outputs/transcript.txt,
+  control/vps-evidence/uusd-browser-003.json (exit 0, 15.3 s, stdout "proof passed: 62 checks", stderr only the
+  listener line).
+
+IMAGE FINDINGS — DESKTOP 1440x900
+- Native select: "LUSD" in white on an opaque dark control with a chevron; no white-on-white (D3 readability fixed).
+- Amount label "Amount (LUSD)" is legible above the row; the amount input shows the auto-populated "12.5"; the Max
+  button sits at the right end of the same row, white on dark, clearly legible.
+- No overflow, clipping or overlap in the exchange card; "You will receive: 990 UUSD" and "Approve LUSD" render fully.
+- Inventory bar: "TOKEN BALANCES" and "$1,013.00" visible (bold monospace) with two chips — LUSD 12.5 ($12.50) and
+  USDC 1,000 ($1,000.00). Dust ($0.50 DUST) is correctly absent from the chips.
+
+IMAGE FINDINGS — NARROW 390x844
+- All changed controls remain visible and readable: select "LUSD" + chevron, centered "Amount (LUSD)" label, "12.5"
+  input and "Max" inside one rounded row; nothing in the changed controls is clipped horizontally.
+- Touch usability: the Max target is inside a ~36-40 px tall row and ~50-55 px wide (pixel estimate from the capture).
+  Satisfies the 24 px WCAG 2.5.8 minimum; below the 44 px AAA 2.5.5 target — noted, nonblocking.
+- Inventory chips for both LUSD and USDC fit the 390 px width without clipping or wrap.
+- The inventory header (title + "$1,013.00") is NOT visible here. Cause is pre-existing responsive CSS, not the changed
+  controls: public/styles/main.css @media (max-width: 768px) { .inventory-header { display: none } } (lines 477-481).
+- Pre-existing background chart price labels at the far-left edge are partially cut at this width (decoration only,
+  unrelated to the changed controls).
+
+FUNCTIONAL EVIDENCE BEHIND THE IMAGES (assertions, not prose)
+The screenshots capture only the C1 state. The required behaviours are recorded in outputs/transcript.txt:
+- exact 1000 USDC Max: C5.enabled.selected "USDC", C5.amount "1000"; C5.after-refresh.amount "1000" (not "1").
+- manual value preservation: C7.amount "2", C7.previewVisible "990" after the background re-emit.
+- delayed-Max clearing: D1.pending outputVisible false / buttonDisabled true / buttonText "Enter amount to continue" /
+  previewVisible null / amount "1000" while calls advanced to 4; then D1.after.previewVisible "777".
+- older quote discard: C8.new.previewVisible "1.98" (pending 1); C8.after-old-resolved.previewVisible "1.98", calls 7.
+- disabled states: C9.maxDisabled true (disconnected); C10.loading maxDisabled true, amountDisabled true, placeholder
+  "Loading balances..."; C11.maxDisabled true (withdraw, UUSD zero balance); C10.restored returns to enabled.
+- wallet total + selector: C2.total "$1,013.00"; C1 rows ["12.5","1,000"], your ["LUSD","USDC","UBQ"], other []
+  hidden; C3 dust-LUSD still offered (max "0.05"); C4 preloaded-only path 343 options, LUSD first; C12 select
+  background rgb(17,17,17) vs transparent input.
+- run integrity: 62 passes / 0 failures / 0 cleanup errors; cleanup browserLaunched=false, pageCount 0, 3210 released.
+
+FIXTURE-SPECIFIC, NOT PRODUCT REGRESSIONS
+- "Connect Wallet" stays visible while the synthetic services report a connected account: the fixture injects service
+  methods and never fires the wallet CONNECT event or updates the wallet-section UI.
+- "Approve LUSD"/"Approve USDC" text and the "990 UUSD" preview come from synthetic quote/allowance stubs.
+- The screen uses a synthetic wallet/quote layer with external domains blocked: no live prices, wallet integration or
+  production health can be inferred from these images.
+
+NONBLOCKING ROUGH EDGES (existing or documented, recorded honestly)
+1. Visible total ($1,013.00) exceeds the sum of visible chips ($1,012.50) by the hidden $0.50 DUST holding. This is the
+   recorded decision-1 semantics (rows strictly >$1; header keeps the wallet total including dust), visible here only
+   because the fixture supplies a priced dust row; it is deliberate, not a regression.
+2. The wallet total is not visible at <=768 px because of the pre-existing media rule above.
+3. Max target height ~36-40 px is below the 44 px AAA target (AA minimum met).
+4. Background chart price labels clip at the 390 px left edge (pre-existing decoration).
+
+LIMITATIONS
+- Pixel review covers two states only (C1 at desktop and narrow); the Max click, loading/disconnected/zero-balance
+  disabled states, delayed-Max pending state and stale-quote discard are evidenced by transcript assertions, not pixels.
+- Blur/backdrop-filter, hover, focus rings and colour contrast outside the captured states were not inspected; no
+  live-provider or production behaviour is claimed.
+- No project-complete claim: the primary still integrates canonical source and records the final gates.

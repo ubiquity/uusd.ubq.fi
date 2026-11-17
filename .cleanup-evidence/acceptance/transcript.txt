@@ -1,0 +1,274 @@
+[BUDGET] main: 150000ms
+[CLI] session info --json: exit=0
+[PRECHECK] session-info-raw: {"data":{"active":false,"namespace":"uos-pr-cleanup-01a0c790","pid":null,"runtime":null,"runtimeError":null,"session":"uusd-selector","socketDir":"/home/codex/.agent-browser/namespaces/uos-pr-cleanup-01a0c790/run","version":null},"success":true}
+[PRECHECK] session-state: absent (explicit absent daemon (runtime=null, active=false, pid=null))
+[SETUP] server: http://127.0.0.1:3210/ from /home/codex/repos/ubiquity/uusd.ubq.fi/.codex-worktrees/plan-m-uusd-selector-max-ab19eeac3be/public/
+[CLI] open http://127.0.0.1:3210/: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] get url: exit=0
+[SETUP] url: http://127.0.0.1:3210/
+[CLI] snapshot -i -s #input: exit=0
+[EVIDENCE] snapshot#input: - combobox [expanded=false, ref=e4] | - spinbutton "Amount (LUSD)" [required, ref=e5] | - button "Max" [disabled, ref=e6] | - spinbutton "Amount (LUSD)" [required, ref=e5] | - button "Max" [disabled, ref=e6]
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C1.rows: ["12.5","1,000"]
+[PASS] C1.your: ["LUSD","USDC","UBQ"]
+[PASS] C1.other: []
+[PASS] C1.yourDisplay: ""
+[PASS] C1.otherDisplay: "none"
+[PASS] C1.label: "Amount (LUSD)"
+[PASS] C1.selected: "LUSD"
+[CLI] eval --stdin: exit=0
+[PASS] C2.total: "$1,013.00"
+[CLI] set viewport 1440 900: exit=0
+[CLI] screenshot /home/codex/repos/ubiquity/uusd.ubq.fi/.codex-worktrees/plan-m-uusd-selector-max-ab19eeac3be/.cleanup-evidence/acceptance/desktop-1440x900.png: exit=0
+[CLI] set viewport 390 844: exit=0
+[CLI] screenshot /home/codex/repos/ubiquity/uusd.ubq.fi/.codex-worktrees/plan-m-uusd-selector-max-ab19eeac3be/.cleanup-evidence/acceptance/narrow-390x844.png: exit=0
+[EVIDENCE] screenshots: desktop-1440x900.png, narrow-390x844.png
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] select #tokenSelect 0x5f98805A4E8be255a32880FDeC7F6728C6568bA0: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C3.your: ["LUSD","USDC"]
+[PASS] C3.label: "Amount (LUSD)"
+[PASS] C3.selected: "LUSD"
+[PASS] C3.maxDisabled: false
+[CLI] click #maxButton: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C3.max.amount: "0.05"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C4.yourDisplay: "none"
+[PASS] C4.your: []
+[PASS] C4.otherDisplay: ""
+[PASS] C4.firstOption: "LUSD"
+[PASS] C4.optionCount: 343
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] select #tokenSelect 0x00000000000000000000000000000000000000c2: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C5.enabled.selected: "USDC"
+[PASS] C5.enabled.maxDisabled: false
+[PASS] C5.enabled.amount: ""
+[CLI] click #maxButton: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C5.amount: "1000"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C5.after-refresh.amount: "1000"
+[PASS] C5.after-refresh.selected: "USDC"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C6.previewVisible: "990"
+[PASS] C6.buttonText: "Approve USDC"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] click #maxButton: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] D1.pending.outputVisible: false
+[PASS] D1.pending.buttonDisabled: true
+[PASS] D1.pending.buttonText: "Enter amount to continue"
+[PASS] D1.pending.previewVisible: null
+[PASS] D1.pending.amount: "1000"
+[PASS] D1.pending.calls: 4
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] D1.after.previewVisible: "777"
+[PASS] D1.after.outputVisible: true
+[CLI] eval --stdin: exit=0
+[CLI] fill #exchangeAmount 2: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C7.amount: "2"
+[PASS] C7.previewVisible: "990"
+[PASS] C7.selected: "USDC"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] fill #exchangeAmount 1: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] fill #exchangeAmount 2: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C8.new.amount: "2"
+[PASS] C8.new.previewVisible: "1.98"
+[PASS] C8.new.pending: 1
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C8.after-old-resolved.amount: "2"
+[PASS] C8.after-old-resolved.previewVisible: "1.98"
+[PASS] C8.after-old-resolved.calls: 7
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] select #tokenSelect 0x00000000000000000000000000000000000000c2: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] fill #exchangeAmount 5: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] R1.enabled.maxDisabled: false
+[PASS] R1.enabled.amount: "5"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] click #maxButton: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] R1.cleared.amount: ""
+[PASS] R1.cleared.outputVisible: false
+[PASS] R1.cleared.buttonDisabled: true
+[PASS] R1.cleared.previewVisible: null
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] R1.no-late-quote: held 1400ms (calls=7 amount='' outputVisible=false)
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C9.maxDisabled: true
+[PASS] C9.connected: false
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C10.loading.maxDisabled: true
+[PASS] C10.loading.amountDisabled: true
+[PASS] C10.loading.amountPlaceholder: "Loading balances..."
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C10.restored.amountDisabled: false
+[PASS] C10.restored.amountPlaceholder: "Enter amount"
+[CLI] click #withdrawButton: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] C11.label: "Amount (UUSD)"
+[PASS] C11.maxDisabled: true
+[PASS] C11.selected: "LUSD"
+[CLI] eval --stdin: exit=0
+[PASS] C12.selectBg: "rgb(17, 17, 17)"
+[PASS] C12.inputBg: "rgba(0, 0, 0, 0)"
+[BUDGET] cleanup: 30000ms
+[CLI] close: exit=0
+[CLI] session info --json: exit=0
+[CLEANUP] session-info-raw: {"data":{"active":true,"namespace":"uos-pr-cleanup-01a0c790","pid":3342084,"runtime":{"backgroundPid":3342084,"browserLaunched":false,"compatibilityStatus":"current","effectiveLaunch":{"browserLaunched":false,"engine":"chrome","launchHash":null},"engine":"chrome","launchHash":null,"lifecycle":{"effectiveLaunch":{"browserLaunched":false,"engine":"chrome","launchHash":null},"launched":false,"relaunchedBrowser":false,"restartedBackground":false,"restoreStatus":"not_configured","reused":false,"saveStatus":"not_configured"},"namespace":"uos-pr-cleanup-01a0c790","pageCount":0,"restoreCheckFn":null,"restoreCheckText":null,"restoreCheckUrl":null,"restoreKey":null,"restoreLoadedPath":null,"restoreSave":"auto","restoreSavedPath":null,"restoreStatus":"not_configured","restoreStatusDetail":null,"restoreValidationPending":false,"saveStatus":"not_configured","session":"uusd-selector","socketDir":"/home/codex/.agent-browser/namespaces/uos-pr-cleanup-01a0c790/run"},"runtimeError":null,"session":"uusd-selector","socketDir":"/home/codex/.agent-browser/namespaces/uos-pr-cleanup-01a0c790/run","version":"0.36.0"},"success":true}
+[CLEANUP] browser-closed: browserLaunched=false pageCount=0
+[CLEANUP] port-released: 127.0.0.1:3210
+[SUMMARY] passes=62 failures=0 cleanupErrors=0 namespace=uos-pr-cleanup-01a0c790 session=uusd-selector finishedAt=2026-09-22T13:52:12.405Z
