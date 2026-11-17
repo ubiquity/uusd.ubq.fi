@@ -1,0 +1,311 @@
+[BUDGET] main: 150000ms
+[CLI] session info --json: exit=0
+[PRECHECK] session-info-raw: {"data":{"active":false,"namespace":"uos-pr-cleanup-01a0c790","pid":null,"runtime":null,"runtimeError":null,"session":"uusd-redemption","socketDir":"/home/codex/.agent-browser/namespaces/uos-pr-cleanup-01a0c790/run","version":null},"success":true}
+[PRECHECK] session-state: absent (explicit absent daemon (runtime=null, active=false, pid=null))
+[SETUP] server: http://127.0.0.1:3210/ from /home/codex/repos/ubiquity/uusd.ubq.fi/.codex-worktrees/plan-m-uusd-redemption-refresh-aac121ab0c8/public/
+[CLI] open http://127.0.0.1:3210/: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] get url: exit=0
+[SETUP] url: http://127.0.0.1:3210/
+[CLI] snapshot -i -s #input: exit=0
+[EVIDENCE] snapshot#input: - combobox [expanded=false, ref=e4] | - spinbutton "Amount (LUSD)" [required, ref=e5] | - button "Max" [disabled, ref=e6] | - spinbutton "Amount (LUSD)" [required, ref=e5] | - button "Max" [disabled, ref=e6]
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] click #withdrawButton: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] select #tokenSelect 0x5f98805A4E8be255a32880FDeC7F6728C6568bA0: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] fill #exchangeAmount 5: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] setup.direction: "withdraw"
+[PASS] setup.selected: "LUSD"
+[PASS] setup.amount: "5"
+[PASS] setup.redemptionsDisabled: false
+[PASS] setup.forceSwapOnly: false
+[PASS] setup.swapOnlyDisplay: "block"
+[PASS] setup.swapOnlyDisabled: false
+[PASS] setup.swapOnlyChecked: false
+[PASS] setup.previewVisible: "5"
+[PASS] setup.quoteCallCount: 1
+[PASS] setup.sentinel: "uusd-redemption-no-reload"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A1a.redemptionsDisabled: true
+[PASS] A1a.forceSwapOnly: true
+[PASS] A1a.swapOnlyDisplay: "none"
+[PASS] A1a.swapOnlyDisabled: true
+[PASS] A1a.swapOnlyChecked: true
+[PASS] A1a.amount: "5"
+[PASS] A1a.selected: "LUSD"
+[PASS] A1a.previewVisible: "4.9"
+[PASS] A1a.sentinel: "uusd-redemption-no-reload"
+[PASS] A1a.installedAt: "2026-09-22T15:45:42.895Z"
+[CLI] set viewport 1440 900: exit=0
+[CLI] screenshot /home/codex/repos/ubiquity/uusd.ubq.fi/.codex-worktrees/plan-m-uusd-redemption-refresh-aac121ab0c8/.cleanup-evidence/redemption/disabled-desktop-1440x900.png: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A1b.redemptionsDisabled: false
+[PASS] A1b.forceSwapOnly: false
+[PASS] A1b.swapOnlyDisplay: "block"
+[PASS] A1b.swapOnlyDisabled: false
+[PASS] A1b.swapOnlyChecked: false
+[PASS] A1b.amount: "5"
+[PASS] A1b.selected: "LUSD"
+[PASS] A1b.previewVisible: "5"
+[PASS] A1b.sentinel: "uusd-redemption-no-reload"
+[PASS] A1b.installedAt: "2026-09-22T15:45:42.895Z"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A2.amount: "5"
+[PASS] A2.selected: "LUSD"
+[PASS] A2.previewVisible: "5"
+[PASS] A2.redemptionsDisabled: false
+[PASS] A2.forceSwapOnly: false
+[PASS] A2.quoteCallCount: 3
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A2.no-reset: held 1500ms (amount='5' preview='5' calls=3)
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] fill #exchangeAmount 7: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A3.transition.amount: "7"
+[PASS] A3.transition.selected: "LUSD"
+[PASS] A3.transition.previewVisible: "222"
+[PASS] A3.transition.redemptionsDisabled: true
+[PASS] A3.transition.forceSwapOnly: true
+[PASS] A3.transition.pending: 1
+[PASS] A3.transition.quoteCallCount: 5
+[CLI] eval --stdin: exit=0
+[PASS] A3.force-flags.flags: [false,true]
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A3.after-old-resolved.amount: "7"
+[PASS] A3.after-old-resolved.selected: "LUSD"
+[PASS] A3.after-old-resolved.previewVisible: "222"
+[PASS] A3.after-old-resolved.outputVisible: true
+[PASS] A3.after-old-resolved.redemptionsDisabled: true
+[PASS] A3.after-old-resolved.forceSwapOnly: true
+[CLI] select #tokenSelect 0x00000000000000000000000000000000000000c2: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A4.selected.amount: "7"
+[PASS] A4.selected.selected: "USDC"
+[PASS] A4.selected.previewVisible: "333"
+[PASS] A4.selected.cowCalls: 1
+[PASS] A4.selected.lastCow: {"outputSymbol":"USDC","amount":"7000000000000000000"}
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A4.after-transition.amount: "7"
+[PASS] A4.after-transition.selected: "USDC"
+[PASS] A4.after-transition.previewVisible: "333"
+[PASS] A4.after-transition.cowCalls: 1
+[PASS] A4.after-transition.quoteCallCount: 5
+[PASS] A4.after-transition.redemptionsDisabled: false
+[PASS] A4.after-transition.forceSwapOnly: false
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A4.no-silent-lusd: held 1500ms (amount='7' preview='333' calls=5)
+[CLI] set viewport 390 844: exit=0
+[CLI] screenshot /home/codex/repos/ubiquity/uusd.ubq.fi/.codex-worktrees/plan-m-uusd-redemption-refresh-aac121ab0c8/.cleanup-evidence/redemption/non-lusd-narrow-390x844.png: exit=0
+[CLI] set viewport 1440 900: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] select #tokenSelect 0x5f98805A4E8be255a32880FDeC7F6728C6568bA0: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A5.baseline.amount: "7"
+[PASS] A5.baseline.selected: "LUSD"
+[PASS] A5.baseline.redemptionsDisabled: false
+[PASS] A5.baseline.forceSwapOnly: false
+[PASS] A5.baseline.swapOnlyDisplay: "block"
+[PASS] A5.baseline.swapOnlyDisabled: false
+[PASS] A5.baseline.swapOnlyChecked: false
+[PASS] A5.baseline.previewVisible: "5"
+[CLI] eval --stdin: exit=0
+[CLI] click #forceSwapOnly: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A5.user-choice.amount: "7"
+[PASS] A5.user-choice.selected: "LUSD"
+[PASS] A5.user-choice.redemptionsDisabled: false
+[PASS] A5.user-choice.forceSwapOnly: true
+[PASS] A5.user-choice.swapOnlyChecked: true
+[PASS] A5.user-choice.swapOnlyDisabled: false
+[PASS] A5.user-choice.previewVisible: "4.8"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A5.forced.amount: "7"
+[PASS] A5.forced.selected: "LUSD"
+[PASS] A5.forced.redemptionsDisabled: true
+[PASS] A5.forced.forceSwapOnly: true
+[PASS] A5.forced.swapOnlyDisplay: "none"
+[PASS] A5.forced.swapOnlyDisabled: true
+[PASS] A5.forced.swapOnlyChecked: true
+[PASS] A5.forced.previewVisible: "4.8"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A5.preserved.amount: "7"
+[PASS] A5.preserved.selected: "LUSD"
+[PASS] A5.preserved.redemptionsDisabled: false
+[PASS] A5.preserved.forceSwapOnly: true
+[PASS] A5.preserved.swapOnlyDisplay: "block"
+[PASS] A5.preserved.swapOnlyDisabled: false
+[PASS] A5.preserved.swapOnlyChecked: true
+[PASS] A5.preserved.previewVisible: "4.8"
+[PASS] A5.preserved.sentinel: "uusd-redemption-no-reload"
+[CLI] screenshot /home/codex/repos/ubiquity/uusd.ubq.fi/.codex-worktrees/plan-m-uusd-redemption-refresh-aac121ab0c8/.cleanup-evidence/redemption/preserved-swap-only-1440x900.png: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A6.delayed-success.redemptionsDisabled: false
+[PASS] A6.delayed-success.forceSwapOnly: true
+[PASS] A6.delayed-success.swapOnlyChecked: true
+[PASS] A6.delayed-success.amount: "7"
+[PASS] A6.delayed-success.selected: "LUSD"
+[PASS] A6.delayed-success.quoteCallCount: 9
+[PASS] A6.delayed-success.installedAt: "2026-09-22T15:45:42.895Z"
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A6.delayed-reject.redemptionsDisabled: false
+[PASS] A6.delayed-reject.forceSwapOnly: true
+[PASS] A6.delayed-reject.swapOnlyChecked: true
+[PASS] A6.delayed-reject.amount: "7"
+[PASS] A6.delayed-reject.selected: "LUSD"
+[PASS] A6.delayed-reject.quoteCallCount: 9
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] fill #exchangeAmount 9: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A7.immediate.amount: "9"
+[PASS] A7.immediate.selected: "LUSD"
+[PASS] A7.immediate.redemptionsDisabled: true
+[PASS] A7.immediate.forceSwapOnly: true
+[PASS] A7.immediate.quoteCallCount: 10
+[PASS] A7.immediate.pending: 0
+[CLI] eval --stdin: exit=0
+[PASS] A7.force-flags.flags: [true]
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A7.no-duplicate: held 1600ms (amount='9' preview='6' calls=10)
+[CLI] eval --stdin: exit=0
+[CLI] click #depositButton: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A8.deposit-reset.redemptionsDisabled: true
+[PASS] A8.deposit-reset.forceSwapOnly: false
+[CLI] click #withdrawButton: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A8.still-unavailable.redemptionsDisabled: true
+[PASS] A8.still-unavailable.forceSwapOnly: true
+[PASS] A8.still-unavailable.swapOnlyDisplay: "none"
+[CLI] fill #exchangeAmount 3: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[CLI] eval --stdin: exit=0
+[PASS] A8.not-forced.direction: "withdraw"
+[PASS] A8.not-forced.amount: "3"
+[PASS] A8.not-forced.selected: "LUSD"
+[PASS] A8.not-forced.redemptionsDisabled: false
+[PASS] A8.not-forced.forceSwapOnly: false
+[PASS] A8.not-forced.swapOnlyDisplay: "block"
+[PASS] A8.not-forced.swapOnlyDisabled: false
+[PASS] A8.not-forced.swapOnlyChecked: false
+[PASS] A8.not-forced.previewVisible: "3"
+[BUDGET] cleanup: 30000ms
+[CLI] close: exit=0
+[CLI] session info --json: exit=0
+[CLEANUP] session-info-raw: {"data":{"active":true,"namespace":"uos-pr-cleanup-01a0c790","pid":3488958,"runtime":{"backgroundPid":3488958,"browserLaunched":false,"compatibilityStatus":"current","effectiveLaunch":{"browserLaunched":false,"engine":"chrome","launchHash":null},"engine":"chrome","launchHash":null,"lifecycle":{"effectiveLaunch":{"browserLaunched":false,"engine":"chrome","launchHash":null},"launched":false,"relaunchedBrowser":false,"restartedBackground":false,"restoreStatus":"not_configured","reused":false,"saveStatus":"not_configured"},"namespace":"uos-pr-cleanup-01a0c790","pageCount":0,"restoreCheckFn":null,"restoreCheckText":null,"restoreCheckUrl":null,"restoreKey":null,"restoreLoadedPath":null,"restoreSave":"auto","restoreSavedPath":null,"restoreStatus":"not_configured","restoreStatusDetail":null,"restoreValidationPending":false,"saveStatus":"not_configured","session":"uusd-redemption","socketDir":"/home/codex/.agent-browser/namespaces/uos-pr-cleanup-01a0c790/run"},"runtimeError":null,"session":"uusd-redemption","socketDir":"/home/codex/.agent-browser/namespaces/uos-pr-cleanup-01a0c790/run","version":"0.36.0"},"success":true}
+[CLEANUP] browser-closed: browserLaunched=false pageCount=0
+[CLEANUP] port-released: 127.0.0.1:3210
+[SUMMARY] passes=132 failures=0 cleanupErrors=0 namespace=uos-pr-cleanup-01a0c790 session=uusd-redemption finishedAt=2026-09-22T15:46:13.327Z

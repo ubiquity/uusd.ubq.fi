@@ -1,0 +1,99 @@
+066-uusd-redemption-refresh bounded correction handback (supersedes the 064 state in this lane; DeepSeek worker; no Git artifacts, no checks executed)
+
+0. CORRECTION 066 (two primary acceptance findings + one ordering requirement)
+   - F1: the real #forceSwapOnly handler assigns a user choice (component change handler), but the 064 transition
+     always cleared forceSwapOnly on false->true, losing the explicit swap-only choice. Fixed by remembering the
+     effective choice while redemptions are unavailable and restoring it when they return.
+   - F2: the one-off async _checkRedemptionStatus could settle after a fresh refresh payload and overwrite the newer
+     eligibility (including its error catch). Fixed by making the init check provisional until the first authoritative
+     refresh payload; its later success or failure is ignored.
+   - F3: an eligibility flip inside the 1000 ms amount debounce used to produce a duplicate later quote. Fixed by
+     cancelling the pending debounce in the eligibility-triggered re-quote (same pattern as an explicit Max click).
+   - Also removed the 064-created exported RedemptionEligibility/getRedemptionEligibilityTransition API and deleted the
+     064-created src/components/simplified-exchange-component.test.ts; the policy helper is private now.
+
+1. LANE VERIFICATION (first commands of this correction; 064 changes were present uncommitted)
+   cwd/top-level : /home/codex/repos/ubiquity/uusd.ubq.fi/.codex-worktrees/plan-m-uusd-redemption-refresh-aac121ab0c8
+   branch        : codex/plan-m-uusd-redemption-refresh-aac121ab0c8
+   HEAD          : 9463ed2cb48647e6b4dcb69d5256e1c489896fb8 (canonical base 9463ed2)
+   status before : M docs/DECISIONS.md, M src/components/simplified-exchange-component.ts, ?? .cleanup-evidence/,
+                   ?? src/components/simplified-exchange-component.test.ts
+   status after  : M docs/DECISIONS.md, M src/components/simplified-exchange-component.ts, ?? .cleanup-evidence/
+   worktrees     : main 9463ed2, this lane 9463ed2, selector-max 9463ed2, token-decimals 5b12316 (unchanged)
+
+2. PRECISE PRESERVATION / ORDERING RATIONALE (private state only; no user-visible setting)
+   - New private fields: _swapOnlyChoiceBeforeUnavailable: boolean | null and _refreshOwnsEligibility: boolean.
+     Neither is exported; no new public API, service call, fallback, config or dependency.
+   - false->true (unavailable): _swapOnlyChoiceBeforeUnavailable = this._state.forceSwapOnly is captured BEFORE the
+     force, then redemptionsDisabled=true, forceSwapOnly=true and #swapOnlyOption is hidden/disabled/checked (the
+     same side effects the old init path applied inline). The captured value is the effective withdraw choice:
+     at full collateralization it is the user's checkbox state; at fractional collateralization it is the
+     _renderOptions-derived !acceptFractionalRedemption, so no fractional policy is overridden.
+   - true->false (available): redemptionsDisabled=false and forceSwapOnly = (direction === "withdraw" ? captured ?? false
+     : false). The direction check keeps the existing intentional _switchDirection("deposit") reset; _renderOptions
+     still owns the fractional acceptFractionalRedemption policy and runs immediately after in the subscriber.
+   - Unrelated refresh (derived eligibility unchanged): neither branch runs, so amount, selected output token,
+     acceptFractionalRedemption/useUbqDiscount, route and notifications are untouched.
+   - Provisional init: the subscriber sets _refreshOwnsEligibility = true at the top of every refresh callback, so the
+     first authoritative payload takes ownership before applying eligibility. _checkRedemptionStatus now applies its
+     result only when that flag is false; its success and catch branches both log and ignore the late result once
+     refresh owns status (the explicit "assume disabled" behaviour survives only for the provisional window). No
+     error is parsed as success.
+   - Debounce ordering: _refreshWithdrawQuoteForEligibilityChange (still gated to direction=withdraw + LUSD collateral)
+     clears _debounceTimer, advances _routeRequestId, clears routeResult/isCalculating and exchange notifications,
+     renders the cleared output, then recalculates once, so an input-debounce quote cannot land after the transition
+     quote. Non-LUSD CoW selections are still never invalidated or switched to LUSD.
+
+3. PRODUCT DIFF (only the owned hunks; no services/contracts/wallet/transaction/config/lock/dependency change)
+   - src/components/simplified-exchange-component.ts: fields (2), subscriber ownership + eligibility apply, private
+     _applyRedemptionEligibility (capture/restore), _checkRedemptionStatus provisional gating, debounce cancellation
+     in _refreshWithdrawQuoteForEligibilityChange. Exported 064 helper/interface removed; no test file remains.
+   - docs/DECISIONS.md: decisions 7-8 R1 wording updated to the preservation/provisional/debounce semantics; one
+     physical line per paragraph.
+   - .cleanup-evidence/: prepared-only proof (A1-A7) and this handback; no product effect.
+
+4. PROOF (prepared, NOT executed; no browser/server exists now)
+   Files: .cleanup-evidence/redemption-proof.ts (636 lines, accepted predecessor driver pattern + bounded budgets +
+   strict closure schema), .cleanup-evidence/redemption-refresh-fixture.js (300 lines), .cleanup-evidence/agent-browser.json ({}),
+   .cleanup-evidence/REDEMPTION-PROOF.md.
+   Session/namespace: uusd-redemption under uos-pr-cleanup-01a0c790 (unchanged; predecessor uusd-selector untouched).
+   Kept A1a/A1b (true->false->true without reload), A2 (unrelated refresh, held 1.5 s), A3 (older delayed quote
+   ignored, flags [false,true]), A4 (non-LUSD CoW unchanged, held 1.5 s) with the same amounts/assets.
+   Added:
+     A5 real user #forceSwapOnly click at full collateralization -> eligibility false -> true: the restored state is
+        forceSwapOnly=true with the checkbox visible/enabled/checked and the quote re-issued with forceSwapOnly=true
+        (amount 7, LUSD unchanged, preview 4.8, new screenshot preserved-swap-only-1440x900.png).
+     A6 real _checkRedemptionStatus() boundary started against a delayed calculateRedeemOutput (1200 ms success with
+        isRedeemingAllowed=false, then 900 ms rejection) while refresh emits an authoritative payload: after
+        statusSettled the state stays enabled with the A5 choice and no extra quote.
+     A7 fill amount 9 then flip eligibility before the 1000 ms debounce: exactly one quote for 9000000000000000000
+        (forceSwapOnly=true, preview 6), held 1.6 s with no duplicate later quote.
+   Exact command for primary (from lane root, after `deno task build`; driver refuses a stale bundle that lacks
+   "Redemption eligibility changed"):
+     deno run --allow-net=127.0.0.1:3210,deno.land:443 --allow-read=public,.cleanup-evidence --allow-write=.cleanup-evidence --allow-run=/home/codex/.local/bin/agent-browser --allow-env=HOME,TMPDIR .cleanup-evidence/redemption-proof.ts
+
+5. PRETTIER
+   Exactly one pass with the read-only canonical binary on the changed source:
+     /home/codex/repos/ubiquity/uusd.ubq.fi/node_modules/.bin/prettier --write src/components/simplified-exchange-component.ts
+   Result: "(unchanged)". No install, no other file formatted.
+
+6. HASHES (sha256)
+   src/components/simplified-exchange-component.ts   099fd4b92a4f3570778dea47b9025ebfd757bd1dfd0e5d61d7ad0c790b014b2a
+   docs/DECISIONS.md                                  a12181483610eb6f8e165f50af3ffd6c70895a8b786bb0afa3f6ba92b7ad08b5
+   .cleanup-evidence/redemption-refresh-fixture.js    4e82f034467f9bb3417ba16fdcc5a92b461a4e7cc219cddf6a55137767d7e811
+   .cleanup-evidence/redemption-proof.ts              00195008b04e565a4b9cc2a4c64d64fc9df8856d2d3aa193ca3be02091c28fc9
+   .cleanup-evidence/REDEMPTION-PROOF.md              8a782ca0a8b3b698a5ff464189d653c09233cefb333faa4bf68538dfe2e0c098
+   .cleanup-evidence/agent-browser.json               ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+   Deleted: src/components/simplified-exchange-component.test.ts (064-created).
+
+7. NOT RUN IN WORKER (per task): tests, lint, typecheck, build, install, browser, parse/evidence tools, Git artifacts.
+   Frozen Bun install was not retried and no lock was touched. No child/background job was started.
+
+8. LIMITATIONS / ROUGH EDGES (prepared is not validated-ready)
+   - A1-A7, including the new A5/A6/A7, are prepared but unexecuted; primary's registered build/test/browser checks decide.
+   - A6 drives the real _checkRedemptionStatus boundary with synthetic delayed service promises; it does not reproduce a
+     real RPC ordering, only the ordering contract (late provisional result/error must not overwrite refresh ownership).
+   - A5/A6/A7 depend on the fixture's synthetic quotes/settings and the real DOM controls; no real wallet, network quote,
+     signature, approval or transaction occurred.
+   - Rough edge kept fail-closed: a genuinely late real init write would surface as a failed bounded predicate, never a
+     weakened expectation.
