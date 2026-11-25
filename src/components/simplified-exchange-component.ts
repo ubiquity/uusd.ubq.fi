@@ -154,14 +154,17 @@ export class SimplifiedExchangeComponent {
     }
   }
 
-  private _renderTokenOptions() {
+  private _renderTokenOptions(): boolean {
     const refreshData = this._services.centralizedRefreshService.getLastData();
     const selectEl = document.querySelector("#tokenSelect") as HTMLSelectElement;
     if (!selectEl) {
-      return;
+      return false;
     }
     const yourTokenGroup = document.getElementById("yourTokenGroup") as HTMLOptGroupElement;
     const otherTokenGroup = document.getElementById("otherTokenGroup") as HTMLOptGroupElement;
+
+    // Save current selection address before modifying options
+    const previousSelection = selectEl.value;
 
     if (refreshData?.tokenBalances) {
       yourTokenGroup.style.display = "";
@@ -230,6 +233,17 @@ export class SimplifiedExchangeComponent {
         opt.remove();
       }
     });
+
+    // Restore selection if still available, otherwise fall back to LUSD
+    if (previousSelection && [...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, previousSelection as Address))) {
+      selectEl.value = previousSelection;
+    } else {
+      // Fall back to LUSD
+      selectEl.value = INVENTORY_TOKENS.LUSD.address;
+    }
+
+    // Return whether selection changed
+    return !areAddressesEqual((selectEl.value || "") as Address, (previousSelection || "") as Address);
   }
 
   /**
@@ -637,9 +651,17 @@ export class SimplifiedExchangeComponent {
     }
 
     // Show/hide options based on protocol state and direction
-    this._renderTokenOptions();
+    // _renderTokenOptions returns true if the selection changed (e.g., token became ineligible)
+    const selectionChanged = this._renderTokenOptions();
     this._renderOptions();
     this._renderOutput();
+
+    // If selection changed during refresh, clear the amount since it may not be valid for the new token
+    if (selectionChanged && amountInput) {
+      amountInput.value = "";
+      this._state.amount = "";
+      this._state.routeResult = null;
+    }
   }
 
   /**

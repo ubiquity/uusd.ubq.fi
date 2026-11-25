@@ -7,6 +7,7 @@ import type { NotificationManager } from "./notification-manager.ts";
 import type { CentralizedRefreshService, RefreshData } from "../services/centralized-refresh-service.ts";
 import type { TokenBalance, InventoryBarState } from "../types/inventory.types.ts";
 import { formatTokenAmount, formatUsdValue, calculateTotalUsdValue, isBalanceZero } from "../utils/token-utils.ts";
+import { areAddressesEqual } from "../utils/format-utils.ts";
 import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
 
 import icons from "./icons.ts";
@@ -110,9 +111,9 @@ export class InventoryBarComponent {
       // This prevents clearing existing values when partial updates arrive
       const updatedBalances = [...this._state.balances];
 
-      // Update each token balance individually
+      // Update each token balance individually (address-keyed to avoid same-symbol collisions)
       data.tokenBalances.forEach((newBalance) => {
-        const existingIndex = updatedBalances.findIndex((existing) => existing.symbol === newBalance.symbol);
+        const existingIndex = updatedBalances.findIndex((existing) => areAddressesEqual(existing.address, newBalance.address));
 
         if (existingIndex >= 0) {
           // ONLY update if we have valid data - NO FALLBACKS
@@ -285,8 +286,20 @@ export class InventoryBarComponent {
 
       const balances = await Promise.all(balancePromises);
 
-      this._state.balances = balances;
-      this._state.totalUsdValue = calculateTotalUsdValue(balances);
+      // Merge core token balances while preserving other tokens (address-keyed)
+      // This prevents partial refreshes from dropping still-owned tokens
+      const mergedBalances = [...this._state.balances];
+      balances.forEach((newBalance) => {
+        const existingIndex = mergedBalances.findIndex((existing) => areAddressesEqual(existing.address, newBalance.address));
+        if (existingIndex >= 0) {
+          mergedBalances[existingIndex] = newBalance;
+        } else {
+          mergedBalances.push(newBalance);
+        }
+      });
+
+      this._state.balances = mergedBalances;
+      this._state.totalUsdValue = calculateTotalUsdValue(mergedBalances);
       this._state.isLoading = false;
 
       this._renderBalances();
