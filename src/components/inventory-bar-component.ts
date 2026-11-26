@@ -11,6 +11,9 @@ import { batchFetchTokenBalances } from "../utils/batch-request-utils.ts";
 
 import icons from "./icons.ts";
 
+/** Inventory worth less than this is not shown in the bar (asset values at or below it are hidden). */
+const MIN_INVENTORY_USD = 1;
+
 /**
  * Service dependencies for InventoryBarComponent
  */
@@ -418,16 +421,22 @@ export class InventoryBarComponent {
       return;
     }
 
-    // Filter out zero balances and render individual token balances
-    const nonZeroBalances = this._state.balances.filter((balance) => !isBalanceZero(balance.balance, balance.decimals));
+    // Only show inventory worth showing: an asset is hidden when it is zero or when its USD value is
+    // known and at or below $1.00. An asset whose price is not yet known is kept, because an unknown
+    // value is not a small one and hiding it would make the bar lie while prices are loading.
+    const visibleBalances = this._state.balances.filter((balance) => {
+      if (isBalanceZero(balance.balance, balance.decimals)) return false;
+      const usd = balance.usdValue;
+      return typeof usd !== "number" || !Number.isFinite(usd) || usd > MIN_INVENTORY_USD;
+    });
 
-    if (nonZeroBalances.length === 0) {
-      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances available</div>';
+    if (visibleBalances.length === 0) {
+      tokensContainer.innerHTML = '<div class="no-balances-message">No token balances above $1.00</div>';
       totalValueElement.textContent = "$0.00";
       return;
     }
 
-    const tokenElements = nonZeroBalances
+    const tokenElements = visibleBalances
       .map((balance) => {
         const amount = formatTokenAmount(balance.balance, balance.decimals);
         const usdValue = balance.usdValue ? formatUsdValue(balance.usdValue) : "";

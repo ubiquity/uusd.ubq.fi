@@ -214,17 +214,27 @@ export class SimplifiedExchangeComponent {
       option.text = INVENTORY_TOKENS.LUSD.symbol.substring(0, 10);
       otherTokenGroup.insertBefore(option, otherTokenGroup.firstChild);
     }
-    tokenList.forEach((token) => {
-      if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
-        return; // Token already exists
-      }
-      const option = document.createElement("option");
-      option.value = token.address;
-      option.setAttribute("data-decimals", token.decimals.toString());
-      option.setAttribute("data-symbol", token.symbol);
-      option.text = token.symbol.substring(0, 10);
-      otherTokenGroup.appendChild(option);
-    });
+    // A preloaded list is a fallback, not the source. Once the wallet's inventory has loaded, the picker
+    // is built from what the user actually holds, and the static list is what the owner called out in
+    // #43: "a preloaded list like this doesn't make sense if you're already able to load the tokens I
+    // have in my inventory".
+    const hasInventoryTokens = !!(refreshData?.tokenBalances?.length);
+    if (!hasInventoryTokens) {
+      tokenList.forEach((token) => {
+        if ([...selectEl.options].some((opt) => areAddressesEqual(opt.value as Address, token.address as Address))) {
+          return; // Token already exists
+        }
+        const option = document.createElement("option");
+        option.value = token.address;
+        option.setAttribute("data-decimals", token.decimals.toString());
+        option.setAttribute("data-symbol", token.symbol);
+        option.text = token.symbol.substring(0, 10);
+        otherTokenGroup.appendChild(option);
+      });
+    } else if (!otherTokenGroup.querySelector("option")) {
+      // Nothing to offer outside the inventory: hide the empty group rather than its heading.
+      otherTokenGroup.style.display = "none";
+    }
     otherTokenGroup.querySelectorAll("option").forEach((opt) => {
       if (yourTokenGroup.querySelector(`option[value="${opt.value}"i]`)) {
         opt.remove();
@@ -351,6 +361,13 @@ export class SimplifiedExchangeComponent {
 
       if (amountInput) {
         amountInput.addEventListener("input", () => this._handleAmountChange());
+
+        // MAX fills the field with the selected token's whole balance, unlike the auto-populate path,
+        // which deliberately leaves a non-empty amount alone (PR #43: "There should be a max button").
+        document.getElementById("maxAmountButton")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          this._fillMaxBalance();
+        });
       }
 
       if (depositButton) {
@@ -1157,6 +1174,28 @@ export class SimplifiedExchangeComponent {
       }
     } catch (error) {
       console.error("Error auto-populating max balance:", error);
+    }
+  }
+
+  /**
+   * Fill the amount field with the maximum balance of the selected token. Separate from
+   * _autoPopulateMaxBalance because that one refuses to overwrite a non-zero amount, which is right for
+   * a guess and wrong for a button the user pressed on purpose.
+   */
+  private _fillMaxBalance(): void {
+    if (!this._services.walletService.isConnected()) return;
+    const amountInput = document.getElementById("exchangeAmount") as HTMLInputElement;
+    if (!amountInput) return;
+    try {
+      const selectedToken = this._state.direction === "deposit" ? this._getSelectedToken() : INVENTORY_TOKENS.UUSD;
+      const maxBalance = getMaxTokenBalance(this._services.inventoryBar, selectedToken.symbol);
+      if (!maxBalance) return;
+      amountInput.value = maxBalance;
+      this._state.amount = maxBalance;
+      amountInput.dispatchEvent(new Event("input", { bubbles: true }));
+      void this._calculateRoute();
+    } catch (error) {
+      console.error("Error filling max balance:", error);
     }
   }
 

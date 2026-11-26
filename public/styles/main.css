@@ -32,6 +32,11 @@ button:disabled { cursor: not-allowed; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .form-group {margin: 20px auto;}
+/* MAX button beside the amount input (PR #43: "There should be a max button") */
+.amount-row { display: flex; gap: 8px; align-items: stretch; }
+.amount-row input { flex: 1; min-width: 0; }
+.max-button { padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; background: transparent; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 0 96px #ffffff40; }
+.max-button:hover { box-shadow: inset 0 0 96px #ffffff40; }
 label {/* display: block; */margin: 8px;font-weight: 600;}
 input, select {padding: 10px;border: 1px solid #ddd;border-radius: 6px;font-size: 16px;background-color: transparent;border-color: transparent;box-shadow: 0 0 96px #ffffff40;color: #fff; }
 input:focus, select:focus { outline: none; }
